@@ -45,4 +45,4 @@ Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
 9. Change the jumper back to RUN.
 10. Power the board.
 
-
+.
