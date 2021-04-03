@@ -99,6 +99,15 @@ Razorboard will ramp the motors up and down, to preserve the cogs in the motors,
 
 For each startup of cutting disk, Razorbord will randomly select clockwise or anti-clockwise direction. Utilizing the pivot knifes on both sides.
 
+RTC CLOCK:
+
+On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is connected.
+When the jumper is connected the RTC clock gets power from the main 3.3V power rail.
+Please remove the jumper BEFORE attaching the RTC battery. RTC battery can be MAX 3.6V, and minimum 1.8V. Nominal volt should be around 3.3V.
+When a battery is connected, you need to set the time and date. To do this, connect a USB cable to the STM32 interface (Upper left corner) and use the commands:
+"set time hour minute second" - for example "set time 14 10 0"
+To set date "set date year month day weekday" - for example "set date 21 4 3 6" (2021 04 03 6) Monday is 0, Sunday is 7.
+
 TROUBLESHOOTING:
 
 Connect a USB cable to the STM32 connector (Upper left corner)
