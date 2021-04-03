@@ -1,4 +1,6 @@
-# RazorBoard 1.0
+# RazorBoard 1.0 rev. E
+
+Welcome to Razorboard! This is the first version publicaly available.
 
 Brief description:
 
@@ -28,6 +30,8 @@ STM32:
 - 4 Boundary Sensors connections (2 is default)
 - 4 5V connections
 - 5 3.3V connections
+- 1 RNG (True Random Number generator) in hardware
+- 1 DSP (Digital Signal Processing) in hardware
 
 RPI4:
 - 4 UART
@@ -36,11 +40,11 @@ RPI4:
 - 1 I2C
 - 1 DHT11/DHT22 interface
 - 1 FAN (30 X 30 mm)
-- 1 FAN power connector (5V or 3.3V)
+- 2 FAN power connector (5V or 3.3V)
 - 4 Additional GPIO pins (all outbreak connections are also available as GPIO)
 - All RPI connections are available (USB, HDMI etc....)
 
-Getting Started:
+GETTING STARTED:
 
 Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
 
@@ -55,7 +59,33 @@ Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
 9. Change the jumper back to RUN.
 10. Power the board.
 
-Troubleshooting:
+SAFETY:
+
+Safety is my top priority.
+The mower will only mow within your boundary wire.
+When powering up the mower, it will collect INSIDE messages, when enough INSIDE messages are reached it will start. If, at anytime during initial startup sequens an OUTSIDE message is received, it will reset the initial sequens.
+Razorboard will keep track of time between INSIDE messages, if the messages are not received, the mower will stop, this threshold is user customized.
+It will also count the time for when it is OUTSIDE, a limit here is also applied, if it is OUTSIDE for too long, it will stop.
+With the help of the 6050 IMU, it will also sense when it is tilted, default is 35 degrees, when reaching 35 or more, it will do a HARDBREAK on the cutterdisk, it will stop within 2 seconds.
+Razorboard can also sense when it is hitting an object, when doing so it will stop and go backward and turn in another direction.
+If the current is too high on the cutting disk, it will HARDBREAK and STOP, until reset by the user.
+
+SLOPE MANAGEMENT:
+
+With the help of the 6050 IMU, the Razorboard will try to compensate for slopes, so it can maintain a straight line.
+
+BEHAVIOUR:
+
+When Razorboard senses that both bondary sensors are outside, it will go backward and then randomly select left or right and also randomly for how much.
+If only one sensor is outside, it will go backward and then turn in the opposite direction, for randomly amount of time.
+
+GOING HOME:
+
+When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
+Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
+Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours, it will undock and start mowing again. This will continue to happen until it is outside the working hours, once in outside working hours, it will rest until inside again.
+
+TROUBLESHOOTING:
 
 Connect a USB cable to the STM32 connector (Upper left corner)
 Set the COM port to 115200
