@@ -14,6 +14,8 @@ Every driver is equipt with a current sensor.
 Input voltage is from ~12 to 25.2, do NOT go above this.
 For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
 
+A signal generator board is also available to be used together with Razorboard.
+
 THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
 
 Various interfaces are available:
@@ -94,6 +96,8 @@ Once the charging station is found, it will charge the battery. If the battery i
 MOTORS:
 
 Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is hitting an object.
+
+For each startup of cutting disk, Razorbord will randomly select clockwise or anti-clockwise direction. Utilizing the pivot knifes on both sides.
 
 TROUBLESHOOTING:
 
