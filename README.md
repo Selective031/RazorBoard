@@ -18,7 +18,7 @@ A signal generator board is also available to be used together with Razorboard.
 
 THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
 
-Various interfaces are available:
+Various interfaces available:
 
 STM32:
 - 2 UART
