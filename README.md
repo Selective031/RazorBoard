@@ -6,7 +6,7 @@ RazorBoard is a PCB with most hardware integrated for building a DIY Robotic Law
 
 Hardware:
 
-The PCB consist of an STM32F4 ARM processor running at 168 MHz and with the option to snap on a Raspberry Pi 4B.
+The PCB consist of an STM32F4 ARM processor running at 168 MHz with 1 MB flash and 192 KB RAM + 4 KB SRAM and with the option to snap on a Raspberry Pi 4B.
 It also integrates 3 motor drivers (Two wheel drivers and one cutter driver)
 Every driver is equipt with a current sensor.
 For boundary, the hardware is ready for up to four sensors. 2 will be default, one left and one right.
