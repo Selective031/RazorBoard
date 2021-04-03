@@ -12,7 +12,10 @@ The PCB consist of an STM32F4 ARM processor running at 168 MHz with 1 MB flash a
 It also integrates 3 motor drivers (Two wheel drivers and one cutter driver)
 Every driver is equipt with a current sensor.
 Input voltage is from ~12 to 25.2, do NOT go above this.
-For boundary, the hardware is ready for up to four sensors. 2 will be default, one left and one right.
+For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
+
+THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
+
 Various interfaces are available:
 
 STM32:
@@ -87,11 +90,11 @@ Once the charging station is found, it will charge the battery. If the battery i
 
 MOTORS:
 
-Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it look much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is hitting an object.
+Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is hitting an object.
 
 TROUBLESHOOTING:
 
 Connect a USB cable to the STM32 connector (Upper left corner)
-Set the COM port to 115200
+Set the COM port to 115200 baud
 Press ENTER, this will disable the RazorBoard
 Type <help> for a menu
