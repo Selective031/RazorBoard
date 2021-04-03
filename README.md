@@ -73,10 +73,10 @@ When powering up the mower, it will collect INSIDE messages, when enough INSIDE 
 Razorboard will keep track of time between INSIDE messages, if the messages are not received, the mower will stop, this threshold is user customized.
 It will also count the time for when it is OUTSIDE, a limit here is also applied, if it is OUTSIDE for too long, it will stop.
 With the help of the 6050 IMU, it will also sense when it is tilted, default is 35 degrees, when reaching 35 or more, it will do a HARDBREAK on the cutterdisk, it will stop within 2 seconds.
-Razorboard can also sense when it is hitting an object, when doing so it will stop and go backward and turn in another direction.
+Razorboard can also sense when it is hitting an object, by sensing spikes in motor current, when doing so it will stop and go backward and turn in another direction.
 If the current is too high on the cutting disk, it will HARDBREAK and STOP, until reset by the user.
 
-Inside the STM32 there is something called IWDG, independant watchdog. With the help of this watchdog, if any halt/crash occurs on the system due to a bug or user programming error, the whole STM32 will reset within 2 seconds, and after reset, the whole initial startup sequens is starting over again. So there are no worries that the mower will run forever (unless you have programmed it to do so, of course).
+Inside the STM32 there is something called IWDG, independant watchdog. With the help of this watchdog, if any halt/crash occurs on the system due to a bug or user programming error, the whole STM32 will reset after 2 seconds, and after reset, the whole initial startup sequens is starting over again. So there are no worries that the mower will run forever (unless you have programmed it to do so, of course).
 
 SLOPE MANAGEMENT:
 
@@ -91,7 +91,7 @@ GOING HOME:
 
 When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
 Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
-Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours, it will undock and start mowing again. This will continue to happen until it is outside the working hours, once in outside working hours, it will rest until inside again.
+Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours it will undock and start mowing again. This will continue to happen until it is outside the working hours, once outside working hours, it will rest until inside again.
 
 MOTORS:
 
