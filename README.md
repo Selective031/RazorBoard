@@ -76,7 +76,7 @@ With the help of the 6050 IMU, the Razorboard will try to compensate for slopes,
 
 BEHAVIOUR:
 
-When Razorboard senses that both bondary sensors are outside, it will go backward and then randomly select left or right and also randomly for how much.
+When Razorboard senses that both boundary sensors are outside, it will go backward and then randomly select left or right and also randomly for how much.
 If only one sensor is outside, it will go backward and then turn in the opposite direction, for randomly amount of time.
 
 GOING HOME:
@@ -84,6 +84,10 @@ GOING HOME:
 When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
 Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
 Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours, it will undock and start mowing again. This will continue to happen until it is outside the working hours, once in outside working hours, it will rest until inside again.
+
+MOTORS:
+
+Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it look much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is hitting an object.
 
 TROUBLESHOOTING:
 
