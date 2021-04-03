@@ -104,10 +104,10 @@ TROUBLESHOOTING:
 Connect a USB cable to the STM32 connector (Upper left corner)
 Set the COM port to 115200 baud
 Press ENTER, this will disable the RazorBoard
-Type <help> for a menu
+Type "help2 for a menu
   
 Before releasing the Razorboard in the wild, you can check the motors if they spin in the right direction.
 In the debug menu you can test the motors on the "bench". If they are spinning in the wrong direction, swap the motor leads on the connector.
-In a future firmwware this can be done in software.
+In a future firmware this can be done in software.
 With the command "DEBUG ON" you can verify that the boundary signals are received correctly. Also how many you receive per second. This can be a great tool to check the signal by placing the mower in the center of you lawn and check if you still receive the messages.
 
