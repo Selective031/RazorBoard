@@ -55,4 +55,9 @@ Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
 9. Change the jumper back to RUN.
 10. Power the board.
 
+Troubleshooting:
 
+Connect a USB cable to the STM32 connector (Upper left corner)
+Set the COM port to 115200
+Press ENTER, this will disable the RazorBoard
+Type <help> for a menu
