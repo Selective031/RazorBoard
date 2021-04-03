@@ -10,6 +10,25 @@ The PCB consist of an STM32F4 ARM processor running at 168 MHz and with the opti
 It also integrates 3 motor drivers (Two wheel drivers and one cutter driver)
 Every driver is equipt with a current sensor.
 For boundary, the hardware is ready for up to four sensors. 2 will be default, one left and one right.
+Various interfaces are available:
+
+STM32:
+2 UART
+1 HIGH SPEED UART CONNECTED TO RPI4
+1 SPI
+1 I2C
+20+ Digital Pins
+8 Analog Pins
+1 DAC
+1 CAN
+
+RPI4:
+
+4 UART
+1 HIGH SPEED UART CONNECTED TO STM32
+1 SPI
+1 I2C
+1 DHT11/DHT22 interface
 
 Getting Started:
 
