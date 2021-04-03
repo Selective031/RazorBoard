@@ -101,19 +101,27 @@ For each startup of cutting disk, Razorbord will randomly select clockwise or an
 
 RTC CLOCK:
 
-On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is connected.
-When the jumper is connected the RTC clock gets power from the main 3.3V power rail.
+On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is attached.
+When the jumper is attached the RTC clock gets power from the main 3.3V power rail.
 Please remove the jumper BEFORE attaching the RTC battery. RTC battery can be MAX 3.6V, and minimum 1.8V. Nominal volt should be around 3.3V.
 When a battery is connected, you need to set the time and date. To do this, connect a USB cable to the STM32 interface (Upper left corner) and use the commands:
 "set time hour minute second" - for example "set time 14 10 0"
-To set date "set date year month day weekday" - for example "set date 21 4 3 6" (2021 04 03 6) Monday is 0, Sunday is 7.
+To set date "set date year month day weekday" - for example "set date 21 4 3 6" (2021 04 03 6) Monday is 1, Sunday is 7.
+In a future firmware version, a calendar function will be available, so you can set a specific day to mow and what your working hours will be.
+
+SRAM:
+
+- In a future firmware version -
+The STM32F4 does not contain any EEPROM, but instead it as 4KB of SRAM, which is retained during power off if you have an RTC battery conncted.
+The RTC battery will last for many years, so as long as you have the battery conncted all settings will be retained even when power is off.
+Also, there will be an export function, so you can backup your settings if needed.
 
 TROUBLESHOOTING:
 
 Connect a USB cable to the STM32 connector (Upper left corner)
 Set the COM port to 115200 baud
-Press ENTER, this will disable the RazorBoard
-Type "help2 for a menu
+Press ENTER, this will disable the RazorBoard (for safety)
+Type "help" for a menu
   
 Before releasing the Razorboard in the wild, you can check the motors if they spin in the right direction.
 In the debug menu you can test the motors on the "bench". If they are spinning in the wrong direction, swap the motor leads on the connector.
