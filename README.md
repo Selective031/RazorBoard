@@ -35,6 +35,7 @@ STM32:
 - 5 3.3V connections
 - 1 RNG (True Random Number generator) in hardware
 - 1 DSP (Digital Signal Processing) in hardware
+- 1 IWDG (Indepandent Watchdog)
 
 RPI4:
 - 4 UART
@@ -72,6 +73,8 @@ It will also count the time for when it is OUTSIDE, a limit here is also applied
 With the help of the 6050 IMU, it will also sense when it is tilted, default is 35 degrees, when reaching 35 or more, it will do a HARDBREAK on the cutterdisk, it will stop within 2 seconds.
 Razorboard can also sense when it is hitting an object, when doing so it will stop and go backward and turn in another direction.
 If the current is too high on the cutting disk, it will HARDBREAK and STOP, until reset by the user.
+
+Inside the STM32 there is something called IWDG, independant watchdog. With the help of this watchdog, if any halt/crash occurs on the system due to a bug or user programming error, the whole STM32 will reset within 2 seconds, and after reset, the whole initial startup sequens is starting over again. So there are no worries that the mower will run forever (unless you have programmed it to do so, of course).
 
 SLOPE MANAGEMENT:
 
