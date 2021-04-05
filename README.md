@@ -103,16 +103,18 @@ With the help of the 6050 IMU, the Razorboard will try to compensate for slopes,
 
 When Razorboard senses that both boundary sensors are outside, it will go backward and then randomly select left or right and also randomly for how much.
 If only one sensor is outside, it will go backward and then turn in the opposite direction, for randomly amount of time.
+When Razorboard is sensing a crash against an object, the motors will go into hardbreak for 0.5 seconds, then go backward, and randomly select left,right.
 
 # GOING HOME:
 
 When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
+Also, when crossing the boundary and the time is outside working hours, it will initiate perimeter tracking sequens, for example: you have configured working hours to be between 10:00 and 20:00, and when Razorboard crosses the boundary the time is 20:00 or later, it will go home.
 Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
 Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours it will undock and start mowing again. This will continue to happen until it is outside the working hours, once outside working hours, it will rest until inside again.
 
 # MOTORS:
 
-Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is hitting an object.
+Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is crashing into an object.
 
 For each startup of cutting disk, Razorbord will randomly select clockwise or anti-clockwise direction. Utilizing the pivot knifes on both sides.
 
