@@ -35,7 +35,7 @@ STM32:
 - 1 ST-LINK
 - 1 RTC Clock with calendar
 - 1 RTC BAT connection
-- 4 Boundary Sensors connections (2 is default)
+- 4 Boundary Sensor connections (2 is used by default, BWF1 & BWF2)
 - 4 5V connections
 - 5 3.3V connections
 - 1 RNG (True Random Number generator) in hardware
