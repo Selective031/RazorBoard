@@ -14,8 +14,10 @@ It also integrates 3 motor drivers (Two wheel drivers and one cutter driver)
 Every driver is equipt with a current sensor.
 Input voltage is from ~12 to 25.2, do NOT go above this.
 For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
+Board size: 180 x 100mm
 
 A signal generator board is also available to be used together with Razorboard.
+Board size: 95 x 95mm
 
 # THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
 
