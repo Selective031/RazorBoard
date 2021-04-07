@@ -5,6 +5,7 @@ Welcome to Razorboard! This is the first version publicaly available.
 # Brief description:
 
 RazorBoard is a PCB with most hardware integrated for building a DIY Robotic Lawn Mower.
+With this revision, you need to get a MPU-6050. In a future revision, this will be included on the PCB.
 
 # Hardware:
 
