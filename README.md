@@ -108,7 +108,7 @@ When Razorboard is sensing a crash against an object, the motors will go into ha
 # GOING HOME:
 
 When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
-Also, when crossing the boundary and the time is outside working hours, it will initiate perimeter tracking sequens, for example: you have configured working hours to be between 10:00 and 20:00, and when Razorboard crosses the boundary the time is 20:00 or later, it will go home.
+Also, when crossing the boundary and the time is outside working hours, it will initiate perimeter tracking sequens, for example: you have configured working hours to be between 10:00 and 20:00, and when Razorboard crosses the boundary when the time is 20:00 or later, it will go home.
 Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
 Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours it will undock and start mowing again. This will continue to happen until it is outside the working hours, once outside working hours, it will rest until inside again.
 
