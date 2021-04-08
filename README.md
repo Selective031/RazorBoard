@@ -93,6 +93,7 @@ When powering up the mower, it will collect INSIDE messages, when enough INSIDE 
 Razorboard will keep track of time between INSIDE messages, if the messages are not received, the mower will stop, this threshold is user customized.
 It will also count the time for when it is OUTSIDE, a limit here is also applied, if it is OUTSIDE for too long, it will stop.
 With the help of the 6050 IMU, it will also sense when it is tilted, default is 35 degrees, when reaching 35 or more, it will do a HARDBREAK on the cutterdisk, it will stop within 2 seconds.
+If the boundary wire signal is lost, the Razorboard will stop within 6 seconds (default at the moment, this can be changed to anything you like).
 Razorboard can also sense when it is hitting an object, by sensing spikes in motor current, when doing so it will stop and go backward and turn in another direction.
 If the current is too high on the cutting disk, it will HARDBREAK and STOP, until reset by the user.
 
@@ -101,6 +102,8 @@ Inside the STM32 there is something called IWDG, independant watchdog. With the 
 # SLOPE MANAGEMENT:
 
 With the help of the 6050 IMU, the Razorboard will try to compensate for slopes, so it can maintain a straight line.
+At the moment the power to the motors are fixed values based on the number of degrees the the mower is leaning.
+TODO - A proper PID controller utilizing the 6050 MPU.
 
 # BEHAVIOUR:
 
@@ -114,6 +117,7 @@ When Razorboard is low on battery, a perimeter tracking sequens is initiated. Th
 Also, when crossing the boundary and the time is outside working hours, it will initiate perimeter tracking sequens, for example: you have configured working hours to be between 10:00 and 20:00, and when Razorboard crosses the boundary when the time is 20:00 or later, it will go home.
 Once the boundary wire is located it will follow it to the left (default), until the charging station is found.
 Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours it will undock and start mowing again. This will continue to happen until it is outside the working hours, once outside working hours, it will rest until inside again.
+TODO - Obstacle avoidance along the boundary wire.
 
 # MOTORS:
 
@@ -149,6 +153,22 @@ If you still get bad readings, you might need to increase the volt/current on th
 
 To test your readings, take the mower and a laptop, go to the center of your lawn, (or the worst part of the lawn), place the mower on something so the wheels doesn´t touch the ground, connect to Razorboard with a USB cable. Power on Razorboard, and open a serial console and press ENTER (or type DISABLE), this will disable the system.
 Now, type "DEBUG ON", and hopfully you will see the boundary signals. And now you can test to run the motors and see how that will affect the readings.
+
+# Boundary Wire
+
+The Boundary Wire Signal generator, outputs a signal in 10KHz, with 10 bits, so one complete message is about 1ms. The sampling rate on Razorboard is currently at 67.3 KHz.
+The ADC on STM32 is running in a continues scan mode, meaning if you sample 512 samples into a buffer, odd numbers in the buffer (0,3,5 etc..) are BWF1, all even numbers are BWF2. After we have sampled we need to break out the streams into BWF1 and BWF2, after that we run the streams in a FIR filter, eliminating any noise from the motors.
+Now we need to compare this signal with a reference signal, we do this by a technique called Cross-Correlation. After the Cross-Correlation we get a number within the range of 1.0 and -1.0.
+
+- 1.0 Means we have 100% match for an INSIDE message.
+- 0.0 Means no match at all for either message.
+- -1.0 Means we have 100% match for an OUTSIDE message.
+
+By default at the moment, Razorboard classifies 0.80 and above as INSIDE, the same goes for OUTSIDE (-0.80). This can be changed in software.
+In the "debug" menu, you can record a new signature and see how well it it detected. At the moment it only saves the signature to memory and will be lost after power-down.
+You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
+Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
+
 
 # TROUBLESHOOTING:
 
