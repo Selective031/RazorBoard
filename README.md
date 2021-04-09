@@ -213,6 +213,16 @@ In the "debug" menu, you can record a new signature and see how well it it detec
 You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
 Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
 
+# BOUNDARY WIRE SIGNAL GENERATOR PCB
+
+- Voltage input: ~8 - 25.2 volt.
+- Connection for charging your mower, voltage is a passthrough from input.
+- 2 Boundary Wire connections, the plan is to support 2 boundary wires from the same PCB, OR 1 boundary wire + guide wire to go directly home.
+- 1 step-down voltage regulator to control the voltage/current for the boundary wire.
+- 1 USB connector for upgrading firmware
+- 1 Red LED to show status
+- 1 Fuse of 4A
+
 
 # TROUBLESHOOTING:
 
