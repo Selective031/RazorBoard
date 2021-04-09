@@ -5,18 +5,18 @@ Welcome to Razorboard! This is the first version publicaly available.
 # Brief description:
 
 RazorBoard is a PCB with most hardware integrated for building a DIY Robotic Lawn Mower.
-With this revision, you need to get a MPU-6050. In a future revision, this will be included on the PCB.
+With this revision, you need to get a MPU-6050 and a RTC battery. In a future revision, this will be included on the PCB.
 
 # Hardware:
 
 The PCB consist of an STM32F4 ARM processor running at 168 MHz with 1 MB flash and 192 KB RAM + 4 KB SRAM and with the option to snap on a Raspberry Pi 4B.
-It also integrates 3 motor drivers (Two wheel drivers and one cutter driver)
+It also integrates 3 motor drivers (drv8871) (Two wheel drivers and one cutter driver)
 Every driver is equipt with a current sensor.
 Input voltage is from ~12 to 25.2, do NOT go above this.
 For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
 Board size: 180 x 100mm
 
-A signal generator board is also available to be used together with Razorboard.
+A signal generator board is also available to be used together with Razorboard. Although it is not required if you already have a generator, but you will need to sync the signal.
 Board size: 95 x 95mm
 
 # Required add-ons
@@ -31,11 +31,18 @@ Board size: 95 x 95mm
 - 2 Boundary Sensors
 - 1 Boundary wire signal generator
 - 2 motors for the wheels
+- 2 wheels
 - 1 motor for the cutter disk
 - 1 battery
 - 1 chassi
 - 1 or 2 front wheels
 - 2 charging pins
+- cables/connectors
+- patience 
+- 100 beers
+- curiosity
+- some technical skills
+- a "DIY Robot Lawn Mower" group on facebook :)
 
 # THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
 
@@ -43,7 +50,7 @@ Various interfaces available:
 
 STM32:
 - 2 UART
-- 1 HIGH SPEED UART CONNECTED TO RPI4
+- 1 High speed UART internally connected to the RPi
 - 1 SPI
 - 1 I2C
 - 20+ Digital Pins
@@ -62,12 +69,12 @@ STM32:
 
 RPI4:
 - 4 UART
-- 1 HIGH SPEED UART CONNECTED TO STM32
+- 1 High speed UART internally connected to STM32
 - 1 SPI
 - 1 I2C
 - 1 DHT11/DHT22 interface
 - 1 FAN (30 X 30 mm)
-- 2 FAN power connector (5V or 3.3V)
+- 2 FAN power connectors (5V or 3.3V)
 - 4 Additional GPIO pins (all outbreak connections are also available as GPIO)
 - All RPI connections are available (USB, HDMI etc....)
 
@@ -102,6 +109,12 @@ Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
 8. Remove Power from board.
 9. Change the jumper back to RUN.
 10. Power the board.
+
+After this inital upload, you can use the ST-Link interface for upgrading without changing jumper.
+Also, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper.
+
+Software needed to compile firmware: CubeIDE
+https://www.st.com/en/development-tools/stm32cubeide.html
 
 # SAFETY:
 
