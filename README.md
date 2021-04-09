@@ -224,6 +224,14 @@ Type "export sig" and you will get the signature as an array if you like to save
 - 1 Red LED to show status
 - 1 Fuse of 4A
 
+You need to add a power resistor for each loop you want to use. Without a power resistor you can damage the driver.
+Your total Ohm should be in the range of 5-12 ohm.
+
+So lets take an example, you measure your loop with a multimeter and you discover you have about 2.5 ohms.
+Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 ohm. 2.5 + 8 = 10.5 ohm.
+
+This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
+
 
 # TROUBLESHOOTING:
 
