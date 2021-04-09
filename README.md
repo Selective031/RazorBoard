@@ -1,6 +1,6 @@
 # RazorBoard 1.0 rev. E
 
-Welcome to Razorboard! This is the first version publicaly available.
+Welcome to Razorboard! This is the first GA version of RazorBoard.
 
 # Brief description:
 
