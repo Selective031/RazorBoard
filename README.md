@@ -19,6 +19,24 @@ Board size: 180 x 100mm
 A signal generator board is also available to be used together with Razorboard.
 Board size: 95 x 95mm
 
+# Required add-ons
+
+- MPU-6050
+- Power Resistor for each loop
+- RTC battery
+
+# To successfully build a robot, you need:
+
+- 1 Razorboard
+- 2 Boundary Sensors
+- 1 Boundary wire signal generator
+- 2 motors for the wheels
+- 1 motor for the cutter disk
+- 1 battery
+- 1 chassi
+- 1 or 2 front wheels
+- 2 charging pins
+
 # THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
 
 Various interfaces available:
