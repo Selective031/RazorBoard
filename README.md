@@ -9,17 +9,18 @@ With this revision, you need to get a MPU-6050 and a RTC battery. In a future re
 
 # Hardware:
 
-The PCB consist of an STM32F415VGT6 ARM processor which is a 100 pin MCU, running at 168 MHz with 1 MB flash and 192 KB RAM + 4 KB SRAM and with the option to snap on a Raspberry Pi 4B.
-It also integrates 3 motor drivers (drv8871) (Two wheel drivers and one cutter driver)
-Every driver is equipt with a current sensor which are rated for up to 20A.
-Three different voltage levels, the input voltage (12-24), 5V rail and a 3.3V rail.
-One 16 MHz crystal oscillator (main oscillator)
-One 32.768 KHz crystal oscillator (for the RTC clock)
-Two fuses, default at the moment is 8A for mowing, and 4A for charging.
-Two relays for power and charging in various modes.
-Input voltage is from ~12 to 25.2, do NOT go above this.
-For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
-Board size: 180 x 100mm
+- The PCB consist of an STM32F415VGT6 ARM processor which is a 100 pin MCU, running at 168 MHz with 1 MB flash and 192 KB RAM + 4 KB SRAM and with the option to snap on a Raspberry Pi 4B.
+- It also integrates 3 motor drivers (drv8871) (Two wheel drivers and one cutter driver)
+- Every driver is equipt with a current sensor which are rated for up to 20A.
+- Each driver can support 2.1A continues and peak at 3.6A
+- Three different voltage levels, the input voltage (12-24), 5V rail and a 3.3V rail.
+- One 16 MHz crystal oscillator (main oscillator)
+- One 32.768 KHz crystal oscillator (for the RTC clock)
+- Two fuses, default at the moment is 8A for mowing, and 4A for charging.
+- Two relays for power and charging in various modes.
+- Input voltage is from ~12 to 25.2, do NOT go above this.
+- For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
+- Board size: 180 x 100mm
 
 The datasheet for STM32F415VGT6 is located in the repository.
 
