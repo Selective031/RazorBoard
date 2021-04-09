@@ -216,3 +216,8 @@ In the debug menu you can test the motors on the "bench". If they are spinning i
 In a future firmware this can be done in software.
 With the command "DEBUG ON" you can verify that the boundary signals are received correctly. Also how many you receive per second. This can be a great tool to check the signal by placing the mower in the center of you lawn and check if you still receive the messages.
 
+# BUGS
+
+If you find any bugs please report them so we can fix them!
+
+
