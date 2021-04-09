@@ -40,11 +40,13 @@ Board size: 95 x 95mm
 - 1 chassi
 - 1 or 2 front wheels
 - 2 charging pins
-- cables/connectors
-- patience 
-- 100 beers
-- curiosity
-- some technical skills
+- Cables/connectors
+- Patience 
+- 100 beers or 50 Whiskeys (or was it 100 Whiskeys and 50 beers.. don´t remember...)
+- Soldering Iron
+- a wife/husband/girlfriend/boyfriend who understands the importance of making your own robot
+- Curiosity
+- Some technical/mechanical skills
 - a "DIY Robot Lawn Mower" group on facebook :)
 
 # THERE IS NO PROTECTION FOR REVERSED POLARITY - DOUBLE CHECK, TRIPPLE CHECK BEFORE POWERING ON!!!
@@ -90,17 +92,18 @@ Explaination of connectors:
 - C1 = Cutter Motor
 
 - Power Input = Connection to your battery, ~12 to 25.2 Volt
-- Charge Connector = Connect this to your charge pins at the front of your mower
+- Charge Pins = Connect this to your charge pins at the front of your mower
 - Battery Charge = Connect this your battery charge cable, if your battery does not have a dedicated charge cable, you can connect it to the battery.
 - BWF1 = Connect to your Left front sensor  (default)
 - BWF2 = Connect to you Right front sensor  (default)
 - BWF3 = Currently not in use in software
 - BWF4 = Currently not in use in software
-- STM32 = Used for upgrading firmware in STM32, is also used for debugging and interfacing with the STM32
+- USB STM32 = Used for upgrading firmware in STM32, also used for debugging and interfacing with the STM32
 - I2C_2 SDA = Connect this to your MPU-6050
 - I2C_2 SCL = Connect this to your MPU-6050
 
-Software needed to upload .bin file: "Flash Loader Demonstator" from ST Micro
+Software needed to upload .bin file: "Flash Loader Demonstrator" from ST Micro
+https://www.st.com/en/development-tools/flasher-stm32.html#overview
 
 1. First change the jumper from RUN to UPGRADE
 2. Power the board
