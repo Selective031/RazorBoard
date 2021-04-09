@@ -249,4 +249,10 @@ With the command "DEBUG ON" you can verify that the boundary signals are receive
 
 If you find any bugs please report them so we can fix them!
 
+# QUESTIONS
+
+You can find me here: calle ( at ) lanstep.com
+
+I whish you a succesfull robot build! 😎
+
 
