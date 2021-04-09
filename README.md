@@ -33,7 +33,10 @@ Board size: 95 x 95mm
 - 2 motors for the wheels
 - 2 wheels
 - 1 motor for the cutter disk
+- 1 cutter disk
+- 3 or 4 pivo knifes
 - 1 battery
+- 1 battery charger
 - 1 chassi
 - 1 or 2 front wheels
 - 2 charging pins
