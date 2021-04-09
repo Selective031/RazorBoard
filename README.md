@@ -16,6 +16,8 @@ Input voltage is from ~12 to 25.2, do NOT go above this.
 For boundary, the hardware is ready for up to 4 sensors. 2 will be default, one left and one right.
 Board size: 180 x 100mm
 
+The datasheet for STM32F415VGT6 is located in the repository.
+
 A signal generator board is also available to be used together with Razorboard. Although it is not required if you already have a generator, but you will need to sync the signal.
 Board size: 95 x 95mm
 
