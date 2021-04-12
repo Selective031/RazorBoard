@@ -170,6 +170,17 @@ Razorboard will ramp the motors up and down, to preserve the cogs in the motors,
 
 For each startup of cutting disk, Razorbord will randomly select clockwise or anti-clockwise direction. Utilizing the pivot knifes on both sides.
 
+# Battery:
+
+Razorboard can handle any type of battery as it does not include any charge circuits, it´s using two relays to on/off the power to the batteries. Therefore, if you use a lithium battery you need to have a BMS (Battery Management System), many lithium batteries already have this inside their batterypacks. Razorbaord can monitor the voltage on the battery and simply disconnect the charging when a limit has been reached.
+If you battery has a dedicated charge cable, use this to the "Charge Battery" conector. If it does not have one, you simply connect the "Charge Battery" connector back to the battery. The relays are designed to that you cannot draw power from the main battery and output power to the "Charge Battery" connector at the same time, it has to draw power from the "Charge Pins". The logic is as follows:
+
+- When no relay is active, power comes from the "Main Battery" connector, both "Charge Pins" and "Battery Charge" connectors are disabled.
+- When the right relay is active, power comes from the "Charge Pins" connector, disabling "Main Battery" connector.
+- When power comes from "Charge Pins", you can now activate the left relay. Left relay will output power to the "Charge Battery" connector.
+- When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
+- When it´s time to undock, the right realy will disable and draw power from the "Main Battery" connector again.
+
 # RTC CLOCK:
 
 On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is attached.
