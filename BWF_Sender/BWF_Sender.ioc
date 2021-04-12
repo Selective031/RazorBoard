@@ -138,4 +138,3 @@ ProjectManager.DeviceId=STM32F103C8Tx
 PB12.Signal=GPIO_Output
 ProjectManager.LibraryCopy=1
 PB15.Locked=true
-isbadioc=false

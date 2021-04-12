@@ -19,6 +19,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "string.h"
+#include "stdio.h"
+#include "math.h"
+#include "stdlib.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -35,6 +39,13 @@
 
 #define DELAY 100		// 100
 #define SIG1_LENGTH 10	// 10
+#define LOOPCHECKTIME 10
+
+int CalibratedValue;
+int CurrentValue;
+uint8_t offset = 4;
+
+uint32_t LoopTimer;
 
 /* USER CODE END PD */
 
@@ -70,8 +81,12 @@ static void MX_USART1_UART_Init(void);
 static void delay_us(uint16_t us);
 static void signal_up(void);
 static void signal_down(void);
+static void signal_off(void);
+static void toogle_led(void);
 static void run_led(void);
 static void run_sig(void);
+static void CalibrateSens(void);
+static void CheckDocked(void);
 
 /* USER CODE END PFP */
 
@@ -103,13 +118,19 @@ void signal_down(void)
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
 }
 
+void signal_off(void) {
+
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+}
+
 void delay_us (uint16_t us)
 {
 	__HAL_TIM_SET_COUNTER(&htim2,0);
 	while (__HAL_TIM_GET_COUNTER(&htim2) < us);
 }
 
-void run_led(void) {
+void toogle_led(void) {
 
 	if (HAL_GetTick() - LED_timer >= 200) {
 		if (LED_status == 0) {
@@ -123,6 +144,45 @@ void run_led(void) {
 			}
 		LED_timer = HAL_GetTick();
 	}
+
+}
+
+void run_led(void) {
+
+	if (LED_status == 0) {
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+		LED_status = 1;
+
+		}
+}
+
+void CalibrateSens(void) {
+	int sumVolt = 0;
+
+	for (uint16_t x = 0; x < 100; x++) {
+		HAL_ADC_Start(&hadc1);
+	   	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+	   	sumVolt += HAL_ADC_GetValue(&hadc1);
+	   	HAL_Delay(10);
+	}
+
+	CalibratedValue = sumVolt / 100;
+}
+
+void CheckDocked(void) {
+	int sumVolt = 0;
+
+	char msg[128];
+	for (uint16_t x = 0; x < 10; x++) {
+		HAL_ADC_Start(&hadc1);
+	   	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+	   	sumVolt += HAL_ADC_GetValue(&hadc1);
+	}
+
+	CurrentValue = sumVolt / 10;
+
+	sprintf(msg, "Calibrated Value: %d Current Value: %d Diff: %d\r\n", CurrentValue, abs(CalibratedValue - CurrentValue), CalibratedValue);
+	HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
 
 }
 
@@ -164,6 +224,12 @@ int main(void)
   HAL_TIM_Base_Start(&htim2);
   LED_timer = HAL_GetTick();
 
+  HAL_Delay(2000);
+
+  CalibrateSens();
+
+  LoopTimer = HAL_GetTick();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -171,19 +237,19 @@ int main(void)
   while (1)
   {
 
-	  run_led();
-	  run_sig();
+	  if (HAL_GetTick() - LoopTimer >= (LOOPCHECKTIME * 1000)) {
+		  CheckDocked();
+		  LoopTimer =  HAL_GetTick();
+	  }
 
-/*
-	    uint16_t raw;
-	    char msg[10];
-	    HAL_ADC_Start(&hadc1);
-	    HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-	    raw = HAL_ADC_GetValue(&hadc1);
-	    sprintf(msg, "Value %hu\r\n", raw);
-	    HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
-	    HAL_Delay(1000);
-*/
+	  if ( abs(CalibratedValue - CurrentValue) < offset) {
+		  toogle_led();
+		  run_sig();
+	  }
+	  else {
+		  run_led();
+		  signal_off();
+	  }
 
     /* USER CODE END WHILE */
 
