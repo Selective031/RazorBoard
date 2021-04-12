@@ -43,7 +43,7 @@
 
 int CalibratedValue;
 int CurrentValue;
-uint8_t offset = 4;
+uint8_t offset = 6;
 
 uint32_t LoopTimer;
 
@@ -181,7 +181,7 @@ void CheckDocked(void) {
 
 	CurrentValue = sumVolt / 10;
 
-	sprintf(msg, "Calibrated Value: %d Current Value: %d Diff: %d\r\n", CurrentValue, abs(CalibratedValue - CurrentValue), CalibratedValue);
+	sprintf(msg, "Calibrated Value: %d Current Value: %d Diff: %d\r\n", CalibratedValue, CurrentValue, abs(CalibratedValue - CurrentValue));
 	HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
 
 }

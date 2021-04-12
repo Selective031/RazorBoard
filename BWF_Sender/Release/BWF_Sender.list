@@ -1204,9 +1204,9 @@ Disassembly of section .text:
  8000e2c:	4298      	cmp	r0, r3
  8000e2e:	d933      	bls.n	8000e98 <main+0x23c>
  8000e30:	f04f 0b0a 	mov.w	fp, #10
- 8000e34:	2200      	movs	r2, #0
+ 8000e34:	2300      	movs	r3, #0
  8000e36:	4638      	mov	r0, r7
- 8000e38:	9203      	str	r2, [sp, #12]
+ 8000e38:	9303      	str	r3, [sp, #12]
  8000e3a:	f000 fba1 	bl	8001580 <HAL_ADC_Start>
  8000e3e:	f04f 31ff 	mov.w	r1, #4294967295
  8000e42:	4638      	mov	r0, r7
@@ -1214,22 +1214,22 @@ Disassembly of section .text:
  8000e48:	4638      	mov	r0, r7
  8000e4a:	f000 fadf 	bl	800140c <HAL_ADC_GetValue>
  8000e4e:	f10b 3bff 	add.w	fp, fp, #4294967295
- 8000e52:	9a03      	ldr	r2, [sp, #12]
+ 8000e52:	9b03      	ldr	r3, [sp, #12]
  8000e54:	fa1f fb8b 	uxth.w	fp, fp
- 8000e58:	4402      	add	r2, r0
+ 8000e58:	4403      	add	r3, r0
  8000e5a:	f1bb 0f00 	cmp.w	fp, #0
  8000e5e:	d1ea      	bne.n	8000e36 <main+0x1da>
- 8000e60:	230a      	movs	r3, #10
- 8000e62:	fb92 f2f3 	sdiv	r2, r2, r3
- 8000e66:	6829      	ldr	r1, [r5, #0]
+ 8000e60:	220a      	movs	r2, #10
+ 8000e62:	fb93 f3f2 	sdiv	r3, r3, r2
+ 8000e66:	682a      	ldr	r2, [r5, #0]
  8000e68:	a80c      	add	r0, sp, #48	; 0x30
- 8000e6a:	1a8b      	subs	r3, r1, r2
- 8000e6c:	2b00      	cmp	r3, #0
+ 8000e6a:	1ad1      	subs	r1, r2, r3
+ 8000e6c:	2900      	cmp	r1, #0
  8000e6e:	bfb8      	it	lt
- 8000e70:	425b      	neglt	r3, r3
+ 8000e70:	4249      	neglt	r1, r1
  8000e72:	9100      	str	r1, [sp, #0]
  8000e74:	4942      	ldr	r1, [pc, #264]	; (8000f80 <main+0x324>)
- 8000e76:	f8ca 2000 	str.w	r2, [sl]
+ 8000e76:	f8ca 3000 	str.w	r3, [sl]
  8000e7a:	f002 fa21 	bl	80032c0 <siprintf>
  8000e7e:	a80c      	add	r0, sp, #48	; 0x30
  8000e80:	f7ff f966 	bl	8000150 <strlen>
