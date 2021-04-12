@@ -10,7 +10,7 @@ With this revision, you need to get a MPU-6050 and a RTC battery. In a future re
 # Hardware:
 
 - The PCB consist of an STM32F415VGT6 ARM processor which is a 100 pin MCU, running at 168 MHz with 1 MB flash and 192 KB RAM + 4 KB SRAM and with the option to snap on a Raspberry Pi 4B.
-- It also integrates 3 motor drivers (drv8871) (Two wheel drivers and one cutter driver)
+- It also integrates 3 motor drivers (drv8871) for brushed DC motors (Two wheel drivers and one cutter driver)
 - Every driver is equipt with a current sensor which are rated for up to 20A.
 - Each driver can support 2.1A continues and peak at 3.6A
 - Three different voltage levels, the input voltage (12-24), 5V rail and a 3.3V rail.
@@ -169,6 +169,17 @@ TODO - Obstacle avoidance along the boundary wire.
 Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is crashing into an object.
 
 For each startup of cutting disk, Razorbord will randomly select clockwise or anti-clockwise direction. Utilizing the pivot knifes on both sides.
+
+# Battery:
+
+Razorboard can handle any type of battery as it does not include any charge circuits, it´s using two relays to on/off the power to the batteries. Therefore, if you use a lithium battery you need to have a BMS (Battery Management System), many lithium batteries already have this inside their batterypacks. Razorbaord can monitor the voltage on the battery and simply disconnect the charging when a limit has been reached.
+If you battery has a dedicated charge cable, use this to the "Charge Battery" conector. If it does not have one, you simply connect the "Charge Battery" connector back to the battery. The relays are designed to that you cannot draw power from the main battery and output power to the "Charge Battery" connector at the same time, it has to draw power from the "Charge Pins". The logic is as follows:
+
+- When no relay is active, power comes from the "Main Battery" connector, both "Charge Pins" and "Battery Charge" connectors are disabled.
+- When the right relay is active, power comes from the "Charge Pins" connector, disabling "Main Battery" connector.
+- When power comes from "Charge Pins", you can now activate the left relay. Left relay will output power to the "Charge Battery" connector.
+- When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
+- When it´s time to undock, the right realy will disable and draw power from the "Main Battery" connector again.
 
 # RTC CLOCK:
 
