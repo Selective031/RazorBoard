@@ -1203,7 +1203,7 @@ Disassembly of section .text:
  8000e28:	f242 730f 	movw	r3, #9999	; 0x270f
  8000e2c:	4298      	cmp	r0, r3
  8000e2e:	d933      	bls.n	8000e98 <main+0x23c>
- 8000e30:	f04f 0b0a 	mov.w	fp, #10
+ 8000e30:	f04f 0b19 	mov.w	fp, #25
  8000e34:	2300      	movs	r3, #0
  8000e36:	4638      	mov	r0, r7
  8000e38:	9303      	str	r3, [sp, #12]
@@ -1219,7 +1219,7 @@ Disassembly of section .text:
  8000e58:	4403      	add	r3, r0
  8000e5a:	f1bb 0f00 	cmp.w	fp, #0
  8000e5e:	d1ea      	bne.n	8000e36 <main+0x1da>
- 8000e60:	220a      	movs	r2, #10
+ 8000e60:	2219      	movs	r2, #25
  8000e62:	fb93 f3f2 	sdiv	r3, r3, r2
  8000e66:	682a      	ldr	r2, [r5, #0]
  8000e68:	a80c      	add	r0, sp, #48	; 0x30

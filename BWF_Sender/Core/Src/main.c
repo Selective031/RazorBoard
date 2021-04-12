@@ -40,6 +40,7 @@
 #define DELAY 100		// 100
 #define SIG1_LENGTH 10	// 10
 #define LOOPCHECKTIME 10
+#define AVERAGE_NUM 25
 
 int CalibratedValue;
 int CurrentValue;
@@ -173,13 +174,13 @@ void CheckDocked(void) {
 	int sumVolt = 0;
 
 	char msg[128];
-	for (uint16_t x = 0; x < 10; x++) {
+	for (uint16_t x = 0; x < AVERAGE_NUM; x++) {
 		HAL_ADC_Start(&hadc1);
 	   	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
 	   	sumVolt += HAL_ADC_GetValue(&hadc1);
 	}
 
-	CurrentValue = sumVolt / 10;
+	CurrentValue = sumVolt / AVERAGE_NUM;
 
 	sprintf(msg, "Calibrated Value: %d Current Value: %d Diff: %d\r\n", CalibratedValue, CurrentValue, abs(CalibratedValue - CurrentValue));
 	HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
