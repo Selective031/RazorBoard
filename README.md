@@ -130,7 +130,7 @@ Also, in the debug menu you can find the "upgrade" command, this will force the 
 Software needed to compile firmware: CubeIDE
 https://www.st.com/en/development-tools/stm32cubeide.html
 
-# SAFETY:
+# Safety:
 
 Safety is my top priority.
 The mower will only mow within your boundary wire.
@@ -144,19 +144,19 @@ If the current is too high on the cutting disk, it will HARDBREAK and STOP, unti
 
 Inside the STM32 there is something called IWDG, independant watchdog. With the help of this watchdog, if any halt/crash occurs on the system due to a bug or user programming error, the whole STM32 will reset after 2 seconds, and after reset, the whole initial startup sequens is starting over again. So there are no worries that the mower will run forever (unless you have programmed it to do so, of course).
 
-# SLOPE MANAGEMENT:
+# Slope Management:
 
 With the help of the 6050 IMU, the Razorboard will try to compensate for slopes, so it can maintain a straight line.
 At the moment the power to the motors are fixed values based on the number of degrees the the mower is leaning.
 TODO - A proper PID controller utilizing the 6050 MPU.
 
-# BEHAVIOUR:
+# Behaviour:
 
 When Razorboard senses that both boundary sensors are outside, it will go backward and then randomly select left or right and also randomly for how much.
 If only one sensor is outside, it will go backward and then turn in the opposite direction, for randomly amount of time.
 When Razorboard is sensing a crash against an object, the motors will go into hardbreak for 0.5 seconds, then go backward, and randomly select left,right.
 
-# GOING HOME:
+# Going Home:
 
 When Razorboard is low on battery, a perimeter tracking sequens is initiated. The cutting disk will turn off, and it will go and find the boundary wire.
 Also, when crossing the boundary and the time is outside working hours, it will initiate perimeter tracking sequens, for example: you have configured working hours to be between 10:00 and 20:00, and when Razorboard crosses the boundary when the time is 20:00 or later, it will go home.
@@ -164,7 +164,7 @@ Once the boundary wire is located it will follow it to the left (default), until
 Once the charging station is found, it will charge the battery. If the battery is fully charged and the time is within the working hours it will undock and start mowing again. This will continue to happen until it is outside the working hours, once outside working hours, it will rest until inside again.
 TODO - Obstacle avoidance along the boundary wire.
 
-# MOTORS:
+# Motors:
 
 Razorboard will ramp the motors up and down, to preserve the cogs in the motors, also it looks much nicer. Two exceptions exist, when you tilt/overturn the mower it will hardbreak the motors. The second is when it is crashing into an object.
 
@@ -173,7 +173,7 @@ For each startup of cutting disk, Razorbord will randomly select clockwise or an
 # Battery:
 
 Razorboard can handle any type of battery as it does not include any charge circuits, it´s using two relays to on/off the power to the batteries. Therefore, if you use a lithium battery you need to have a BMS (Battery Management System), many lithium batteries already have this inside their batterypacks. Razorbaord can monitor the voltage on the battery and simply disconnect the charging when a limit has been reached.
-If you battery has a dedicated charge cable, use this to the "Charge Battery" conector. If it does not have one, you simply connect the "Charge Battery" connector back to the battery. The relays are designed to that you cannot draw power from the main battery and output power to the "Charge Battery" connector at the same time, it has to draw power from the "Charge Pins". The logic is as follows:
+If you battery has a dedicated charge cable, use this to the "Charge Battery" connector. If it does not have one, you simply connect the "Charge Battery" connector back to the battery. The relays are designed so that you cannot draw power from the main battery and output power to the "Charge Battery" connector at the same time, it has to draw power from the "Charge Pins". The logic is as follows:
 
 - When no relay is active, power comes from the "Main Battery" connector, both "Charge Pins" and "Battery Charge" connectors are disabled.
 - When the right relay is active, power comes from the "Charge Pins" connector, disabling "Main Battery" connector.
@@ -181,7 +181,7 @@ If you battery has a dedicated charge cable, use this to the "Charge Battery" co
 - When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
 - When it´s time to undock, the right realy will disable and draw power from the "Main Battery" connector again.
 
-# RTC CLOCK:
+# RTC Clock:
 
 On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is attached.
 When the jumper is attached the RTC clock gets power from the main 3.3V power rail.
@@ -198,7 +198,7 @@ The STM32F4 does not contain any EEPROM, but instead it has 4KB of SRAM, which i
 The RTC battery will last for many years, so as long as you have the battery conncted all settings will be retained even when power is off.
 Also, there will be an export function, so you can backup your settings if needed.
 
-# NOISE:
+# Noise:
 
 Noise is something we need deal with, and also have to live with. In particular with DC motors driven by PWM. PWM as you might know is a technique to rapidly turn a signal on and off very quickly. Usually you want to have a PWM freq above the 20KHz, because that is what we humans cannot hear, going below and you might hear some whisling noise.
 However, PWM will also put some stress on the hardware, creating high frequency noise which can interfere with other cricuits.
@@ -225,7 +225,7 @@ In the "debug" menu, you can record a new signature and see how well it it detec
 You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
 Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
 
-# BOUNDARY WIRE SIGNAL GENERATOR PCB
+# Boundary Wire Signal Generator PCB
 
 - Voltage input: ~8 - 25.2 volt.
 - Connection for charging your mower, voltage is a passthrough from input.
@@ -244,7 +244,7 @@ Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 oh
 This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
 
 
-# TROUBLESHOOTING:
+# Troubleshooting:
 
 Connect a USB cable to the STM32 connector (Upper left corner)
 Set the COM port to 115200 baud
@@ -256,11 +256,11 @@ In the debug menu you can test the motors on the "bench". If they are spinning i
 In a future firmware this can be done in software.
 With the command "DEBUG ON" you can verify that the boundary signals are received correctly. Also how many you receive per second. This can be a great tool to check the signal by placing the mower in the center of you lawn and check if you still receive the messages.
 
-# BUGS
+# Bugs
 
 If you find any bugs please report them so we can fix them!
 
-# QUESTIONS
+# Questions
 
 You can find me here: calle ( at ) lanstep.com
 
