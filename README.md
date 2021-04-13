@@ -225,6 +225,12 @@ In the "debug" menu, you can record a new signature and see how well it it detec
 You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
 Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
 
+# MPU-6050
+
+You only need to solder 4 pins on the 6050: SDA, SCL, GND and VCC.
+When connecting the MPU-6050 to the SDA and SCL, use 3.3V for power. You will find one 3.3V pin just above the I2C connection.
+Nothin else needs to be done, the code includes a calibration sequens.
+
 # Boundary Wire Signal Generator PCB
 
 - Voltage input: ~8 - 25.2 volt.
