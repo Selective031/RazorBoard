@@ -248,6 +248,7 @@ So lets take an example, you measure your loop with a multimeter and you discove
 Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 ohm. 2.5 + 8 = 10.5 ohm.
 
 This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
+By default, Loop1 is the primary connector for the boundary wire. Loop2 will come later.
 
 
 # Troubleshooting:
