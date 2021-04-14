@@ -250,6 +250,29 @@ Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 oh
 This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
 By default, Loop1 is the primary connector for the boundary wire. Loop2 will come later.
 
+# Importing the project
+
+Download the Github repository.
+Inside CubeIDE
+File -> Import -> File System
+Select the folder where you downloaded the repository
+After import you need to add a few things:
+
+- Right click on the project
+- Select "Properties"
+- Click on "C/C++ Build"
+- Click on "Settings"
+- Enable "Use float with printf"
+- Enable "Use float with scanf"
+- Click on "MCU GCC Linker"
+- Click on "Libraries"
+- Add a new under "Libraries (-l)"
+- Type: arm_cortexM4lf_math
+- Add a new search path under "Libraries search path (-L)"
+- find this path: "C:\<your CubeIDE path>\STM32Cube\Repository\STM32Cube_FW_F4_V1.26.0\Drivers\CMSIS\Lib\GCC"
+
+- Apply and close
+
 
 # Troubleshooting:
 
