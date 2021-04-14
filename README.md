@@ -274,6 +274,9 @@ After import you need to add a few things:
 
 - Apply and close
 
+You should now be able to "Build Project" from:
+- Build -> Build Project
+
 
 # Troubleshooting:
 
