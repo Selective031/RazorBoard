@@ -257,7 +257,10 @@ Download the Github repository.
 - File -> Import -> File System
 
 Select the folder where you downloaded the repository.
-Make sure you set the project as "Release": Project -> Build Configurations -> Set Active -> Release.
+
+
+Make sure you set the project as "Release": 
+- Project -> Build Configurations -> Set Active -> Release.
 
 This will speed up the firmware quite a lot.
 
