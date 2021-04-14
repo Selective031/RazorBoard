@@ -255,7 +255,7 @@ By default, Loop1 is the primary connector for the boundary wire. Loop2 will com
 Download the Github repository.
 - Inside CubeIDE
 - File -> Import -> File System
-- 
+
 Select the folder where you downloaded the repository.
 After import you need to add a few things:
 
