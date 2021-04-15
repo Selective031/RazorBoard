@@ -229,6 +229,7 @@ Type "export sig" and you will get the signature as an array if you like to save
 
 You only need to solder 4 pins on the 6050: SDA, SCL, GND and VCC.
 When connecting the MPU-6050 to the SDA and SCL, use 3.3V for power. You will find one 3.3V pin just above the I2C connection.
+The pins SDA, SCL are located just to left of the motor connections (on the lower right side of the STM32, at the bord edge), they are shared with UART3 (although UART3 can be moved to different pins in software).
 Nothin else needs to be done, the code includes a calibration sequens.
 
 # Boundary Wire Signal Generator PCB
