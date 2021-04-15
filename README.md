@@ -107,8 +107,8 @@ Explaination of connectors:
 - BWF3 = Currently not in use in software
 - BWF4 = Currently not in use in software
 - USB STM32 = Used for upgrading firmware in STM32, also used for debugging and interfacing with the STM32
-- I2C_2 SDA = Connect this to your MPU-6050
-- I2C_2 SCL = Connect this to your MPU-6050
+- I2C_2 SDA = Connect this to your MPU-6050 (located to the left of the motors connections)
+- I2C_2 SCL = Connect this to your MPU-6050 (located to the left of the motors connections)
 
 Software needed to upload .bin file: "Flash Loader Demonstrator" from ST Micro
 https://www.st.com/en/development-tools/flasher-stm32.html#overview
