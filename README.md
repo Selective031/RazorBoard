@@ -179,7 +179,7 @@ If you battery has a dedicated charge cable, use this to the "Charge Battery" co
 - When the right relay is active, power comes from the "Charge Pins" connector, disabling "Main Battery" connector.
 - When power comes from "Charge Pins", you can now activate the left relay. Left relay will output power to the "Charge Battery" connector.
 - When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
-- When it´s time to undock, the right realy will disable and draw power from the "Main Battery" connector again.
+- When it´s time to undock, the right relay will disable and draw power from the "Main Battery" connector again.
 
 # RTC Clock:
 
