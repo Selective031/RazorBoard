@@ -284,6 +284,10 @@ After import you need to add a few things:
 You should now be able to "Build Project" from:
 - Project -> Build Project
 
+# Hardware hacks
+
+- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins.
+- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder.
 
 # Troubleshooting:
 
