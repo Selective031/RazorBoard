@@ -228,7 +228,7 @@ Now, type "DEBUG ON", and hopfully you will see the boundary signals. And now yo
 # Boundary Wire
 
 The Boundary Wire Signal generator, outputs a signal in 10KHz, with 10 bits, so one complete message is about 1ms. The sampling rate on Razorboard is currently at 67.3 KHz.
-The ADC on STM32 is running in a continues scan mode, meaning if you sample 512 samples into a buffer, odd numbers in the buffer (0,3,5 etc..) are BWF1, all even numbers are BWF2. After we have sampled we need to break out the streams into BWF1 and BWF2, after that we run the streams in a FIR filter, eliminating any noise from the motors.
+The ADC on STM32 is running in a continues scan mode, meaning if you sample 512 samples into a buffer, odd numbers in the buffer (1,3,5 etc..) are BWF1, all even numbers (0,2,4 etc...) are BWF2. After we have sampled we need to break out the streams into BWF1 and BWF2, after that we run the streams in a FIR filter, eliminating any noise from the motors.
 Now we need to compare this signal with a reference signal, we do this by a technique called Cross-Correlation. After the Cross-Correlation we get a number within the range of 1.0 and -1.0.
 
 - 1.0 Means we have 100% match for an INSIDE message.
