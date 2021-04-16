@@ -184,11 +184,12 @@ If you battery has a dedicated charge cable, use this to the "Charge Battery" co
 Do NOT connect a 7 cell battery! When fully charged it will output 29.4 Volt (7 * 4.2 = 29.4 Volt)
 If you really need to provide a 7 cell battery, you need to replace a couple of resistors, they are in the package of SMD 0603. Without replacing them you might risk to blow up a couple of pins on the STM32 MCU.
 
-The resistor that needs to be replaced: 
--R3 30K
--R4 7.5K
--R6 30K 
--R5 7.5K
+The resistor that needs to be replaced:
+
+- R3 30K
+- R4 7.5K
+- R6 30K 
+- R5 7.5K
 
 With the above resistors, an input voltage of 25.2 would give us 5.0.4 volt, which we can handle.
 But if using 30 Volt you will get about 6V which will burn the pins. You need to replace two of them (R3 or R4 and R5 or R6), so you don´t go above 5 Volt.
