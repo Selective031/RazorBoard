@@ -266,6 +266,9 @@ Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 oh
 This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
 By default, Loop1 is the primary connector for the boundary wire. Loop2 will come later.
 
+At power up, the PCB takes a series of measurements to determine what the current level on the charge connector is (to be able to detect when the mower is docked). Do not have the mower connected to the connector, that will interfere with the measurements. If you are certain about the level, you could hardcode it and compile a new .bin file.
+When the red LED is static, the PCB is powered. When blinking (0.5 hz) the boundary wire is active.
+
 # Importing the project
 
 Download the Github repository.
