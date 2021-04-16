@@ -181,6 +181,8 @@ If you battery has a dedicated charge cable, use this to the "Charge Battery" co
 - When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
 - When it´s time to undock, the right relay will disable and draw power from the "Main Battery" connector again.
 
+Do NOT connect a 7 cell battery! When fully charged it will output 29.4 Volt (7 * 4.2 = 29.4 Volt)
+
 # RTC Clock:
 
 On the PCB you can find one connection for a RTC battery, and also a jumper. This is VERY important. Never ever connect a battery when the jumper is attached.
