@@ -209,6 +209,8 @@ In a future firmware version, a calendar function will be available, so you can 
 
 # SRAM:
 
+This is now implemented in version 1.0.1
+
 - In a future firmware version -
 The STM32F4 does not contain any EEPROM, but instead it has 4KB of SRAM, which is retained during power off if you have an RTC battery conncted.
 The RTC battery will last for many years, so as long as you have the battery conncted all settings will be retained even when power is off.
