@@ -19,7 +19,7 @@ stm32f4xx_hal_adc.c:1629:13:HAL_ADC_ErrorCallback	0	static
 stm32f4xx_hal_adc.c:1200:6:HAL_ADC_IRQHandler	16	static
 stm32f4xx_hal_adc.c:2078:13:ADC_DMAError	8	static
 stm32f4xx_hal_adc.c:1992:13:ADC_DMAConvCplt	8	static
-stm32f4xx_hal_adc.c:1667:19:HAL_ADC_ConfigChannel	32	static
+stm32f4xx_hal_adc.c:1667:19:HAL_ADC_ConfigChannel	24	static
 stm32f4xx_hal_adc.c:1790:19:HAL_ADC_AnalogWDGConfig	8	static
 stm32f4xx_hal_adc.c:1872:10:HAL_ADC_GetState	0	static
 stm32f4xx_hal_adc.c:1884:10:HAL_ADC_GetError	0	static

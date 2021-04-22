@@ -1,10 +1,10 @@
-stm32f4xx_hal_rtc_ex.c:141:19:HAL_RTCEx_SetTimeStamp	8	static
-stm32f4xx_hal_rtc_ex.c:201:19:HAL_RTCEx_SetTimeStamp_IT	8	static
+stm32f4xx_hal_rtc_ex.c:141:19:HAL_RTCEx_SetTimeStamp	16	static
+stm32f4xx_hal_rtc_ex.c:201:19:HAL_RTCEx_SetTimeStamp_IT	16	static
 stm32f4xx_hal_rtc_ex.c:258:19:HAL_RTCEx_DeactivateTimeStamp	0	static
 stm32f4xx_hal_rtc_ex.c:302:19:HAL_RTCEx_GetTimeStamp	24	static
-stm32f4xx_hal_rtc_ex.c:354:19:HAL_RTCEx_SetTamper	12	static
-stm32f4xx_hal_rtc_ex.c:404:19:HAL_RTCEx_SetTamper_IT	16	static
-stm32f4xx_hal_rtc_ex.c:474:19:HAL_RTCEx_DeactivateTamper	0	static
+stm32f4xx_hal_rtc_ex.c:354:19:HAL_RTCEx_SetTamper	8	static
+stm32f4xx_hal_rtc_ex.c:404:19:HAL_RTCEx_SetTamper_IT	12	static
+stm32f4xx_hal_rtc_ex.c:474:19:HAL_RTCEx_DeactivateTamper	8	static
 stm32f4xx_hal_rtc_ex.c:569:13:HAL_RTCEx_TimeStampEventCallback	0	static
 stm32f4xx_hal_rtc_ex.c:584:13:HAL_RTCEx_Tamper1EventCallback	0	static
 stm32f4xx_hal_rtc_ex.c:599:13:HAL_RTCEx_Tamper2EventCallback	0	static
@@ -25,7 +25,7 @@ stm32f4xx_hal_rtc_ex.c:1181:19:HAL_RTCEx_SetCoarseCalib	24	static
 stm32f4xx_hal_rtc_ex.c:1239:19:HAL_RTCEx_DeactivateCoarseCalib	16	static
 stm32f4xx_hal_rtc_ex.c:1304:19:HAL_RTCEx_SetSmoothCalib	24	static
 stm32f4xx_hal_rtc_ex.c:1374:19:HAL_RTCEx_SetSynchroShift	24	static
-stm32f4xx_hal_rtc_ex.c:1469:19:HAL_RTCEx_SetCalibrationOutPut	0	static
+stm32f4xx_hal_rtc_ex.c:1469:19:HAL_RTCEx_SetCalibrationOutPut	8	static
 stm32f4xx_hal_rtc_ex.c:1508:19:HAL_RTCEx_DeactivateCalibrationOutPut	0	static
 stm32f4xx_hal_rtc_ex.c:1538:19:HAL_RTCEx_SetRefClock	16	static
 stm32f4xx_hal_rtc_ex.c:1588:19:HAL_RTCEx_DeactivateRefClock	16	static
