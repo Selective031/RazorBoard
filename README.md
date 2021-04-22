@@ -107,8 +107,8 @@ Explaination of connectors:
 - BWF3 = Currently not in use in software
 - BWF4 = Currently not in use in software
 - USB STM32 = Used for upgrading firmware in STM32, also used for debugging and interfacing with the STM32
-- I2C_2 SDA = Connect this to your MPU-6050
-- I2C_2 SCL = Connect this to your MPU-6050
+- I2C_2 SDA = Connect this to your MPU-6050 (located to the left of the motors connections)
+- I2C_2 SCL = Connect this to your MPU-6050 (located to the left of the motors connections)
 
 Software needed to upload .bin file: "Flash Loader Demonstrator" from ST Micro
 https://www.st.com/en/development-tools/flasher-stm32.html#overview
@@ -179,7 +179,23 @@ If you battery has a dedicated charge cable, use this to the "Charge Battery" co
 - When the right relay is active, power comes from the "Charge Pins" connector, disabling "Main Battery" connector.
 - When power comes from "Charge Pins", you can now activate the left relay. Left relay will output power to the "Charge Battery" connector.
 - When battery is fully charged it will disable left relay, and only draw power from "Charge Pins", so the battery is completely disconnected.
-- When it´s time to undock, the right realy will disable and draw power from the "Main Battery" connector again.
+- When it´s time to undock, the right relay will disable and draw power from the "Main Battery" connector again.
+
+Do NOT connect a 7 cell battery! When fully charged it will output 29.4 Volt (7 * 4.2 = 29.4 Volt)
+If you really need to provide a 7 cell battery, you need to replace a couple of resistors, they are in the package of SMD 0603. Without replacing them you might risk to blow up a couple of pins on the STM32 MCU.
+
+The resistor that needs to be replaced:
+
+- R3 30K
+- R4 7.5K
+- R6 30K 
+- R5 7.5K
+
+With the above resistors, an input voltage of 25.2 would give us 5.0.4 volt, which we can handle.
+But if using 30 Volt you will get about 6V which will burn the pins. You need to replace two of them (R3 or R4 and R5 or R6), so you don´t go above 5 Volt.
+Use this link for calculating the divider. Also when you replaced them, you need to update the software to calculate the correct voltage.
+https://ohmslawcalculator.com/voltage-divider-calculator
+Do this at your own risk.
 
 # RTC Clock:
 
@@ -213,7 +229,7 @@ Now, type "DEBUG ON", and hopfully you will see the boundary signals. And now yo
 # Boundary Wire
 
 The Boundary Wire Signal generator, outputs a signal in 10KHz, with 10 bits, so one complete message is about 1ms. The sampling rate on Razorboard is currently at 67.3 KHz.
-The ADC on STM32 is running in a continues scan mode, meaning if you sample 512 samples into a buffer, odd numbers in the buffer (0,3,5 etc..) are BWF1, all even numbers are BWF2. After we have sampled we need to break out the streams into BWF1 and BWF2, after that we run the streams in a FIR filter, eliminating any noise from the motors.
+The ADC on STM32 is running in a continues scan mode, meaning if you sample 512 samples into a buffer, odd numbers in the buffer (1,3,5 etc..) are BWF1, all even numbers (0,2,4 etc...) are BWF2. After we have sampled we need to break out the streams into BWF1 and BWF2, after that we run the streams in a FIR filter, eliminating any noise from the motors.
 Now we need to compare this signal with a reference signal, we do this by a technique called Cross-Correlation. After the Cross-Correlation we get a number within the range of 1.0 and -1.0.
 
 - 1.0 Means we have 100% match for an INSIDE message.
@@ -224,6 +240,13 @@ By default at the moment, Razorboard classifies 0.80 and above as INSIDE, the sa
 In the "debug" menu, you can record a new signature and see how well it it detected. At the moment it only saves the signature to memory and will be lost after power-down.
 You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
 Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
+
+# MPU-6050
+
+You only need to solder 4 pins on the 6050: SDA, SCL, GND and VCC.
+When connecting the MPU-6050 to the SDA and SCL, use 3.3V for power. You will find one 3.3V pin just above the I2C connection.
+The pins SDA, SCL are located just to left of the motor connections (on the lower right side of the STM32, at the bord edge), they are shared with UART3 (although UART3 can be moved to different pins in software).
+Nothin else needs to be done, the code includes a calibration sequens.
 
 # Boundary Wire Signal Generator PCB
 
@@ -242,7 +265,50 @@ So lets take an example, you measure your loop with a multimeter and you discove
 Then find a power resistor, minimum of 50W, lets say you find a resistor of 8 ohm. 2.5 + 8 = 10.5 ohm.
 
 This power resistor will get hot, the more current the hotter, so mount it on a good heatsink.
+By default, Loop1 is the primary connector for the boundary wire. Loop2 will come later.
 
+At power up, the PCB takes a series of measurements to determine what the current level on the charge connector is (to be able to detect when the mower is docked). Do not have the mower connected to the connector, that will interfere with the measurements. If you are certain about the level, you could hardcode it and compile a new .bin file.
+When the red LED is static, the PCB is powered. When blinking (2 hz) the boundary wire is active.
+
+# Importing the project
+
+Download the Github repository.
+- Inside CubeIDE
+- File -> Import -> File System
+
+Select the folder where you downloaded the repository.
+
+
+Make sure you set the project as "Release": 
+- Project -> Build Configurations -> Set Active -> Release.
+
+This will speed up the firmware quite a lot.
+
+After import you need to add a few things:
+
+- Right click on the project
+- Select "Properties"
+- Click on "C/C++ Build"
+- Click on "Settings"
+- Enable "Use float with printf"
+- Enable "Use float with scanf"
+- Click on "MCU GCC Linker"
+- Click on "Libraries"
+- Add a new under "Libraries (-l)"
+- Type: arm_cortexM4lf_math
+- Add a new search path under "Libraries search path (-L)"
+- find this path: "C:\<your CubeIDE path>\STM32Cube\Repository\STM32Cube_FW_F4_V1.26.0\Drivers\CMSIS\Lib\GCC"
+
+- Apply and close
+
+You should now be able to "Build Project" from:
+- Project -> Build Project
+
+# Hardware hacks
+
+- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins.
+- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder.
+- As you might noticed, when using the MPU-6050, you use SDA and SCL which are shared with UART3. However, in software you can move UART3 to PD8 and PD9. So you dont loose UART3 just because an MPU-6050 is connected. You got to love STM32 ;)
 
 # Troubleshooting:
 
