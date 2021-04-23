@@ -251,6 +251,7 @@ The pins SDA, SCL are located just to left of the motor connections (on the lowe
 Nothin else needs to be done, the code includes a calibration sequens.
 
 Place the MPU flat, with the short sides as left and right. Orient it so the connection is towards the back of the mower.
+Look at the picture "mpu_placement.jpg" for guidance.
 
 
 # Boundary Wire Signal Generator PCB
