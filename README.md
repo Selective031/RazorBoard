@@ -250,6 +250,9 @@ When connecting the MPU-6050 to the SDA and SCL, use 3.3V for power. You will fi
 The pins SDA, SCL are located just to left of the motor connections (on the lower right side of the STM32, at the bord edge), they are shared with UART3 (although UART3 can be moved to different pins in software).
 Nothin else needs to be done, the code includes a calibration sequens.
 
+Place the MPU flat, with the short sides as left and right. Orient it so the connection is towards the back of the mower.
+
+
 # Boundary Wire Signal Generator PCB
 
 - Voltage input: ~8 - 25.2 volt.
