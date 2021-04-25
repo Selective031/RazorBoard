@@ -2,7 +2,7 @@
  * sram.c
  *
  *  Created on: 13 Apr 2021
- *      Author: SECWK0
+ *      Author: Carl Wallmark
  */
 
 #include "main.h"
@@ -131,6 +131,7 @@ sram_settings read_all_settings(void)
 	settings.Outside_Threshold = read_sram_uint8(OUTSIDE_THRESHOLD_ADDR);
 
 	settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
+	settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -145,10 +146,23 @@ sram_settings read_all_settings(void)
 	settings.ki = read_sram_float(KI_ADDR);
 	settings.kd = read_sram_float(KD_ADDR);
 
+	settings.MowTime = read_sram_uint32(MowTime_ADDR);
+	settings.MowTimer = read_sram_uint32(MowTimer_ADDR);
+
+	settings.Motor_Max_Limit = read_sram_float(Motor_Max_Limit_ADDR);
+
+	settings.voltageMultiply = read_sram_float(voltageMultiply_ADDR);
+
+
 	return settings;
 }
 void write_all_settings(sram_settings settings)
 {
+
+	// uint8_t = 1 byte
+	// uint16_t = 2 byte
+	//uint32_t = 4 byte
+	//float = 4 byte
 
 	// uint8_t
 	settings.Config_Set = 42;
@@ -163,6 +177,7 @@ void write_all_settings(sram_settings settings)
 
 	// uint16_t
 	write_sram_uint16(settings.HoldChargeDetection, HOLDCHARGEDETECTION_ADDR);
+	write_sram_uint16(settings.magValue, MAGVALUE_ADDR);
 
 	// uint32_t & float
 	write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -174,6 +189,11 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.kp, KP_ADDR);
 	write_sram_float(settings.ki, KI_ADDR);
 	write_sram_float(settings.kd, KD_ADDR);
+	write_sram_uint32(settings.MowTime, MowTime_ADDR);
+	write_sram_uint32(settings.MowTimer, MowTimer_ADDR);
+	write_sram_float(settings.Motor_Max_Limit, Motor_Max_Limit_ADDR);
+	write_sram_float(settings.voltageMultiply, voltageMultiply_ADDR);
+
 }
 
 void save_default_settings(void) {
@@ -198,6 +218,11 @@ void save_default_settings(void) {
 	settings.kp = 0.12;
 	settings.ki = 0.0;
 	settings.kd = 0.02;
+	settings.MowTime = 5400000;
+	settings.MowTimer = HAL_GetTick();
+	settings.Motor_Max_Limit = 0.3;
+	settings.magValue = 380;
+	settings.voltageMultiply = 5.0;
 
 	write_all_settings(settings);
 

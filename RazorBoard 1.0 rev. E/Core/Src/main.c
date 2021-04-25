@@ -36,6 +36,8 @@
 #include <ctype.h>
 #include <help.h>
 #include <sram.h>
+#include <mpu6050.h>
+#include <adc.h>
 
 
 /* USER CODE END Includes */
@@ -49,21 +51,6 @@
 /* USER CODE BEGIN PD */
 
 IWDG_HandleTypeDef hiwdg;
-
-#define ADS1115_ADDRESS 0x48
-
-#define M1_addr 0xC1		//M1 Current Sensor
-#define V1_addr 0xD1		//Voltage Sensor
-#define M2_addr 0xE1		//M2 Current Sensor
-#define C1_addr 0xF1		//C1 Current Sensor
-
-int M1_Value = 0;
-int M2_Value = 0;
-int C1_Value = 0;
-int V1_Value = 0;
-
-uint8_t Channel = M1_addr;
-uint8_t Channel_Status = 0;
 
 #define TRUE 1
 #define FALSE 0
@@ -99,35 +86,8 @@ uint8_t Channel_Status = 0;
 #define PI_BFR_SIZE 64				// Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64			// Buffer size for Serial Console
 
-#define MPU6050_ADDR 0xD0		// Registers for MPU 6050 D0
-#define SMPLRT_DIV_REG 0x19
-#define GYRO_CONFIG_REG 0x1B
-#define ACCEL_CONFIG_REG 0x1C
-#define ACCEL_XOUT_H_REG 0x3B
-#define TEMP_OUT_H_REG 0x41
-#define GYRO_XOUT_H_REG 0x43
-#define PWR_MGMT_1_REG 0x6B
-#define WHO_AM_I_REG 0x75
-
-//#define Voltage_Fully_Charged 25000	// When to consider battery fully charged, if using lithium, don't fully charge, the battery will last longer.
-//#define Voltage_Limit_LOW 22000		// When battery is "empty"
-
-int16_t Accel_X_RAW = 0;
-int16_t Accel_Y_RAW = 0;
-int16_t Accel_Z_RAW = 0;
-int16_t Gyro_X_RAW = 0;
-int16_t Gyro_Y_RAW = 0;
-int16_t Gyro_Z_RAW = 0;
-
-float Ax, Ay, Az, Gx, Gy, Gz;
-float raw_roll, raw_pitch;
-float yaw = 0;
-
 double Tick1 = 0;
 double Tick2 = 0;
-//float kp = 0.12;
-//float ki = 0.0;
-//float kd = 0.01;
 double error = 0;
 double lastError = 0;
 double cumError = 0;
@@ -139,9 +99,6 @@ uint8_t perimeterTrackingActive = 0;
 
 uint8_t Initial_Start = 0;
 uint16_t Start_Threshold = 0;
-//uint8_t Outside_Threshold = 8;			// How long we can be OUTSIDE before disabling the system, in seconds
-//float Signal_Integrity_IN = 0.80;		// Classified as IN
-//float Signal_Integrity_OUT = -0.80;		// Classified as OUT
 
 int bwf1_inside = 0;				// Some stats, how many messages we can detect per second
 int bwf2_inside = 0;
@@ -149,15 +106,12 @@ int bwf1_outside = 0;
 int bwf2_outside = 0;
 
 uint32_t Boundary_Timer;			// Keep track of time between signals.
-//uint8_t Boundary_Timeout = 6;		// in seconds, mower will stop if no signal has been detected for X seconds.
 
 float M1_amp,M2_amp,C1_amp = 0.0f;	// Values for AMP per motor
 float M1_error = 0.0f;				// Auto calibration value stored here.
 float M2_error = 0.0f;				// Auto calibration value stored here.
 float C1_error = 0.0f;				// Auto calibration value stored here.
 float Voltage = 25.20;			// Max voltage, only to feed the system something while starting up.
-//float Motor_Limit = 3.0;			// Limit for power spikes in motors.
-//float Cutter_Limit = 1.0;			// Limit in AMP for the cutter disk, when reached the system will disable until reboot.
 
 uint8_t BWF1_Status = 0;
 uint8_t BWF2_Status = 0;
@@ -183,11 +137,7 @@ uint8_t UART1_ready = 0;
 uint8_t UART2_ready = 0;
 uint8_t Security = 0;
 
-//uint8_t WorkingHourStart = 10;		// RazorBoard will not start mowing until we reached 10.00
-//uint8_t WorkingHourEnd = 20;		// RazorBoard will mow until we reached 20.00, after that it will go home
-
 uint8_t Battery_Ready = 0;			// Battery fully charged?
-//uint16_t HoldChargeDetection = 200;	// When we detect connection with the charger, wait in milliseconds before we brake/stop.
 
 uint8_t M1_idx = 0;
 uint8_t M2_idx = 0;
@@ -200,23 +150,17 @@ float M2_F = 0;
 float C1_F = 0;
 uint8_t Force_Active = 0;			// When the mower has gained enough movement, Force_Active will turn on.
 
-float hold_heading = 0;				// In degrees, something to hold on to and try to steer in a straight line
-float heading = 0.0;				// Relative heading
-float yaw_error = 0.0;
-float roll = 0.00;
-float roll_error = 0.0;
-float pitch = 0.00;
-float pitch_error = 0.0;
 float pitch_limit[20] = {0};
 float roll_limit[20] = {0};
 uint8_t pitch_limit_idx = 0;
 uint8_t roll_limit_idx = 0;
-uint8_t Overturn_Limit = 35;
 
 float32_t BWF1[ADC_SAMPLE_LEN / 2];
 float32_t BWF2[ADC_SAMPLE_LEN / 2];
 arm_fir_instance_f32 S;
 uint8_t Signature_Record = FALSE;
+
+uint16_t magBWF1, magBWF2;
 
 uint32_t MotorSpeedUpdateFreq_timer = 0;	// Timer for MotorSpeed Update
 uint8_t MotorSpeedUpdateFreq = 100;			// Freq to update motor speed, in milliseconds
@@ -225,7 +169,11 @@ uint8_t ChargerConnect = 0;					// Are we connected to the charger?
 
 uint8_t DEBUG_RAZORBOARD = 0;				// Used by "debug on/debug off"
 
+uint8_t mag_near_bwf = 0;
+
 sram_settings settings;
+
+mpu6050 mpu;
 
 
 /* USER CODE END PD */
@@ -328,12 +276,41 @@ static void BootLoaderInit(unsigned long BootLoaderStatus);
 static void setTime(uint8_t hour, uint8_t minute, uint8_t second);
 static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
 static void TimeToGoHome(void);
+static void CalcMagnitude(uint8_t Sensor);
 
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void CalcMagnitude(uint8_t Sensor) {
+	float32_t Mag_Out[128];
+	float32_t sum = 0;
+	float32_t magValue;
+
+	if (Sensor == 1) {
+		arm_cmplx_mag_f32(BWF1, Mag_Out, 128);
+	}
+	else if (Sensor == 2) {
+		arm_cmplx_mag_f32(BWF2, Mag_Out, 128);
+	}
+
+	  for (int y = 0; y < 128; y++) {
+		  sum += Mag_Out[y];
+	  }
+	  arm_sqrt_f32(sum, &magValue);
+
+	  if (Sensor == 1) magBWF1 = round(magValue);
+	  if (Sensor == 2) magBWF2 = round(magValue);
+
+	  if (magValue >= settings.magValue) {
+		  mag_near_bwf = 1;
+	  }
+	  else if (magValue < settings.magValue) {
+		  mag_near_bwf = 0;
+	  }
+}
 
 void TimeToGoHome(void) {
 
@@ -346,6 +323,11 @@ void TimeToGoHome(void) {
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
 	if (currTime.Hours >= settings.WorkingHourEnd) {
+		perimeterTracking = 1;
+	}
+
+	// Check how long we have been running
+	if (HAL_GetTick() - settings.MowTimer >= settings.MowTime) {
 		perimeterTracking = 1;
 	}
 
@@ -444,6 +426,7 @@ void FIR_LEFT(void) {
 	  for (int x = 0; x < 256; x++) {
 		  BWF1[x] = (float)outputF32[x];
 	  }
+
 }
 void FIR_RIGHT(void) {
 	  uint32_t i;
@@ -495,8 +478,6 @@ void reInitIMU(void) {
 	Init6050();
 }
 
-
-
 void MPU6050_Read_Gyro(void) {
 
 	uint8_t Rec_Data[6];
@@ -518,13 +499,13 @@ void MPU6050_Read_Gyro(void) {
 
 	if (Initial_Start == 0) {
 		if (fabs(Gz) < 1.0) {
-			yaw_error = fabs(Gz);		// Auto calibrate the Gyro error at startup
+			mpu.yaw_error = fabs(Gz);		// Auto calibrate the Gyro error at startup
 		}
 	}
-	Gz += yaw_error;					//Cancel out error
+	Gz += mpu.yaw_error;					//Cancel out error
 
 	if (Gz < -1.00 || Gz > 1.00) {		//if not moving, do not change
-	yaw = yaw - (Gz * 0.02);
+	mpu.yaw = mpu.yaw - (Gz * 0.02);
 	}
 
 }
@@ -552,8 +533,8 @@ void MPU6050_Read_Accel(void) {
 	r = atan2(Ay , Az) * 57.3;
 	p = atan2((- Ax) , sqrtf(Ay * Ay + Az * Az)) * 57.3;
 
-	raw_roll = r + roll_error;
-	raw_pitch = p + pitch_error;
+	raw_roll = r + mpu.roll_error;
+	raw_pitch = p + mpu.pitch_error;
 
 }
 
@@ -600,13 +581,13 @@ void ProcessIMUData() {
 
 	}
 
-	roll = r / 20;
-	pitch = p / 20;
+	mpu.roll = r / 20;
+	mpu.pitch = p / 20;
 
-	if (yaw > 359.9) yaw = 0;
-	if (yaw < 0) yaw = 359.9;
+	if (mpu.yaw > 359.9) mpu.yaw = 0;
+	if (mpu.yaw < 0) mpu.yaw = 359.9;
 
-	heading = yaw;
+	mpu.heading = mpu.yaw;
 
 }
 
@@ -631,7 +612,10 @@ void CheckMotorCurrent(int RAW) {
 	            }
 	            M1_F = ForceM1 / 20;
 	            if (M1_F < 0.1) M1_F = 0.1;
-	            if ((M1_amp >= 0.3 || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
+	            if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
+
+	            	sprintf(msg, "Motor Current Limit reached for M1: %f", M1_amp);
+	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
 	            		return;
@@ -659,7 +643,10 @@ void CheckMotorCurrent(int RAW) {
 	            }
 	            M2_F = ForceM2 / 20;
 	            if (M2_F < 0.1) M2_F = 0.1;
-	            if ((M2_amp >= 0.3 || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
+	            if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
+
+	            	sprintf(msg, "Motor Current Limit reached for M2: %f", M2_amp);
+	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
 	            		return;
@@ -715,15 +702,17 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg, "C1: %.2f\r\n", C1_amp);
 		Serial_Console(msg);
-		sprintf(msg, "V1: %.2f\r\n", (Voltage / 1000));
+		sprintf(msg, "V1: %.2f\r\n", Voltage);
 		Serial_Console(msg);
 		sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
 		Serial_Console(msg);
 		sprintf(msg,"IN-> BWF1: %d BWF2: %d\r\nOUT-> BWF1: %d BWF2: %d\r\n", bwf1_inside, bwf2_inside, bwf1_outside, bwf2_outside);
 		Serial_Console(msg);
+		sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
+		Serial_Console(msg);
 		sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
 		Serial_Console(msg);
-		sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", roll, pitch, yaw);
+		sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
 		Serial_Console(msg);
 		sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
 		Serial_Console(msg);
@@ -793,7 +782,7 @@ void CollectADC() {
 		}
 		else if (Channel == V1_addr) {
 			V1_Value = RAW;
-            Voltage = (V1_Value * 0.1875) * 5.0;
+            Voltage = (V1_Value * 0.1875) * settings.voltageMultiply / 1000;
 		}
 
 		if (Channel == M1_addr) Channel = M2_addr;
@@ -836,6 +825,10 @@ void unDock(void) {
 		Start_Threshold = 0;
 		Battery_Ready = 0;
 		lastError = 0;
+		perimeterTracking = 0;
+		perimeterTrackingActive = 0;
+		settings.MowTimer = HAL_GetTick();
+		write_all_settings(settings);
 
 	}
 
@@ -906,8 +899,8 @@ void perimeterTracker() {
     if (speedA > 3200) speedA = 3200;				// limit upper and lower speed
     if (speedB > 3200) speedB = 3200;
 
-    if (speedA < 1000) speedA = 1000;
-    if (speedB < 1000) speedB = 1000;
+    if (speedA < 1500) speedA = 1500;
+    if (speedB < 1500) speedB = 1500;
 
     if (BWF2_Status == OUTSIDE) {
 
@@ -968,8 +961,7 @@ void parseCommand_Console(void) {
 				Serial_Console("DEBUG is now OFF\r\n");
 				}
 			if (strcmp(Command, "VOLTAGE") == 0) {
-				float volt = Voltage / 1000;
-				sprintf(msg, "%.2f\r\n", volt);
+				sprintf(msg, "%.2f\r\n", Voltage);
 				Serial_Console(msg);
 				}
 			if (strcmp(Command, "UPGRADE") == 0) {
@@ -1052,11 +1044,21 @@ void parseCommand_Console(void) {
 			Serial_Console(msg);
 			sprintf(msg, "Cutter Limit: %.2f\r\n", settings.Cutter_Limit);
 			Serial_Console(msg);
+			sprintf(msg, "Motor Max Limit: %.2f\r\n", settings.Motor_Max_Limit);
+			Serial_Console(msg);
 			sprintf(msg, "KP: %.4f\r\n", settings.kp);
 			Serial_Console(msg);
 			sprintf(msg, "KI: %.4f\r\n", settings.ki);
 			Serial_Console(msg);
 			sprintf(msg, "KD: %.4f\r\n", settings.kd);
+			Serial_Console(msg);
+			sprintf(msg, "Mow Time: %lu\r\n", settings.MowTime / 1000);
+			Serial_Console(msg);
+			sprintf(msg, "Time elapsed in seconds: %lu\r\n", ((HAL_GetTick() - settings.MowTimer) / 1000));
+			Serial_Console(msg);
+			sprintf(msg, "Magnitude Proximity: %d\r\n", settings.magValue);
+			Serial_Console(msg);
+			sprintf(msg, "Voltage Multiply: %.4f\r\n", settings.voltageMultiply);
 			Serial_Console(msg);
 
 			}
@@ -1089,6 +1091,29 @@ void parseCommand_Console(void) {
 				TIM4->CCR2 = 0;
 				TIM4->CCR3 = 0;
 				TIM4->CCR4 = 2000;
+			}
+			if (strncmp(Command, "SET VOLTAGE MULTIPLY", 20) == 0) {
+				float multiply;
+				char cmd1[3], cmd2[7], cmd3[8];
+				sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &multiply);
+				settings.voltageMultiply = multiply;
+			}
+			if (strncmp(Command, "SET MOTOR MAX LIMIT", 19) == 0) {
+				float limit;
+				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+				sscanf(Command, "%s %s %s %s %f", cmd1, cmd2, cmd3, cmd4, &limit);
+				settings.Motor_Max_Limit = limit;
+			}
+			if (strncmp(Command, "SET MOW TIME", 12) == 0) {
+				uint32_t limit;
+				char cmd1[3], cmd2[3], cmd3[4];
+				sscanf(Command, "%s %s %s %lu ", cmd1, cmd2, cmd3, &limit);
+				settings.MowTime = limit;
+			}
+			if (strncmp(Command, "RESET MOW TIME", 14) == 0) {
+				settings.MowTimer = HAL_GetTick();
+				write_all_settings(settings);
+				Serial_Console("Mow time reset.\r\n");
 			}
 			if (strncmp(Command, "SET BOUNDARY TIMEOUT", 20) == 0) {
 				int limit;
@@ -1182,6 +1207,12 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %f", cmd1, cmd2, &pid_kd);
 				settings.kd = pid_kd;
 			}
+			if (strncmp(Command, "SET MAG VALUE", 13) == 0) {
+				int magValue;
+				char cmd1[3], cmd2[3], cmd3[5];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &magValue);
+				settings.magValue = magValue;
+			}
 
 			if (strcmp(Command, "DISABLE") == 0) {
 				MasterSwitch = 0;
@@ -1199,26 +1230,6 @@ void parseCommand_Console(void) {
 				perimeterTracking = 1;
 				cutterOFF();
 				Serial_Console("Perimeter tracking ENABLED\r\n");
-			}
-			if (strcmp(Command, "SHOW PID TRACKING") == 0) {
-				sprintf(msg, "KP: %f KI: %f KD: %f\r\n", settings.kp, settings.ki, settings.kd);
-				Serial_Console(msg);
-			}
-			if (strncmp(Command, "SET WORKING START", 17) == 0) {
-				int start;
-				char cmd1[3], cmd2[7], cmd3[5];
-				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &start);
-				settings.WorkingHourStart = start;
-			}
-			if (strncmp(Command, "SET WORKING END", 15) == 0) {
-				int end;
-				char cmd1[3], cmd2[7], cmd3[3];
-				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &end);
-				settings.WorkingHourEnd = end;
-			}
-			if (strcmp(Command, "SHOW WORKINGHOURS") == 0) {
-				sprintf(msg, "START: %d END: %d\r\n", settings.WorkingHourStart, settings.WorkingHourEnd);
-				Serial_Console(msg);
 			}
 			if (strcmp(Command, "HELP") == 0) {
 				sprintf(msg, "Available commands:\r\n\r\n");
@@ -1259,6 +1270,14 @@ void parseCommand_Console(void) {
 				Serial_Console(msg);
 				sprintf(msg, "RUN MOTORS REVERSE	- Run motors backward\r\n");
 				Serial_Console(msg);
+				sprintf(msg, "SET VOLTAGE MULTIPLY   - Voltage Multiply for calculating voltage\r\n");
+				Serial_Console(msg);
+				sprintf(msg, "SET MOTOR MAX LIMIT     - Set Motor Max Limit in amp\r\n");
+				Serial_Console(msg);
+				sprintf(msg, "SET MOW TIME            - Limit the mow time, regardless of battery (in ms)\r\n");
+				Serial_Console(msg);
+				sprintf(msg, "RESET MOW TIME          - Reset Mow time\r\n");
+				Serial_Console(msg);
 				sprintf(msg, "SET BOUNDARY TIMEOUT    - How many seconds without INSIDE before HALTr\n");
 				Serial_Console(msg);
 				sprintf(msg, "SET OVERTURN LIMIT      - How many degrees it can tilt before HALT\r\n");
@@ -1295,22 +1314,20 @@ void parseCommand_Console(void) {
 				Serial_Console(msg);
 				sprintf(msg, "SET KD			- PID Controller KD for Perimeter Tracking\r\n");
 				Serial_Console(msg);
-				sprintf(msg, "SHOW PID TRACKING	- Export current settings for tracking PID\r\n");
+				sprintf(msg, "SET MAG VALUE     - Set Magnitude value for BWF proximity\r\n");
 				Serial_Console(msg);
 				sprintf(msg, "SET WORKING START	- Set Working Hour START\r\n");
 				Serial_Console(msg);
 				sprintf(msg, "SET WORKING END	- Set Working Hour END\r\n");
 				Serial_Console(msg);
-				sprintf(msg, "SHOW WORKINGHOURS	- Show current set working hours\r\n");
-				Serial_Console(msg);
 				Serial_Console("\r\n");
-				sprintf(msg, "LOAD CONFIG	- Load config from SRAM\r\n");
+				sprintf(msg, "LOAD CONFIG        - Load config from SRAM\r\n");
 				Serial_Console(msg);
-				sprintf(msg, "SAVE CONFIG	- Save config to SRAM\r\n");
+				sprintf(msg, "SAVE CONFIG        - Save config to SRAM\r\n");
 				Serial_Console(msg);
-				sprintf(msg, "SAVE DEFAULT CONFIG	- Save default config to SRAM\r\n");
+				sprintf(msg, "SAVE DEFAULT CONFIG     - Save default config to SRAM\r\n");
 				Serial_Console(msg);
-				sprintf(msg, "SHOW CONFIG	- Show config from SRAM\r\n");
+				sprintf(msg, "SHOW CONFIG        - Show config from SRAM\r\n");
 				Serial_Console(msg);
 			}
 
@@ -1380,6 +1397,12 @@ uint8_t CheckSecurity(void) {
 	// Check security, what is our status with the boundary signals
 
     CheckBWF();
+
+	if (abs(mpu.pitch) >= settings.Overturn_Limit || abs(mpu.roll) >= settings.Overturn_Limit) {
+		MotorHardBrake();
+		cutterHardBreak();
+		return SECURITY_FAIL;
+	}
 
 
     if (HAL_GetTick() - Boundary_Timer >= (settings.Boundary_Timeout * 1000)) {
@@ -1539,6 +1562,7 @@ void CheckBWF() {
     		}
     	}
     	bwf1_inside++;
+    	CalcMagnitude(1);
 
     }
 
@@ -1562,6 +1586,7 @@ void CheckBWF() {
     		}
     	}
     	bwf2_inside++;
+    	CalcMagnitude(2);
 
     }
     else if (BWF2_Verdict_Signal <= settings.Signal_Integrity_OUT) {
@@ -1620,7 +1645,7 @@ void UpdateMotorSpeed() {
 	int8_t dir = 0;
 
 	// Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
-	diff = (((((int)heading - (int)hold_heading) % 360) + 540 ) % 360) - 180;
+	diff = (((((int)mpu.heading - (int)mpu.hold_heading) % 360) + 540 ) % 360) - 180;
 	diff *= 120.0;
 
 	if (diff < 0) dir = -1;
@@ -1631,23 +1656,30 @@ void UpdateMotorSpeed() {
 	if (diff > 1000) diff = 1000;
 	if (diff < -1000) diff = -1000;
 
+	uint16_t Speed;
+	if (mag_near_bwf == 1) {
+		Speed = MotorMaxSpeed;
+		Speed = round(Speed * 0.80);
+	}
+
+	else Speed = MotorMaxSpeed;
+
 		// Target is on the Left side
 		if (dir > 0) {
-			int CorrectedSpeed = MotorMaxSpeed - abs(diff);
+			int CorrectedSpeed = Speed - abs(diff);
 			TIM4->CCR2 = CorrectedSpeed;
-			TIM4->CCR3 = MotorMaxSpeed;
+			TIM4->CCR3 = Speed;
 		}
 		// Target is on the Right side
 		else if (dir < 0){
-			int CorrectedSpeed = MotorMaxSpeed - abs(diff);
-			TIM4->CCR2 = MotorMaxSpeed;
+			int CorrectedSpeed = Speed - abs(diff);
+			TIM4->CCR2 = Speed;
 			TIM4->CCR3 = CorrectedSpeed;
-
 		}
 		// Spot on! Full speed ahead Captain!
 		else if (dir == 0) {
-			TIM4->CCR2 = MotorMaxSpeed;
-			TIM4->CCR3 = MotorMaxSpeed;
+			TIM4->CCR2 = Speed;
+			TIM4->CCR3 = Speed;
 		}
 
 }
@@ -1679,7 +1711,7 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 	State = FORWARD;
 
-	MPU6050_Read_Gyro();		// Get fresh data for Pitch/Roll
+	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
 	ProcessIMUData();			// Compute Pitch/Roll
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
@@ -1692,11 +1724,11 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 	  uint16_t leftTilt = 0;
 	  uint16_t rightTilt = 0;
 
-	  if (roll > 0) {
-		  leftTilt = fabs(roll * 50);
+	  if (mpu.roll > 0) {
+		  leftTilt = fabs(mpu.roll * 50);
 	  }
-	  if (roll < 0) {
-		  rightTilt = fabs(roll * 50);
+	  if (mpu.roll < 0) {
+		  rightTilt = fabs(mpu.roll * 50);
 	  }
 
 	  TIM4->CCR1 = 0;
@@ -1899,13 +1931,6 @@ void CheckState(void) {
 		return;
 	}
 
-	if (abs(pitch) >= Overturn_Limit || abs(roll) >= Overturn_Limit) {
-		Serial_Console("Overturn\r\n");
-		MotorHardBrake();
-		cutterHardBreak();
-		return;
-	}
-
 	else if (AVOID_LEFT == 1 || AVOID_RIGHT == 1 || AVOID_FRONT == 1) {
 		MotorStop();
 		Serial_Console("Obstacle\r\n");
@@ -1931,6 +1956,39 @@ void CheckState(void) {
 			cutterOFF();
 			perimeterTrackingActive = 1;
 			HAL_Delay(500);
+
+			while (BWF2_Status != OUTSIDE) {
+
+				MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
+				ProcessIMUData();			// Compute Pitch/Roll
+
+				uint16_t leftTilt = 0;
+				uint16_t rightTilt = 0;
+
+				if (mpu.roll > 0) {
+					leftTilt = fabs(mpu.roll * 50);
+
+				}
+				if (mpu.roll < 0) {
+					rightTilt = fabs(mpu.roll * 50);
+
+				}
+
+				TIM4->CCR1 = 0;
+				TIM4->CCR2 = 2700 - round(leftTilt);
+
+				TIM4->CCR3 = 2700 - round(rightTilt);
+				TIM4->CCR4 = 0;
+				CheckSecurity();
+
+			}
+			MotorStop();
+			while (BWF2_Status != INSIDE) {
+
+				MotorLeft(MotorMinSpeed, MotorMaxSpeed, 200);
+				CheckSecurity();
+
+			}
 			return;
 		}
 		HAL_Delay(500);
@@ -1970,11 +2028,12 @@ void CheckState(void) {
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_OK) {
 		HAL_Delay(500);
-		hold_heading = heading;
+		mpu.hold_heading = mpu.heading;
 		if (cutterStatus == 0 && perimeterTracking == 0) {
 			cutterON();
 		}
 		Serial_Console("Going Forward\r\n");
+		mag_near_bwf = 0;
 		MotorForward(MotorMinSpeed, MotorMaxSpeed);
 
 	}
@@ -2030,8 +2089,6 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
-  MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_IWDG_Init();
   MX_RNG_Init();
   MX_USART1_UART_Init();
@@ -2041,6 +2098,8 @@ int main(void)
   MX_RTC_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
+  MX_I2C1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start(&htim4);					// Start TIM4 on wheel motors
@@ -2106,6 +2165,8 @@ int main(void)
 
   Serial_RPi("Booting done!\r\n");
   Serial_Console("Booting done!\r\n");
+
+  settings.MowTimer = HAL_GetTick();
 
   while (1)
     {
@@ -2786,6 +2847,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == GPIO_PIN_8) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+
+    }
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {

@@ -7,6 +7,6 @@ sram.c:74:6:write_sram_uint32	8	static
 sram.c:84:7:read_sram_float	8	static
 sram.c:97:6:write_sram_float	16	static
 sram.c:107:6:enable_backup_sram	16	static
-sram.c:120:15:read_all_settings	48	static
-sram.c:150:6:write_all_settings	8	static
-sram.c:179:6:save_default_settings	96	static
+sram.c:120:15:read_all_settings	64	static
+sram.c:159:6:write_all_settings	8	static
+sram.c:199:6:save_default_settings	128	static
