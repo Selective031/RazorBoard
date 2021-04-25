@@ -3828,18 +3828,18 @@ Disassembly of section .text:
  8002aba:	4886      	ldr	r0, [pc, #536]	; (8002cd4 <main+0x2b4>)
  8002abc:	942e      	str	r4, [sp, #184]	; 0xb8
  8002abe:	a92c      	add	r1, sp, #176	; 0xb0
- 8002ac0:	2701      	movs	r7, #1
+ 8002ac0:	2601      	movs	r6, #1
  8002ac2:	e9cd 342c 	strd	r3, r4, [sp, #176]	; 0xb0
  8002ac6:	f003 f94d 	bl	8005d64 <HAL_GPIO_Init>
  8002aca:	f44f 6380 	mov.w	r3, #1024	; 0x400
  8002ace:	487f      	ldr	r0, [pc, #508]	; (8002ccc <main+0x2ac>)
  8002ad0:	a92c      	add	r1, sp, #176	; 0xb0
- 8002ad2:	e9cd 372c 	strd	r3, r7, [sp, #176]	; 0xb0
+ 8002ad2:	e9cd 362c 	strd	r3, r6, [sp, #176]	; 0xb0
  8002ad6:	e9cd 442e 	strd	r4, r4, [sp, #184]	; 0xb8
  8002ada:	f003 f943 	bl	8005d64 <HAL_GPIO_Init>
  8002ade:	487c      	ldr	r0, [pc, #496]	; (8002cd0 <main+0x2b0>)
  8002ae0:	a92c      	add	r1, sp, #176	; 0xb0
- 8002ae2:	e9cd 772c 	strd	r7, r7, [sp, #176]	; 0xb0
+ 8002ae2:	e9cd 662c 	strd	r6, r6, [sp, #176]	; 0xb0
  8002ae6:	e9cd 442e 	strd	r4, r4, [sp, #184]	; 0xb8
  8002aea:	f003 f93b 	bl	8005d64 <HAL_GPIO_Init>
  8002aee:	941e      	str	r4, [sp, #120]	; 0x78
@@ -3887,34 +3887,34 @@ Disassembly of section .text:
  8002b5a:	e9c5 1300 	strd	r1, r3, [r5]
  8002b5e:	f04f 0802 	mov.w	r8, #2
  8002b62:	4b5f      	ldr	r3, [pc, #380]	; (8002ce0 <main+0x2c0>)
- 8002b64:	612f      	str	r7, [r5, #16]
+ 8002b64:	612e      	str	r6, [r5, #16]
  8002b66:	4628      	mov	r0, r5
- 8002b68:	762f      	strb	r7, [r5, #24]
+ 8002b68:	762e      	strb	r6, [r5, #24]
  8002b6a:	f885 4020 	strb.w	r4, [r5, #32]
  8002b6e:	62ec      	str	r4, [r5, #44]	; 0x2c
  8002b70:	62ab      	str	r3, [r5, #40]	; 0x28
  8002b72:	60ec      	str	r4, [r5, #12]
  8002b74:	f8c5 801c 	str.w	r8, [r5, #28]
- 8002b78:	f885 7030 	strb.w	r7, [r5, #48]	; 0x30
+ 8002b78:	f885 6030 	strb.w	r6, [r5, #48]	; 0x30
  8002b7c:	616c      	str	r4, [r5, #20]
  8002b7e:	f002 fb8b 	bl	8005298 <HAL_ADC_Init>
  8002b82:	b108      	cbz	r0, 8002b88 <main+0x168>
  8002b84:	b672      	cpsid	i
  8002b86:	e7fe      	b.n	8002b86 <main+0x166>
- 8002b88:	260c      	movs	r6, #12
- 8002b8a:	2306      	movs	r3, #6
- 8002b8c:	a92c      	add	r1, sp, #176	; 0xb0
- 8002b8e:	4628      	mov	r0, r5
- 8002b90:	e9cd 672c 	strd	r6, r7, [sp, #176]	; 0xb0
+ 8002b88:	230d      	movs	r3, #13
+ 8002b8a:	e9cd 362c 	strd	r3, r6, [sp, #176]	; 0xb0
+ 8002b8e:	a92c      	add	r1, sp, #176	; 0xb0
+ 8002b90:	2306      	movs	r3, #6
+ 8002b92:	4628      	mov	r0, r5
  8002b94:	932e      	str	r3, [sp, #184]	; 0xb8
  8002b96:	f002 fdc9 	bl	800572c <HAL_ADC_ConfigChannel>
  8002b9a:	b108      	cbz	r0, 8002ba0 <main+0x180>
  8002b9c:	b672      	cpsid	i
  8002b9e:	e7fe      	b.n	8002b9e <main+0x17e>
- 8002ba0:	230d      	movs	r3, #13
+ 8002ba0:	260c      	movs	r6, #12
  8002ba2:	a92c      	add	r1, sp, #176	; 0xb0
  8002ba4:	4628      	mov	r0, r5
- 8002ba6:	e9cd 382c 	strd	r3, r8, [sp, #176]	; 0xb0
+ 8002ba6:	e9cd 682c 	strd	r6, r8, [sp, #176]	; 0xb0
  8002baa:	f002 fdbf 	bl	800572c <HAL_ADC_ConfigChannel>
  8002bae:	b108      	cbz	r0, 8002bb4 <main+0x194>
  8002bb0:	b672      	cpsid	i
