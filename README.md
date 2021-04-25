@@ -246,7 +246,7 @@ Type "export sig" and you will get the signature as an array if you like to save
 # Proximity Magnitude
 
 A new function as been added in the "dev" branch, this function can determine how near the mower are to the boundary wire and start to de-accelerate before going over the boundary. This is usefull when the mower is going down a slope in full speed, if the boundary is very near an edge it can go further over the boundary than it is suppose to.
-To use this function, place the mower at a distance from the boundary you wish to start the slow down. Make sure you disable the system, then enter the "debug on" command. Check the "Magnitude" line. Remember this value and type "set mag value xxx" - "save config".
+To use this function, place the mower (with the sensors towards the boundary) at a distance from the boundary you wish to start the slow down. Make sure you disable the system, then enter the "debug on" command. Check the "Magnitude" line. Remember this value and type "set mag value xxx" - "save config".
 By default the mower will slow down to 80% of normal speed when the proximity has has been reached.
 
 # MPU-6050
