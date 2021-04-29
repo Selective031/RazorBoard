@@ -5,7 +5,7 @@ Welcome to Razorboard! This is the first GA version of RazorBoard.
 # Brief description:
 
 RazorBoard is a PCB with most hardware integrated for building a DIY Robotic Lawn Mower.
-With this revision, you need to get a MPU-6050 and a RTC battery. In a future revision, this will be included on the PCB.
+With this revision, you need to get a MPU-6050 and a RTC battery. In a future revision, this will be included on the PCB (MPU-6050 is now included in PCB revision 1.2).
 
 # Hardware:
 
@@ -29,7 +29,7 @@ Board size: 95 x 95mm
 
 # Required add-ons
 
-- MPU-6050
+- MPU-6050  (This is now included in PCB revision 1.2)
 - Power Resistor for each loop
 - RTC battery
 
@@ -318,9 +318,10 @@ You should now be able to "Build Project" from:
 
 # Hardware hacks
 
-- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins.
-- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder.
+- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins (This is now included in PCB revision 1.2).
+- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder, (This is now included in PCB revision 1.2).
 - As you might noticed, when using the MPU-6050, you use SDA and SCL which are shared with UART3. However, in software you can move UART3 to PD8 and PD9. So you dont loose UART3 just because an MPU-6050 is connected. You got to love STM32 ;)
+- If you dont want to add a Raspberry Pi but still want the environmental temperature and humidity, you could bridge the DHT11/22 pin (from the RPi connector) to a digital pin on the STM32, both are 3.3V so no harm will be done, however at the time writing this there is no code for it yet on the STM32.
 
 # Troubleshooting:
 
