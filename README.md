@@ -1,4 +1,4 @@
-# RazorBoard 1.0 rev. E
+# RazorBoard 1.0 rev. E (Soon also RazorBoard 1.2)
 
 Welcome to Razorboard! This is the first GA version of RazorBoard.
 
