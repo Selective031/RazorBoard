@@ -282,6 +282,11 @@ By default, Loop1 is the primary connector for the boundary wire. Loop2 will com
 At power up, the PCB takes a series of measurements to determine what the current level on the charge connector is (to be able to detect when the mower is docked). Do not have the mower connected to the connector, that will interfere with the measurements. If you are certain about the level, you could hardcode it and compile a new .bin file.
 When the red LED is static, the PCB is powered. When blinking (2 hz) the boundary wire is active.
 
+# DHT11/22
+As can been seen on the PCB, there is a weird looking connection under the USB connector, this is where you can solder a DHT11/22 sensor, this will give you environmental temperature and humidity.
+The idea is to monitor the temperature and humidity during the mowing time, if the tempereture is above a specific level, GO HOME!
+The DHT22 is very sensitive and could potentielly also tell you when it is raining, a perfect sensor for detecting rain! If the humidity level is above a certain level, GO HOME!
+
 # Importing the project
 
 Download the Github repository.
