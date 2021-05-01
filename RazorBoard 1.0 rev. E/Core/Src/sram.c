@@ -132,6 +132,7 @@ sram_settings read_all_settings(void)
 
 	settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
 	settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
+	settings.magMinValue = read_sram_uint16(MAGMINVALUE_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -146,13 +147,9 @@ sram_settings read_all_settings(void)
 	settings.ki = read_sram_float(KI_ADDR);
 	settings.kd = read_sram_float(KD_ADDR);
 
-	settings.MowTime = read_sram_uint32(MowTime_ADDR);
-	settings.MowTimer = read_sram_uint32(MowTimer_ADDR);
-
 	settings.Motor_Max_Limit = read_sram_float(Motor_Max_Limit_ADDR);
-
 	settings.voltageMultiply = read_sram_float(voltageMultiply_ADDR);
-
+	settings.proximitySpeed = read_sram_float(proximitySpeed_ADDR);
 
 	return settings;
 }
@@ -178,6 +175,7 @@ void write_all_settings(sram_settings settings)
 	// uint16_t
 	write_sram_uint16(settings.HoldChargeDetection, HOLDCHARGEDETECTION_ADDR);
 	write_sram_uint16(settings.magValue, MAGVALUE_ADDR);
+	write_sram_uint16(settings.magMinValue, MAGMINVALUE_ADDR);
 
 	// uint32_t & float
 	write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -189,10 +187,9 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.kp, KP_ADDR);
 	write_sram_float(settings.ki, KI_ADDR);
 	write_sram_float(settings.kd, KD_ADDR);
-	write_sram_uint32(settings.MowTime, MowTime_ADDR);
-	write_sram_uint32(settings.MowTimer, MowTimer_ADDR);
 	write_sram_float(settings.Motor_Max_Limit, Motor_Max_Limit_ADDR);
 	write_sram_float(settings.voltageMultiply, voltageMultiply_ADDR);
+	write_sram_float(settings.proximitySpeed, proximitySpeed_ADDR);
 
 }
 
@@ -206,7 +203,7 @@ void save_default_settings(void) {
 	settings.Battery_High_Limit = 25.00;
 	settings.Boundary_Timeout = 6;
 	settings.Cutter_Limit = 2.0;
-	settings.HoldChargeDetection = 300;
+	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
 	settings.Outside_Threshold = 8;
 	settings.Motor_Limit = 3.0;
@@ -215,14 +212,14 @@ void save_default_settings(void) {
 	settings.Signal_Integrity_OUT = -0.80;
 	settings.WorkingHourStart = 10;
 	settings.WorkingHourEnd = 20;
-	settings.kp = 0.12;
+	settings.kp = 0.11;
 	settings.ki = 0.0;
-	settings.kd = 0.02;
-	settings.MowTime = 5400000;
-	settings.MowTimer = HAL_GetTick();
+	settings.kd = 0.03;
 	settings.Motor_Max_Limit = 0.3;
-	settings.magValue = 380;
+	settings.magValue = 370;
+	settings.magMinValue = 350;
 	settings.voltageMultiply = 5.0;
+	settings.proximitySpeed = 0.80;
 
 	write_all_settings(settings);
 

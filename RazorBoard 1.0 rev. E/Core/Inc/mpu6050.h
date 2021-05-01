@@ -18,16 +18,8 @@
 #define PWR_MGMT_1_REG 0x6B
 #define WHO_AM_I_REG 0x75
 
-int16_t Accel_X_RAW = 0;
-int16_t Accel_Y_RAW = 0;
-int16_t Accel_Z_RAW = 0;
-int16_t Gyro_X_RAW = 0;
-int16_t Gyro_Y_RAW = 0;
-int16_t Gyro_Z_RAW = 0;
-
 float Ax, Ay, Az, Gx, Gy, Gz;
 float raw_roll, raw_pitch;
-float yaw = 0;
 
 typedef struct MP6050 {
 
@@ -41,5 +33,10 @@ typedef struct MP6050 {
 	float pitch_error;
 
 } mpu6050;
+
+extern void Init6050(void);
+extern void MPU6050_Read_Accel(void);
+extern void MPU6050_Read_Gyro(void);
+extern void ProcessIMUData();
 
 #endif /* INC_MPU6050_H_ */
