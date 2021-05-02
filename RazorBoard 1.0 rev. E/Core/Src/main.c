@@ -312,13 +312,13 @@ void CalcMagnitude(uint8_t Sensor) {
 	  if (Sensor == 1) magBWF1 = round(magValue);
 	  else if (Sensor == 2) magBWF2 = round(magValue);
 
-	  if (magBWF1 || magBWF2 >= settings.magValue) {
+	  if (magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) {
 		  if (mag_near_bwf == 0) {
 			  Serial_Console("PROXIMITY ALERT!\r\n");
 		  }
 		  mag_near_bwf = 1;
 	  }
-	  else if (magBWF1 && magBWF2 <= settings.magMinValue) {
+	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
 		  if (mag_near_bwf == 1) {
 			  Serial_Console("PROXIMITY CLEARED!\r\n");
 		  }
