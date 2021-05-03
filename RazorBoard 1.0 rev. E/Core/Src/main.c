@@ -161,6 +161,7 @@ uint8_t MotorSpeedUpdateFreq = 100;			// Freq to update motor speed, in millisec
 uint8_t ChargerConnect = 0;					// Are we connected to the charger?
 uint8_t DEBUG_RAZORBOARD = 0;				// Used by "debug on/debug off"
 uint8_t mag_near_bwf = 0;
+uint32_t mag_timer;
 
 sram_settings settings;
 mpu6050 mpu;
@@ -317,12 +318,15 @@ void CalcMagnitude(uint8_t Sensor) {
 			  Serial_Console("PROXIMITY ALERT!\r\n");
 		  }
 		  mag_near_bwf = 1;
+		  mag_timer = HAL_GetTick();
 	  }
 	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
 		  if (mag_near_bwf == 1) {
-			  Serial_Console("PROXIMITY CLEARED!\r\n");
+			  if (HAL_GetTick() - mag_timer >= 3000) {
+				  mag_near_bwf = 0;
+				  Serial_Console("PROXIMITY CLEARED!\r\n");
+			  }
 		  }
-		  mag_near_bwf = 0;
 	  }
 }
 
@@ -493,7 +497,7 @@ void CheckMotorCurrent(int RAW) {
 	            	}
 	            	MotorBrake();
 	            	HAL_Delay(500);
-	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 400);
+	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
 	            	HAL_Delay(500);
 	            	MotorRight(MotorMinSpeed, MotorMaxSpeed, 300);
 	            	Force_Active = 0;
@@ -524,7 +528,7 @@ void CheckMotorCurrent(int RAW) {
 	            	}
 	            	MotorBrake();
 	            	HAL_Delay(500);
-	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 400);
+	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
 	            	HAL_Delay(500);
 	            	MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300);
 	            	Force_Active = 0;
@@ -1295,7 +1299,7 @@ void CheckBWF() {
     	BWF1_reply = 1;
     	if (Initial_Start == 0) Start_Threshold = 0;
     	bwf1_outside++;
-
+    	CalcMagnitude(1);
     }
 
     if (BWF2_Verdict_Signal >= settings.Signal_Integrity_IN) {
@@ -1318,7 +1322,7 @@ void CheckBWF() {
     	BWF2_reply = 1;
     	if (Initial_Start == 0) Start_Threshold = 0;
     	bwf2_outside++;
-
+    	CalcMagnitude(2);
     }
 	}
 }
@@ -1471,8 +1475,9 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 }
 void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
+	uint32_t motor_timer;
 	State = BACKWARD;
-	uint16_t timeCount = 0;
+	motor_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1488,15 +1493,17 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 	  TIM4->CCR4 = currentSpeed;
 
 	  HAL_Delay(1);
-	  timeCount++;
 
 	  CheckSecurity();
 
-	  if (timeCount >= time_ms) {
+	  if (HAL_GetTick() - motor_timer >= time_ms) {
 		  break;
 	  }
  }
-MotorStop();
+while (HAL_GetTick() - motor_timer < time_ms) {
+	CheckSecurity();
+}
+	MotorStop();
 }
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
@@ -1701,19 +1708,19 @@ void CheckState(void) {
 		CheckSecurity();				// Double check status of the sensors when we are standing still
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 400);
+			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
 			HAL_Delay(500);
 			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 400);
+			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
 			HAL_Delay(500);
 			MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 
 			Serial_Console("Going Backward\r\n");
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 3000);
+			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
 				MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
@@ -1755,7 +1762,7 @@ void CheckState(void) {
 			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(MotorMinSpeed,MotorMaxSpeed, 3000);
+			MotorBackward(MotorMinSpeed,MotorMaxSpeed, 1500);
 			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
 		}
 	}

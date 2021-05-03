@@ -98,8 +98,8 @@ void MPU6050_Read_Accel(void) {
 	Az = Accel_Z_RAW/16384.0;
 
 	float r, p;
-	p = atan2(Ay , Az) * 57.3;
-	r = atan2((- Ax) , sqrtf(Ay * Ay + Az * Az)) * 57.3;
+	p = atan2(Ay , Az) * 57.3;										// Ay, Az
+	r = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
 
 	raw_roll = r + mpu.roll_error;
 	raw_pitch = p + mpu.pitch_error;
