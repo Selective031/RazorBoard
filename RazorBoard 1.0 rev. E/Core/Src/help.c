@@ -57,6 +57,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Proximity Speed: %.2f\r\n", settings.proximitySpeed);
 	Serial_Console(msg);
+	sprintf(msg, "Movement Value: %.2f\r\n", settings.movement);
+	Serial_Console(msg);
 }
 
 
@@ -128,6 +130,8 @@ void help(void) {
 	sprintf(msg, "SET CUTTER LIMIT        - Set Cutter Motor Limit in Amp\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET MOTOR LIMIT         - Set Motor Limit, in multiply, default = 3.0\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET MOVEMENT LIMIT      - Set Movement Limit for detecting movement\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
 	Serial_Console(msg);

@@ -150,6 +150,7 @@ sram_settings read_all_settings(void)
 	settings.Motor_Max_Limit = read_sram_float(Motor_Max_Limit_ADDR);
 	settings.voltageMultiply = read_sram_float(voltageMultiply_ADDR);
 	settings.proximitySpeed = read_sram_float(proximitySpeed_ADDR);
+	settings.movement = read_sram_float(MOVEMENT_ADDR);
 
 	return settings;
 }
@@ -190,6 +191,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.Motor_Max_Limit, Motor_Max_Limit_ADDR);
 	write_sram_float(settings.voltageMultiply, voltageMultiply_ADDR);
 	write_sram_float(settings.proximitySpeed, proximitySpeed_ADDR);
+	write_sram_float(settings.movement, MOVEMENT_ADDR);
 
 }
 
@@ -220,6 +222,7 @@ void save_default_settings(void) {
 	settings.magMinValue = 350;
 	settings.voltageMultiply = 5.0;
 	settings.proximitySpeed = 0.80;
+	settings.movement = 0.5;
 
 	write_all_settings(settings);
 

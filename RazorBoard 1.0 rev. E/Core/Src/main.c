@@ -77,6 +77,7 @@ IWDG_HandleTypeDef hiwdg;
 #define SECURITY_BUMBER 5
 #define SECURITY_IMU_FAIL 6
 #define SECURITY_OUTSIDE 7
+#define SECURITY_MOVEMENT 8
 
 #define INITIAL_MAX_THRESHOLD 10000
 
@@ -162,6 +163,7 @@ uint8_t ChargerConnect = 0;					// Are we connected to the charger?
 uint8_t DEBUG_RAZORBOARD = 0;				// Used by "debug on/debug off"
 uint8_t mag_near_bwf = 0;
 uint32_t mag_timer;
+uint32_t move_timer = 0;
 
 sram_settings settings;
 mpu6050 mpu;
@@ -593,6 +595,16 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
 		Serial_Console(msg);
+		sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
+		Serial_Console(msg);
+		if (mpu.movement < settings.movement) {
+			sprintf(msg, "Standing still\r\n");
+			Serial_Console(msg);
+		}
+		else {
+			sprintf(msg, "MOVING!\r\n");
+			Serial_Console(msg);
+		}
 
 		char Data[128];
 
@@ -1001,7 +1013,12 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.Motor_Limit = limit;
 			}
-
+			if (strncmp(Command, "SET MOVEMENT LIMIT", 18) == 0) {
+				float limit;
+				char cmd1[3], cmd2[5], cmd3[5];
+				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
+				settings.movement = limit;
+			}
 			if (strncmp(Command, "SET DATE", 8) == 0) {
 				int year = 0, month = 0, day = 0, weekday = 0;
 				char cmd1[3], cmd2[4];
@@ -1136,6 +1153,14 @@ uint8_t CheckSecurity(void) {
     	State = FAIL;
     	Security = NOSIGNAL;
     	return SECURITY_NOSIGNAL;
+    }
+    if ((TIM4->CCR2 == MotorMaxSpeed || TIM4->CCR3 == MotorMinSpeed) && mpu.movement < settings.movement) {
+        if (HAL_GetTick() - move_timer >= 2000) {
+        	return SECURITY_MOVEMENT;
+        }
+    }
+    else {
+    	move_timer = HAL_GetTick();
     }
 
     if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
@@ -1650,6 +1675,11 @@ void CheckState(void) {
 		unDock();
 		return;
 		}
+	if (CheckSecurity() == SECURITY_MOVEMENT) {
+		MotorStop();
+		MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+		MotorLeft(MotorMinSpeed, MotorMaxSpeed, 1500);
+	}
 
 	if (State == FAIL) {
 		MotorStop();

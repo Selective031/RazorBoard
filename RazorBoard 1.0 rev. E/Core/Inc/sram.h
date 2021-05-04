@@ -32,7 +32,7 @@ static const char VERSION[] = "Version 1.0.2";
 #define KP_ADDR							0x7C	//uint32_t
 #define KI_ADDR							0x80	//uint32_t
 #define KD_ADDR							0x84	//uint32_t
-//										0x88	//uint32_t
+#define MOVEMENT_ADDR					0x88	//uint32_t
 //										0x8C	//uint32_t
 #define Motor_Max_Limit_ADDR			0x90	//uint32_t
 #define voltageMultiply_ADDR			0x94	//uint32_t
@@ -64,6 +64,7 @@ typedef struct SRAM {
 	float kd;
 	float voltageMultiply;
 	float proximitySpeed;
+	float movement;
 
 } sram_settings;
 

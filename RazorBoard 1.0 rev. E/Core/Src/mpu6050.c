@@ -20,7 +20,9 @@ float pitch_limit[20] = {0};
 float roll_limit[20] = {0};
 uint8_t pitch_limit_idx = 0;
 uint8_t roll_limit_idx = 0;
-
+float a,b;
+float move_array[20] = {1.0};
+uint8_t move_index = 0;
 
 void Init6050() {
 
@@ -64,6 +66,14 @@ void ProcessIMUData() {
 		r += roll_limit[x];
 
 	}
+	move_array[move_index] = sqrtf(a + b);
+	move_index++;
+	if (move_index == 20) move_index = 0;
+	float sum = 0;
+	for (int x = 0; x < 20; x++) {
+		sum += move_array[x];
+	}
+	mpu.movement = sum / 20;
 
 	mpu.roll = r / 20;
 	mpu.pitch = p / 20;
@@ -97,6 +107,8 @@ void MPU6050_Read_Accel(void) {
 	Ay = Accel_Y_RAW/16384.0;
 	Az = Accel_Z_RAW/16384.0;
 
+	b = (fabs(Ax) + fabs(Ay) + fabs(Az))* 0.02;
+
 	float r, p;
 	p = atan2(Ay , Az) * 57.3;										// Ay, Az
 	r = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
@@ -128,6 +140,7 @@ void MPU6050_Read_Gyro(void) {
 	Gy = Gyro_Y_RAW/131.0;
 	Gz = Gyro_Z_RAW/131.0;
 
+	a = (fabs(Gx) + fabs(Gy) + fabs(Gz))* 0.02;
 
 	if (Initial_Start == 0) {
 		if (fabs(Gz) < 1.0) {
