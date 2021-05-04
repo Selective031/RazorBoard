@@ -157,7 +157,8 @@ uint8_t MotorSpeedUpdateFreq = 100;			// Freq to update motor speed, in millisec
 uint8_t ChargerConnect = 0;					// Are we connected to the charger?
 uint8_t DEBUG_RAZORBOARD = 0;				// Used by "debug on/debug off"
 uint8_t mag_near_bwf = 0;
-uint32_t mag_timer;
+
+uint32_t mag_timer = 0;
 uint32_t move_timer = 0;
 
 sram_settings settings;
@@ -591,8 +592,8 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
 		Serial_Console(msg);
-		if (mpu.movement < settings.movement) sprintf(msg, "Standing still\r\n");
-		else sprintf(msg, "MOVING!\r\n");
+		if (mpu.movement < settings.movement) sprintf(msg, "Movement Verdict: Standing\r\n");
+		else sprintf(msg, "Movement Verdict: Moving\r\n");
 		Serial_Console(msg);
 
 		char Data[128];
@@ -694,7 +695,7 @@ void unDock(void) {
 
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
 
-		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500);			// This needs to be changed if your docking is on the right side
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);			// This needs to be changed if your docking is on the right side
 
 		Docked = 0;
 		Initial_Start = 0;
@@ -942,6 +943,30 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %s %f", cmd1, cmd2, cmd3, cmd4, &limit);
 				settings.Motor_Max_Limit = limit;
 			}
+			if (strncmp(Command, "SET MOTOR MIN LIMIT", 19) == 0) {
+				float limit;
+				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+				sscanf(Command, "%s %s %s %s %f", cmd1, cmd2, cmd3, cmd4, &limit);
+				settings.Motor_Min_Limit = limit;
+			}
+			if (strncmp(Command, "SET MOTOR MAX SPEED", 19) == 0) {
+				int speed;
+				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+				sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
+				settings.motorMaxSpeed = speed;
+			}
+			if (strncmp(Command, "SET MOTOR MIN SPEED", 19) == 0) {
+				int speed;
+				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+				sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
+				settings.motorMinSpeed = speed;
+			}
+			if (strncmp(Command, "SET CUTTER SPEED", 16) == 0) {
+				int speed;
+				char cmd1[3], cmd2[5], cmd3[3];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
+				settings.cutterSpeed = speed;
+			}
 			if (strncmp(Command, "SET BOUNDARY TIMEOUT", 20) == 0) {
 				int limit;
 				char cmd1[3], cmd2[8], cmd3[7];
@@ -1013,7 +1038,6 @@ void parseCommand_Console(void) {
 				char cmd1[3], cmd2[4];
 				sscanf(Command, "%s %s %d %d %d %d", cmd1, cmd2, &year, &month, &day, &weekday);
 				setDate(year, month, day, weekday);
-
 			}
 			if (strncmp(Command, "SET TIME", 8) == 0) {
 				int hour = 0, minute = 0, second = 0;
@@ -1284,11 +1308,9 @@ void CheckBWF() {
 			myID++;
 		}
 
-//	Result_Signal = sqrtf(BWF1_Received_Signal * Match_Signal);
 	arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
 	BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
 
-//	Result_Signal = sqrtf(BWF2_Received_Signal * Match_Signal);
 	arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
 	BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
 
@@ -1499,7 +1521,8 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
 	State = RIGHT;
-	uint16_t timeCount = 0;
+	uint32_t motor_timer;
+	motor_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1514,20 +1537,23 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 	  TIM4->CCR4 = currentSpeed;
 
 	  HAL_Delay(1);
-	  timeCount++;
 
 	  CheckSecurity();
 
-	  if (timeCount >= time_ms) {
+	  if (HAL_GetTick() - motor_timer >= time_ms) {
 		  break;
 	  }
  }
-MotorStop();
+while (HAL_GetTick() - motor_timer < time_ms) {
+	CheckSecurity();
+}
+	MotorStop();
 }
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
 	State = LEFT;
-	uint16_t timeCount = 0;
+	uint32_t motor_timer;
+	motor_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1542,15 +1568,17 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 	  TIM4->CCR4 = 0;
 
 	  HAL_Delay(1);
-	  timeCount++;
 
 	  CheckSecurity();
 
-	  if (timeCount >= time_ms) {
+	  if (HAL_GetTick() - motor_timer >= time_ms) {
 		  break;
 	  }
  }
-MotorStop();
+while (HAL_GetTick() - motor_timer < time_ms) {
+	CheckSecurity();
+}
+	MotorStop();
 }
 void MotorStop(void) {
 
@@ -1641,6 +1669,7 @@ void CheckState(void) {
 		unDock();
 		return;
 		}
+
 	if (CheckSecurity() == SECURITY_MOVEMENT) {
 		MotorStop();
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
@@ -1706,12 +1735,12 @@ void CheckState(void) {
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 
@@ -1719,10 +1748,10 @@ void CheckState(void) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 			}
 			else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 				}
 		}
 
@@ -1752,14 +1781,14 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 		}
 		else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
 		}
 	}
 
@@ -1866,7 +1895,7 @@ int main(void)
   settings = read_all_settings();
   if (settings.Config_Set != 42) {
 	  save_default_settings();
-	  Serial_Console("No config found - Factory default\r\n");
+	  Serial_Console("No config found - Setting factory default\r\n");
 	  settings = read_all_settings();
   }
   Serial_Console("Config loaded from SRAM\r\n");

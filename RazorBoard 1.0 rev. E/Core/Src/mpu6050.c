@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define M_PI 3.14159265358979323846
+
 extern I2C_HandleTypeDef hi2c2;
 extern mpu6050 mpu;
 extern uint8_t Initial_Start;
@@ -66,6 +68,7 @@ void ProcessIMUData() {
 		r += roll_limit[x];
 
 	}
+
 	move_array[move_index] = sqrtf(a + b);
 	move_index++;
 	if (move_index == 20) move_index = 0;
