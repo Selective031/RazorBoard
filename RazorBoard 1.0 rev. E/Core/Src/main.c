@@ -482,7 +482,7 @@ void CheckMotorCurrent(int RAW) {
 	            	ForceM1 += M1_force[x];
 	            }
 	            M1_F = ForceM1 / 20;
-	            if (M1_F < 0.1) M1_F = 0.1;
+	            if (M1_F < settings.Motor_Min_Limit) M1_F = settings.Motor_Min_Limit;
 	            if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
 
 	            	sprintf(msg, "Motor Current Limit reached for M1: %f", M1_amp);
@@ -513,7 +513,7 @@ void CheckMotorCurrent(int RAW) {
 	            	ForceM2 += M2_force[x];
 	            }
 	            M2_F = ForceM2 / 20;
-	            if (M2_F < 0.1) M2_F = 0.1;
+	            if (M2_F < settings.Motor_Min_Limit) M2_F = settings.Motor_Min_Limit;
 	            if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
 
 	            	sprintf(msg, "Motor Current Limit reached for M2: %f", M2_amp);
