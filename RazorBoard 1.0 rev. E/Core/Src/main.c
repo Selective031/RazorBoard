@@ -81,11 +81,6 @@ IWDG_HandleTypeDef hiwdg;
 
 #define INITIAL_MAX_THRESHOLD 10000
 
-#define MotorMaxSpeed 3360 -1		// 3359 is max PWM for 25Khz at 84 MHz with APB1 Clock
-#define MotorMinSpeed 2000			// Minimum speed to start with
-
-#define CUTTER_MAX_SPEED 2750		// max is 3359 at 25Khz
-
 #define PI_BFR_SIZE 64				// Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64			// Buffer size for Serial Console
 
@@ -224,7 +219,6 @@ static void MX_I2C2_Init(void);
 static void MotorStop(void);
 static void MotorBrake(void);
 static void MotorHardBrake(void);
-static void Undock_MotorBackward(uint16_t minSpeed, uint16_t maxSpeed);
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
 static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
@@ -499,9 +493,9 @@ void CheckMotorCurrent(int RAW) {
 	            	}
 	            	MotorBrake();
 	            	HAL_Delay(500);
-	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 	            	HAL_Delay(500);
-	            	MotorRight(MotorMinSpeed, MotorMaxSpeed, 300);
+	            	MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
 
 	            }
@@ -530,9 +524,9 @@ void CheckMotorCurrent(int RAW) {
 	            	}
 	            	MotorBrake();
 	            	HAL_Delay(500);
-	            	MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 	            	HAL_Delay(500);
-	            	MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300);
+	            	MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
 
 	            }
@@ -597,14 +591,9 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
 		Serial_Console(msg);
-		if (mpu.movement < settings.movement) {
-			sprintf(msg, "Standing still\r\n");
-			Serial_Console(msg);
-		}
-		else {
-			sprintf(msg, "MOVING!\r\n");
-			Serial_Console(msg);
-		}
+		if (mpu.movement < settings.movement) sprintf(msg, "Standing still\r\n");
+		else sprintf(msg, "MOVING!\r\n");
+		Serial_Console(msg);
 
 		char Data[128];
 
@@ -703,9 +692,9 @@ void unDock(void) {
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 		HAL_Delay(5000);
 
-		Undock_MotorBackward(MotorMinSpeed, MotorMaxSpeed);
+		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
 
-		MotorLeft(MotorMinSpeed, MotorMaxSpeed, 500);			// This needs to be changed if your docking is on the right side
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500);			// This needs to be changed if your docking is on the right side
 
 		Docked = 0;
 		Initial_Start = 0;
@@ -1154,7 +1143,7 @@ uint8_t CheckSecurity(void) {
     	Security = NOSIGNAL;
     	return SECURITY_NOSIGNAL;
     }
-    if ((TIM4->CCR2 == MotorMaxSpeed || TIM4->CCR3 == MotorMinSpeed) && mpu.movement < settings.movement) {
+    if ((TIM4->CCR2 == settings.motorMaxSpeed || TIM4->CCR3 == settings.motorMaxSpeed) && mpu.movement < settings.movement) {
         if (HAL_GetTick() - move_timer >= 2000) {
         	return SECURITY_MOVEMENT;
         }
@@ -1181,8 +1170,8 @@ void cutterHardBreak() {
 
 	// Cutter disc hard brake
 
-	TIM3->CCR1 = MotorMaxSpeed;		// Motor will hard brake when both "pins" go HIGH
-	TIM3->CCR2 = MotorMaxSpeed;
+	TIM3->CCR1 = settings.motorMaxSpeed;		// Motor will hard brake when both "pins" go HIGH
+	TIM3->CCR2 = settings.motorMaxSpeed;
 	HAL_Delay(3000);
 	cutterOFF();
 
@@ -1196,7 +1185,7 @@ void cutterON(void) {
 
 	if (rnd(1000) < 500 ) {			// Randomly select CW or CCW
 
-		for (uint16_t cutterSpeed = 1000; cutterSpeed < CUTTER_MAX_SPEED; cutterSpeed++) {
+		for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
 
 			Boundary_Timer = HAL_GetTick();
 			TIM3->CCR1 = cutterSpeed;
@@ -1206,7 +1195,7 @@ void cutterON(void) {
 		}
 	}
 	else {
-		for (uint16_t cutterSpeed = 1000; cutterSpeed < CUTTER_MAX_SPEED; cutterSpeed++) {
+		for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
 
 			Boundary_Timer = HAL_GetTick();
 			TIM3->CCR1 = 0;
@@ -1410,11 +1399,11 @@ void UpdateMotorSpeed() {
 
 	uint16_t Speed;
 	if (mag_near_bwf == 1) {
-		Speed = MotorMaxSpeed;
+		Speed = settings.motorMaxSpeed;
 		Speed = round(Speed * settings.proximitySpeed);
 	}
 
-	else Speed = MotorMaxSpeed;
+	else Speed = settings.motorMaxSpeed;
 
 		// Target is on the Left side
 		if (dir > 0) {
@@ -1434,29 +1423,6 @@ void UpdateMotorSpeed() {
 			TIM4->CCR3 = Speed;
 		}
 
-}
-void Undock_MotorBackward(uint16_t minSpeed, uint16_t maxSpeed) {
-
-	State = BACKWARD;
-
-for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
-	  currentSpeed += 1;
-	  if (currentSpeed >= maxSpeed) {
-		  break;
-	  }
-
-	  TIM4->CCR1 = currentSpeed;
-	  TIM4->CCR2 = 0;
-
-	  TIM4->CCR3 = 0;
-	  TIM4->CCR4 = currentSpeed;
-
-	  HAL_Delay(1);
-
- }
-HAL_Delay(2000);
-MotorStop();
 }
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
@@ -1677,8 +1643,8 @@ void CheckState(void) {
 		}
 	if (CheckSecurity() == SECURITY_MOVEMENT) {
 		MotorStop();
-		MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
-		MotorLeft(MotorMinSpeed, MotorMaxSpeed, 1500);
+		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 	}
 
 	if (State == FAIL) {
@@ -1727,7 +1693,7 @@ void CheckState(void) {
 			MotorStop();
 			while (BWF2_Status != INSIDE) {
 
-				MotorLeft(MotorMinSpeed, MotorMaxSpeed, 200);
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 200);
 				CheckSecurity();
 
 			}
@@ -1738,25 +1704,25 @@ void CheckState(void) {
 		CheckSecurity();				// Double check status of the sensors when we are standing still
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 
 			Serial_Console("Going Backward\r\n");
-			MotorBackward(MotorMinSpeed, MotorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
-				MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 			}
 			else {
-				MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 				}
 		}
 
@@ -1776,7 +1742,7 @@ void CheckState(void) {
 		}
 		Serial_Console("Going Forward\r\n");
 		mag_near_bwf = 0;
-		MotorForward(MotorMinSpeed, MotorMaxSpeed);
+		MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
 
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
@@ -1786,14 +1752,14 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(MotorMinSpeed,MotorMaxSpeed, 1500);
-			MotorRight(MotorMinSpeed, MotorMaxSpeed, 300 + rnd(800) );
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 300 + rnd(800) );
 		}
 	}
 

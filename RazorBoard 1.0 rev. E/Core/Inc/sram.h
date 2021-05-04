@@ -22,6 +22,9 @@ static const char VERSION[] = "Version 1.0.2";
 #define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
 #define MAGVALUE_ADDR					0x34	//uint16_t
 #define MAGMINVALUE_ADDR				0x36	//uint16_t
+#define MOTORMAXSPEED_ADDR				0x38	//uint16_t
+#define MOTORMINSPEED_ADDR				0x3A	//uint16_t
+#define CUTTERSPEED_ADDR				0x3C	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -37,6 +40,7 @@ static const char VERSION[] = "Version 1.0.2";
 #define Motor_Max_Limit_ADDR			0x90	//uint32_t
 #define voltageMultiply_ADDR			0x94	//uint32_t
 #define proximitySpeed_ADDR				0x98	//uint32_t
+#define Motor_Min_Limit_ADDR			0x9C	//uint32_t
 
 
 typedef struct SRAM {
@@ -52,12 +56,16 @@ typedef struct SRAM {
 	uint16_t HoldChargeDetection;
 	uint16_t magValue;
 	uint16_t magMinValue;
+	uint16_t motorMaxSpeed;
+	uint16_t motorMinSpeed;
+	uint16_t cutterSpeed;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
 	float Signal_Integrity_OUT;
 	float Motor_Limit;
 	float Motor_Max_Limit;
+	float Motor_Min_Limit;
 	float Cutter_Limit;
 	float kp;
 	float ki;

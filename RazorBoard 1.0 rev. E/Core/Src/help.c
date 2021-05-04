@@ -43,6 +43,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Motor Max Limit: %.2f\r\n", settings.Motor_Max_Limit);
 	Serial_Console(msg);
+	sprintf(msg, "Motor Min Limit: %.2f\r\n", settings.Motor_Min_Limit);
+	Serial_Console(msg);
 	sprintf(msg, "KP: %.4f\r\n", settings.kp);
 	Serial_Console(msg);
 	sprintf(msg, "KI: %.4f\r\n", settings.ki);
@@ -59,6 +61,13 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Movement Value: %.2f\r\n", settings.movement);
 	Serial_Console(msg);
+	sprintf(msg, "Motor Max Speed: %d\r\n", settings.motorMaxSpeed);
+	Serial_Console(msg);
+	sprintf(msg, "Motor Min Speed: %d\r\n", settings.motorMinSpeed);
+	Serial_Console(msg);
+	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
+	Serial_Console(msg);
+
 }
 
 
@@ -107,9 +116,7 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "SET MOTOR MAX LIMIT     - Set Motor Max Limit in amp\r\n");
 	Serial_Console(msg);
-	sprintf(msg, "SET MOW TIME            - Limit the mow time, regardless of battery (in ms)\r\n");
-	Serial_Console(msg);
-	sprintf(msg, "RESET MOW TIME          - Reset Mow time\r\n");
+	sprintf(msg, "SET MOTOR MIN LIMIT     - Set Motor Min Limit in amp\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET BOUNDARY TIMEOUT    - How many seconds without INSIDE before HALT\r\n");
 	Serial_Console(msg);
