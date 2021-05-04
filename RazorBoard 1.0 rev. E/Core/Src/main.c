@@ -1693,7 +1693,7 @@ void CheckState(void) {
 			MotorStop();
 			while (BWF2_Status != INSIDE) {
 
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 200);
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500);
 				CheckSecurity();
 
 			}
