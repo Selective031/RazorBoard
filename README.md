@@ -251,6 +251,12 @@ To use this function, place the mower (with the sensors towards the boundary) at
 By default the mower will slow down to 80% of normal speed when the proximity has has been reached.
 A new "magmin value" has also been added, the magnitude needs to be under this value to release the "slowdown" function.
 
+# Spinning detection
+
+In firmware version 1.0.2, a function has been created to detect movements. This can be useful if the mower is stuck in some way and the wheels are spinning forever.
+The function uses the MPU-6050 to detect movement on all axles. After some calculations a value is produced, the higher the value the more movements are detected.
+If going below a set threshold for more than 2 seconds, the mower will stop and try to go backward and then turn. This function will be futher improved in future versions.
+
 # MPU-6050
 
 You only need to solder 4 pins on the 6050: SDA, SCL, GND and VCC.
