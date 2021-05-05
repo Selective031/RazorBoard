@@ -116,13 +116,14 @@ https://www.st.com/en/development-tools/flasher-stm32.html#overview
 1. First change the jumper from RUN to UPGRADE
 2. Power the board
 3. Start "Flash Loader Demonstrator"
-4. Click NEXT 3 times.
-5. Select "Download to Device"
-6. Locate the .bin file.
-7. Click Next and your file will now be uploaded.
-8. Remove Power from board.
-9. Change the jumper back to RUN.
-10. Power the board.
+4. Select the com-port for RazorBoard
+5. Click NEXT 3 times.
+6. Select "Download to Device"
+7. Locate the .bin file.
+8. Click Next and your file will now be uploaded.
+9. Remove Power from board.
+10. Change the jumper back to RUN.
+11. Power the board.
 
 After this inital upload, you can use the ST-Link interface for upgrading without changing jumper.
 Also, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper.
