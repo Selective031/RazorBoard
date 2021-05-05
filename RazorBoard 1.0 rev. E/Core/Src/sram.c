@@ -2,7 +2,7 @@
  * sram.c
  *
  *  Created on: 13 Apr 2021
- *      Author: SECWK0
+ *      Author: Carl Wallmark
  */
 
 #include "main.h"
@@ -131,6 +131,11 @@ sram_settings read_all_settings(void)
 	settings.Outside_Threshold = read_sram_uint8(OUTSIDE_THRESHOLD_ADDR);
 
 	settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
+	settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
+	settings.magMinValue = read_sram_uint16(MAGMINVALUE_ADDR);
+	settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
+	settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
+	settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -145,10 +150,22 @@ sram_settings read_all_settings(void)
 	settings.ki = read_sram_float(KI_ADDR);
 	settings.kd = read_sram_float(KD_ADDR);
 
+	settings.Motor_Max_Limit = read_sram_float(Motor_Max_Limit_ADDR);
+	settings.Motor_Min_Limit = read_sram_float(Motor_Min_Limit_ADDR);
+	settings.voltageMultiply = read_sram_float(voltageMultiply_ADDR);
+	settings.proximitySpeed = read_sram_float(proximitySpeed_ADDR);
+	settings.movement = read_sram_float(MOVEMENT_ADDR);
+
+
 	return settings;
 }
 void write_all_settings(sram_settings settings)
 {
+
+	// uint8_t = 1 byte
+	// uint16_t = 2 byte
+	//uint32_t = 4 byte
+	//float = 4 byte
 
 	// uint8_t
 	settings.Config_Set = 42;
@@ -163,6 +180,12 @@ void write_all_settings(sram_settings settings)
 
 	// uint16_t
 	write_sram_uint16(settings.HoldChargeDetection, HOLDCHARGEDETECTION_ADDR);
+	write_sram_uint16(settings.magValue, MAGVALUE_ADDR);
+	write_sram_uint16(settings.magMinValue, MAGMINVALUE_ADDR);
+	write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
+	write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
+	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
+
 
 	// uint32_t & float
 	write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -174,6 +197,12 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.kp, KP_ADDR);
 	write_sram_float(settings.ki, KI_ADDR);
 	write_sram_float(settings.kd, KD_ADDR);
+	write_sram_float(settings.Motor_Max_Limit, Motor_Max_Limit_ADDR);
+	write_sram_float(settings.Motor_Min_Limit, Motor_Min_Limit_ADDR);
+	write_sram_float(settings.voltageMultiply, voltageMultiply_ADDR);
+	write_sram_float(settings.proximitySpeed, proximitySpeed_ADDR);
+	write_sram_float(settings.movement, MOVEMENT_ADDR);
+
 }
 
 void save_default_settings(void) {
@@ -186,7 +215,7 @@ void save_default_settings(void) {
 	settings.Battery_High_Limit = 25.00;
 	settings.Boundary_Timeout = 6;
 	settings.Cutter_Limit = 2.0;
-	settings.HoldChargeDetection = 300;
+	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
 	settings.Outside_Threshold = 8;
 	settings.Motor_Limit = 3.0;
@@ -195,9 +224,19 @@ void save_default_settings(void) {
 	settings.Signal_Integrity_OUT = -0.80;
 	settings.WorkingHourStart = 10;
 	settings.WorkingHourEnd = 20;
-	settings.kp = 0.12;
+	settings.kp = 0.11;
 	settings.ki = 0.0;
-	settings.kd = 0.02;
+	settings.kd = 0.03;
+	settings.Motor_Max_Limit = 0.3;
+	settings.Motor_Min_Limit = 0.1;
+	settings.magValue = 370;
+	settings.magMinValue = 350;
+	settings.voltageMultiply = 5.0;
+	settings.proximitySpeed = 0.80;
+	settings.movement = 0.5;
+	settings.motorMaxSpeed = 3360 -1;
+	settings.motorMinSpeed = 2000;
+	settings.cutterSpeed = 2750;
 
 	write_all_settings(settings);
 

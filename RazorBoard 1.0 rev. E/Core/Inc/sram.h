@@ -2,11 +2,13 @@
  * sram.h
  *
  *  Created on: 13 Apr 2021
- *      Author: SECWK0
+ *      Author: Carl Wallmark
  */
 
 #ifndef INC_SRAM_H_
 #define INC_SRAM_H_
+
+static const char VERSION[] = "Version 1.0.2";
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t
@@ -17,17 +19,28 @@
 #define MOTORSPEEDUPDATEFREQ_ADDR		0x07	//uint8_t
 #define OUTSIDE_THRESHOLD_ADDR			0x08	//uint8_t
 
-#define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t 0x09
+#define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
+#define MAGVALUE_ADDR					0x34	//uint16_t
+#define MAGMINVALUE_ADDR				0x36	//uint16_t
+#define MOTORMAXSPEED_ADDR				0x38	//uint16_t
+#define MOTORMINSPEED_ADDR				0x3A	//uint16_t
+#define CUTTERSPEED_ADDR				0x3C	//uint16_t
 
-#define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t 0x0A
-#define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t 0x0E
-#define SIGNAL_INTEGRITY_IN_ADDR		0x6C	//uint32_t 0x12
-#define SIGNAL_INTEGRITY_OUT_ADDR		0x70	//uint32_t 0x16
-#define MOTOR_LIMIT_ADDR				0x74	//uint32_t 0x1A
-#define CUTTER_LIMIT_ADDR				0x78	//uint32_t 0x1E
-#define KP_ADDR							0x7C	//uint32_t 0x22
-#define KI_ADDR							0x80	//uint32_t 0x26
-#define KD_ADDR							0x84	//uint32_t 0x2A
+#define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
+#define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
+#define SIGNAL_INTEGRITY_IN_ADDR		0x6C	//uint32_t
+#define SIGNAL_INTEGRITY_OUT_ADDR		0x70	//uint32_t
+#define MOTOR_LIMIT_ADDR				0x74	//uint32_t
+#define CUTTER_LIMIT_ADDR				0x78	//uint32_t
+#define KP_ADDR							0x7C	//uint32_t
+#define KI_ADDR							0x80	//uint32_t
+#define KD_ADDR							0x84	//uint32_t
+#define MOVEMENT_ADDR					0x88	//uint32_t
+//										0x8C	//uint32_t
+#define Motor_Max_Limit_ADDR			0x90	//uint32_t
+#define voltageMultiply_ADDR			0x94	//uint32_t
+#define proximitySpeed_ADDR				0x98	//uint32_t
+#define Motor_Min_Limit_ADDR			0x9C	//uint32_t
 
 
 typedef struct SRAM {
@@ -41,15 +54,25 @@ typedef struct SRAM {
 	uint8_t MotorSpeedUpdateFreq;
 	uint8_t Outside_Threshold;
 	uint16_t HoldChargeDetection;
+	uint16_t magValue;
+	uint16_t magMinValue;
+	uint16_t motorMaxSpeed;
+	uint16_t motorMinSpeed;
+	uint16_t cutterSpeed;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
 	float Signal_Integrity_OUT;
 	float Motor_Limit;
+	float Motor_Max_Limit;
+	float Motor_Min_Limit;
 	float Cutter_Limit;
 	float kp;
 	float ki;
 	float kd;
+	float voltageMultiply;
+	float proximitySpeed;
+	float movement;
 
 } sram_settings;
 

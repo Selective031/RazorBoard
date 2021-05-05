@@ -38,10 +38,17 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+extern void Serial_Console(char *msg);
+extern void Serial_RPi(char *msg);
+extern void reInitIMU(void);
+
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+
+char msg[128];
 
 /* USER CODE END EC */
 

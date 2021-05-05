@@ -2,7 +2,7 @@
  * config.h
  *
  *  Created on: 16 Apr 2021
- *      Author: SECWK0
+ *      Author: Carl Wallmark
  */
 
 #ifndef INC_CONFIG_H_
