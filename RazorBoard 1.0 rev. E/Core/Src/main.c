@@ -1241,7 +1241,7 @@ uint8_t CheckSecurity(void) {
     	move_timer = HAL_GetTick();
     }
 
-    if ((TIM4->CCR2 > settings.motorMinSpeed || TIM4->CCR3 > settings.motorMinSpeed) && Force_Active == 1 && mpu.movement < settings.movement) {
+    if ((TIM4->CCR2 >= (settings.motorMaxSpeed * settings.proximitySpeed) || TIM4->CCR3 >= (settings.motorMaxSpeed * settings.proximitySpeed)) && mpu.movement < settings.movement) {
         if (HAL_GetTick() - move_timer >= 5000) {
         	return SECURITY_MOVEMENT;
         }
