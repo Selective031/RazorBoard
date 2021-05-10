@@ -78,6 +78,7 @@ IWDG_HandleTypeDef hiwdg;
 #define SECURITY_IMU_FAIL 6
 #define SECURITY_OUTSIDE 7
 #define SECURITY_MOVEMENT 8
+#define SECURITY_BACKWARD_OUTSIDE 9
 
 #define INITIAL_MAX_THRESHOLD 10000
 
@@ -100,19 +101,24 @@ uint16_t Start_Threshold = 0;
 
 int bwf1_inside = 0;				// Some stats, how many messages we can detect per second
 int bwf2_inside = 0;
+int bwf3_inside = 0;
 int bwf1_outside = 0;
 int bwf2_outside = 0;
+int bwf3_outside = 0;
 
 uint32_t Boundary_Timer;			// Keep track of time between signals.
 
-float M1_amp,M2_amp,C1_amp = 0.0f;	// Values for AMP per motor
+float M1_amp = 0.0f;				// Values for AMP per motor
+float M2_amp = 0.0f;				// Values for AMP per motor
+float C1_amp = 0.0f;				// Values for AMP per motor
 float M1_error = 0.0f;				// Auto calibration value stored here.
 float M2_error = 0.0f;				// Auto calibration value stored here.
 float C1_error = 0.0f;				// Auto calibration value stored here.
-float Voltage = 25.20;			// Max voltage, only to feed the system something while starting up.
+float Voltage = 0;
 
 uint8_t BWF1_Status = 0;
 uint8_t BWF2_Status = 0;
+uint8_t BWF3_Status = 0;
 uint8_t State = STOP;
 uint8_t LastState = STOP;
 uint8_t cutterStatus = 0;
@@ -139,6 +145,8 @@ uint8_t C1_idx = 0;
 float M1_force[20];					// Array of power consumption of Motor M1, used for detecting if we bump into something
 float M2_force[20];					// Array of power consumption of Motor M2, used for detecting if we bump into something
 float C1_force[20];
+float V1_array[60];
+uint8_t V1_index = 0;
 float M1_F = 0;
 float M2_F = 0;
 float C1_F = 0;
@@ -146,10 +154,11 @@ uint8_t Force_Active = 0;			// When the mower has gained enough movement, Force_
 
 float32_t BWF1[ADC_SAMPLE_LEN / 2];
 float32_t BWF2[ADC_SAMPLE_LEN / 2];
+float32_t BWF3[ADC_SAMPLE_LEN / 2];
 arm_fir_instance_f32 S;
 uint8_t Signature_Record = FALSE;
 
-uint16_t magBWF1, magBWF2;
+uint16_t magBWF1, magBWF2, magBWF3;
 
 uint32_t MotorSpeedUpdateFreq_timer = 0;	// Timer for MotorSpeed Update
 uint8_t MotorSpeedUpdateFreq = 100;			// Freq to update motor speed, in milliseconds
@@ -174,7 +183,9 @@ mpu6050 mpu;
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
 DMA_HandleTypeDef hdma_adc1;
+DMA_HandleTypeDef hdma_adc2;
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
@@ -215,6 +226,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
+static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void MotorStop(void);
@@ -227,6 +239,7 @@ static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void CheckState(void);
 static uint8_t CheckSecurity(void);
 static void CheckBWF(void);
+static void CheckBWF_Rear(void);
 static void cutterON(void);
 static void cutterOFF(void);
 static void cutterHardBreak(void);
@@ -250,6 +263,7 @@ static uint32_t rnd(uint32_t maxValue);
 static void InitFIR(void);
 static void FIR_LEFT(void);
 static void FIR_RIGHT(void);
+static void FIR_REAR(void);
 static void WatchdogRefresh(void);
 static void WatchdogInit(void);
 static void (*SysMemBootJump) (void);
@@ -312,6 +326,7 @@ void CalcMagnitude(uint8_t Sensor) {
 
 	  if (magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) {
 		  if (mag_near_bwf == 0) {
+			  mag_near_bwf = 1;
 			  Serial_Console("PROXIMITY ALERT!\r\n");
 		  }
 		  mag_near_bwf = 1;
@@ -454,6 +469,23 @@ void FIR_RIGHT(void) {
 	  }
 }
 
+void FIR_REAR(void) {
+	  uint32_t i;
+	  uint32_t blockSize = BLOCK_SIZE;
+	  uint32_t numBlocks = LENGTH_SAMPLES/BLOCK_SIZE;
+	  float32_t  *inputF32, *outputF32;
+	  inputF32 = &BWF3[0];
+	  outputF32 = &Output[0];
+	  for(i=0; i < numBlocks; i++)
+	  {
+	    arm_fir_f32(&S, inputF32 + (i * blockSize), outputF32 + (i * blockSize), blockSize);
+	  }
+	  for (int x = 0; x < 256; x++) {
+		  BWF3[x] = (float)outputF32[x];
+	  }
+
+}
+
 uint32_t rnd(uint32_t maxValue) {
 
 	// Our random number generator
@@ -558,6 +590,8 @@ void SendInfo() {
 			bwf1_outside = 0;
 			bwf2_inside = 0;
 			bwf2_outside = 0;
+			bwf3_inside = 0;
+			bwf3_outside = 0;
 			return;
 		}
 
@@ -578,7 +612,7 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
 		Serial_Console(msg);
-		sprintf(msg,"IN-> BWF1: %d BWF2: %d\r\nOUT-> BWF1: %d BWF2: %d\r\n", bwf1_inside, bwf2_inside, bwf1_outside, bwf2_outside);
+		sprintf(msg,"IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside, bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
 		Serial_Console(msg);
 		sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
 		Serial_Console(msg);
@@ -609,6 +643,8 @@ void SendInfo() {
 		bwf1_outside = 0;
 		bwf2_inside = 0;
 		bwf2_outside = 0;
+		bwf3_inside = 0;
+		bwf3_outside = 0;
 
 		HAL_UART_Transmit(&huart2, (uint8_t *)&Data, strlen(Data), 100);
 
@@ -659,7 +695,14 @@ void CollectADC() {
 		}
 		else if (Channel == V1_addr) {
 			V1_Value = RAW;
-            Voltage = (V1_Value * 0.1875) * settings.voltageMultiply / 1000;
+            V1_array[V1_index] = (V1_Value * 0.1875) * settings.voltageMultiply / 1000;
+            V1_index++;
+            if (V1_index >= 60) V1_index = 0;
+            float volt_sum = 0.0;
+            for (uint8_t x = 0; x < 60; x++) {
+            	volt_sum += V1_array[x];
+            }
+            Voltage = volt_sum / 60;
 		}
 
 		if (Channel == M1_addr) Channel = M2_addr;
@@ -914,12 +957,14 @@ void parseCommand_Console(void) {
 				MotorStop();
 			}
 			if (strcmp(Command, "RUN MOTORS FORWARD") == 0) {
+				State = FORWARD;
 				TIM4->CCR1 = 0;
 				TIM4->CCR2 = 2000;
 				TIM4->CCR3 = 2000;
 				TIM4->CCR4 = 0;
 			}
 			if (strcmp(Command, "RUN MOTORS REVERSE") == 0) {
+				State = BACKWARD;
 				TIM4->CCR1 = 2000;
 				TIM4->CCR2 = 0;
 				TIM4->CCR3 = 0;
@@ -960,6 +1005,12 @@ void parseCommand_Console(void) {
 				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
 				sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
 				settings.motorMinSpeed = speed;
+			}
+			if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
+				int adc;
+				char cmd1[3], cmd2[3], cmd3[5];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &adc);
+				settings.adcLevel = adc;
 			}
 			if (strncmp(Command, "SET CUTTER SPEED", 16) == 0) {
 				int speed;
@@ -1029,7 +1080,7 @@ void parseCommand_Console(void) {
 			}
 			if (strncmp(Command, "SET MOVEMENT LIMIT", 18) == 0) {
 				float limit;
-				char cmd1[3], cmd2[5], cmd3[5];
+				char cmd1[3], cmd2[8], cmd3[5];
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.movement = limit;
 			}
@@ -1063,6 +1114,18 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %f", cmd1, cmd2, &pid_kd);
 				settings.kd = pid_kd;
 			}
+			if (strncmp(Command, "SET WORKING START", 17) == 0) {
+				int start;
+				char cmd1[3], cmd2[7], cmd3[5];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &start);
+				settings.WorkingHourStart = start;
+			}
+			if (strncmp(Command, "SET WORKING END", 15) == 0) {
+				int end;
+				char cmd1[3], cmd2[7], cmd3[3];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &end);
+				settings.WorkingHourEnd = end;
+			}
 			if (strncmp(Command, "SET MAG VALUE", 13) == 0) {
 				int magValue;
 				char cmd1[3], cmd2[3], cmd3[5];
@@ -1071,7 +1134,7 @@ void parseCommand_Console(void) {
 			}
 			if (strncmp(Command, "SET MAGMIN VALUE", 16) == 0) {
 				int magMinValue;
-				char cmd1[3], cmd2[3], cmd3[5];
+				char cmd1[3], cmd2[6], cmd3[5];
 				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &magMinValue);
 				settings.magMinValue = magMinValue;
 			}
@@ -1153,6 +1216,12 @@ uint8_t CheckSecurity(void) {
 	// Check security, what is our status with the boundary signals
 
     CheckBWF();
+    if (State == BACKWARD) {
+    	CheckBWF_Rear();
+    	if (BWF3_Status == OUTSIDE) {
+    		return SECURITY_BACKWARD_OUTSIDE;
+    	}
+    }
 
 	if (abs(mpu.pitch) >= settings.Overturn_Limit || abs(mpu.roll) >= settings.Overturn_Limit) {
 		MotorHardBrake();
@@ -1167,8 +1236,13 @@ uint8_t CheckSecurity(void) {
     	Security = NOSIGNAL;
     	return SECURITY_NOSIGNAL;
     }
-    if ((TIM4->CCR2 == settings.motorMaxSpeed || TIM4->CCR3 == settings.motorMaxSpeed) && mpu.movement < settings.movement) {
-        if (HAL_GetTick() - move_timer >= 2000) {
+
+    if (Initial_Start == 0) {
+    	move_timer = HAL_GetTick();
+    }
+
+    if ((TIM4->CCR2 > settings.motorMinSpeed || TIM4->CCR3 > settings.motorMinSpeed) && Force_Active == 1 && mpu.movement < settings.movement) {
+        if (HAL_GetTick() - move_timer >= 5000) {
         	return SECURITY_MOVEMENT;
         }
     }
@@ -1207,7 +1281,7 @@ void cutterON(void) {
 
 	Serial_Console("Cutter Motor ON\r\n");
 
-	if (rnd(1000) < 500 ) {			// Randomly select CW or CCW
+	if (rnd(10000) < 5000 ) {			// Randomly select CW or CCW
 
 		for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
 
@@ -1239,7 +1313,65 @@ void cutterOFF(void) {
 	TIM3->CCR2 = 0;
 
 }
+void CheckBWF_Rear() {
 
+	float BWF3_Mixed_Signal = 0;
+	float BWF3_Received_Signal = 0;
+	uint16_t myID = 0;
+	uint8_t BWF3_reply = 0;
+	float Match_Signal = 0;
+	float Result_Signal = 0;
+	float BWF3_Verdict_Signal = 0.0;
+	int count = 0;
+
+	for (int x = 0; x < ADC_SAMPLE_LEN; x++) {
+		if (x%2) {
+			count++;
+		}
+		else {
+			BWF3[count] = ADC_REAR_BUFFER[x] - settings.adcLevel;		// Normalize the ADC signal
+		}
+	}
+
+	FIR_REAR();
+
+	for (uint16_t idx = 0; idx < 96; idx++) {
+        if (BWF3_reply == 1) {
+        	break;
+        }
+		myID = 0;
+		BWF3_Mixed_Signal = 0;
+		BWF3_Received_Signal = 0;
+		Match_Signal = 0;
+
+
+		for (int x = idx; x < (idx+SIGNATURE_LEN - 1); x++) {
+
+			BWF3_Mixed_Signal += (BWF3[x] * validSignature[myID]);
+			BWF3_Received_Signal += BWF3[x] * BWF3[x];
+
+			Match_Signal += validSignature[myID] * validSignature[myID];
+			myID++;
+		}
+
+	arm_sqrt_f32((BWF3_Received_Signal * Match_Signal), &Result_Signal);
+	BWF3_Verdict_Signal = (BWF3_Mixed_Signal / Result_Signal);
+
+    if (BWF3_Verdict_Signal >= settings.Signal_Integrity_IN && BWF3_reply == 0) {
+    	BWF3_Status = INSIDE;
+    	Boundary_Timer = HAL_GetTick();
+    	BWF3_reply = 1;
+    	bwf3_inside++;
+    }
+
+    else if (BWF3_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF3_reply == 0) {
+    	BWF3_Status = OUTSIDE;
+    	Boundary_Timer = HAL_GetTick();
+    	BWF3_reply = 1;
+    	bwf3_outside++;
+    }
+	}
+}
 void CheckBWF() {
 
 	/*
@@ -1257,7 +1389,8 @@ void CheckBWF() {
 	float BWF2_Mixed_Signal = 0;
 	float BWF2_Received_Signal = 0;
 	uint16_t myID = 0;
-	uint8_t BWF1_reply, BWF2_reply = 0;
+	uint8_t BWF1_reply = 0;
+	uint8_t BWF2_reply = 0;
 	float Match_Signal = 0;
 	float Result_Signal = 0;
 	float BWF1_Verdict_Signal = 0.0;
@@ -1266,11 +1399,11 @@ void CheckBWF() {
 
 	for (int x = 0; x < ADC_SAMPLE_LEN; x++) {
 		if (x%2) {
-			BWF2[count] = ADC_BUFFER[x] - 1267;		// Normalize the ADC signal
+			BWF2[count] = ADC_BUFFER[x] - settings.adcLevel;		// Normalize the ADC signal
 			count++;
 		}
 		else {
-			BWF1[count] = ADC_BUFFER[x] - 1267;		// Normalize the ADC signal
+			BWF1[count] = ADC_BUFFER[x] - settings.adcLevel;		// Normalize the ADC signal
 		}
 	}
 
@@ -1278,7 +1411,7 @@ void CheckBWF() {
 	FIR_RIGHT();	// Run FIR on right BWF	(BWF2)
 
 	if (Signature_Record == TRUE) {
-		for (uint8_t x = 0; x < SIGNATURE_LEN; x++) {
+		for (uint16_t x = 0; x < SIGNATURE_LEN; x++) {
 			validSignature[x] = BWF1[x];
 		}
 		Signature_Record = FALSE;
@@ -1314,7 +1447,7 @@ void CheckBWF() {
 	arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
 	BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
 
-    if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN) {
+    if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN && BWF1_reply == 0) {
     	BWF1_Status = INSIDE;
     	Boundary_Timer = HAL_GetTick();
     	BWF1_reply = 1;
@@ -1329,7 +1462,7 @@ void CheckBWF() {
 
     }
 
-    else if (BWF1_Verdict_Signal <= settings.Signal_Integrity_OUT) {
+    else if (BWF1_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF1_reply == 0) {
     	BWF1_Status = OUTSIDE;
     	Boundary_Timer = HAL_GetTick();
     	BWF1_reply = 1;
@@ -1338,7 +1471,7 @@ void CheckBWF() {
     	CalcMagnitude(1);
     }
 
-    if (BWF2_Verdict_Signal >= settings.Signal_Integrity_IN) {
+    if (BWF2_Verdict_Signal >= settings.Signal_Integrity_IN && BWF2_reply == 0) {
     	BWF2_Status = INSIDE;
     	Boundary_Timer = HAL_GetTick();
     	BWF2_reply = 1;
@@ -1352,7 +1485,7 @@ void CheckBWF() {
     	CalcMagnitude(2);
 
     }
-    else if (BWF2_Verdict_Signal <= settings.Signal_Integrity_OUT) {
+    else if (BWF2_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF2_reply == 0) {
     	BWF2_Status = OUTSIDE;
     	Boundary_Timer = HAL_GetTick();
     	BWF2_reply = 1;
@@ -1367,14 +1500,14 @@ void ADC_Send(uint8_t Channel) {
 
 	// Send ADC data
 
-unsigned char ADSwrite[6];
+	unsigned char ADSwrite[6];
 
-ADSwrite[0] = 0x01;
-ADSwrite[1] = Channel;
-ADSwrite[2] = 0x83;
-HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100);
-ADSwrite[0] = 0x00;
-HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100);
+	ADSwrite[0] = 0x01;
+	ADSwrite[1] = Channel;
+	ADSwrite[2] = 0x83;
+	HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100);
+	ADSwrite[0] = 0x00;
+	HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100);
 
 }
 
@@ -1382,18 +1515,18 @@ int ADC_Receive() {
 
 	// Receive ADC data
 
-unsigned char ADSwrite[6];
-int reading;
+	unsigned char ADSwrite[6];
+	int reading;
 
-				HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS <<1, ADSwrite, 2, 100);
+	HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS <<1, ADSwrite, 2, 100);
 
-				reading = (ADSwrite[0] << 8 | ADSwrite[1] );
+	reading = (ADSwrite[0] << 8 | ADSwrite[1] );
 
-				if(reading < 0 || reading > 32768) {
-					reading = 0;
-				}
+	if(reading < 0 || reading > 32768) {
+		reading = 0;
+	}
 
-		return reading;
+	return reading;
 
 }
 
@@ -1453,6 +1586,7 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
 	ProcessIMUData();			// Compute Pitch/Roll
+	move_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1491,6 +1625,8 @@ void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 	uint32_t motor_timer;
 	State = BACKWARD;
 	motor_timer = HAL_GetTick();
+	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
+	ProcessIMUData();			// Compute Pitch/Roll
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1499,22 +1635,48 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 		  break;
 	  }
 
-	  TIM4->CCR1 = currentSpeed;
+	  uint16_t leftTilt = 0;
+	  uint16_t rightTilt = 0;
+
+	  if (mpu.roll < 0) {
+		  leftTilt = fabs(mpu.roll * 50);
+	  }
+	  if (mpu.roll > 0) {
+		  rightTilt = fabs(mpu.roll * 50);
+	  }
+
+	  TIM4->CCR1 = currentSpeed - round(rightTilt);
 	  TIM4->CCR2 = 0;
 
 	  TIM4->CCR3 = 0;
-	  TIM4->CCR4 = currentSpeed;
+	  TIM4->CCR4 = currentSpeed - round(leftTilt);
 
 	  HAL_Delay(1);
 
-	  CheckSecurity();
+	  if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+		  MotorHardBrake();
+		  HAL_Delay(1000);
+		  MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+		  HAL_Delay(500);
+		  MotorStop();
+		  HAL_Delay(500);
+		  return;
+	  }
 
 	  if (HAL_GetTick() - motor_timer >= time_ms) {
 		  break;
 	  }
  }
 while (HAL_GetTick() - motor_timer < time_ms) {
-	CheckSecurity();
+	if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+		MotorHardBrake();
+		HAL_Delay(1000);
+		MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+		HAL_Delay(500);
+		MotorStop();
+		HAL_Delay(500);
+		return;
+	}
 }
 	MotorStop();
 }
@@ -1631,10 +1793,10 @@ void MotorHardBrake(void) {
 	State = HARDBRAKE;
 
 	// Wheels will do a hard brake when both pins go HIGH.
-	TIM4->CCR1 = 3360 -1;
-	TIM4->CCR2 = 3360 -1;
-	TIM4->CCR3 = 3360 -1;
-	TIM4->CCR4 = 3360 -1;
+	TIM4->CCR1 = settings.motorMaxSpeed;
+	TIM4->CCR2 = settings.motorMaxSpeed;
+	TIM4->CCR3 = settings.motorMaxSpeed;
+	TIM4->CCR4 = settings.motorMaxSpeed;
 
 	HAL_Delay(250);
 
@@ -1643,7 +1805,7 @@ void MotorHardBrake(void) {
 }
 void CheckState(void) {
 
-	/* This is our main function, this is where all the states are
+	/* This is our main loop function, this is where all the states are
 	 * What state is the mower in? and what to do next.
 	 */
 	if (Initial_Start == 0) return;
@@ -1659,6 +1821,7 @@ void CheckState(void) {
 		cutterOFF();
 		return;
 	}
+
 	if (HAL_GetTick() - OUTSIDE_timer >= (settings.Outside_Threshold * 1000) && Docked == 0) {
 		Serial_Console("OUTSIDE timer triggered\r\n");
 		MotorStop();
@@ -1672,8 +1835,10 @@ void CheckState(void) {
 
 	if (CheckSecurity() == SECURITY_MOVEMENT) {
 		MotorStop();
+		HAL_Delay(500);
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+		return;
 	}
 
 	if (State == FAIL) {
@@ -1735,12 +1900,12 @@ void CheckState(void) {
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 
@@ -1748,10 +1913,10 @@ void CheckState(void) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 			}
 			else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 				}
 		}
 
@@ -1781,14 +1946,14 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 		}
 		else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 500 + rnd(500) );
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
 		}
 	}
 
@@ -1837,6 +2002,7 @@ int main(void)
   MX_TIM5_Init();
   MX_I2C1_Init();
   MX_I2C2_Init();
+  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start(&htim4);					// Start TIM4 on wheel motors
@@ -1870,6 +2036,7 @@ int main(void)
   Serial_Console("RazorBoard booting...please wait!\r\n");
 
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_BUFFER, ADC_SAMPLE_LEN);		// Start the DMA for continues scan mode
+  HAL_ADC_Start_DMA(&hadc2, (uint32_t*)ADC_REAR_BUFFER, ADC_SAMPLE_LEN);
 
   InitFIR();									// Initiate the FIR functions in hardware
 
@@ -1895,10 +2062,16 @@ int main(void)
   settings = read_all_settings();
   if (settings.Config_Set != 42) {
 	  save_default_settings();
-	  Serial_Console("No config found - Setting factory default\r\n");
+	  Serial_Console("No config found - Saving factory defaults\r\n");
+	  Serial_Console("Masterswitch set to OFF - please configure settings and reboot\r\n");
+	  MasterSwitch = 0;
 	  settings = read_all_settings();
   }
   Serial_Console("Config loaded from SRAM\r\n");
+
+  for (uint8_t x = 0; x < 60; x++) {
+  	V1_array[x] = settings.Battery_High_Limit;
+  }
 
   Serial_RPi("Booting done!\r\n");
   Serial_Console("Booting done!\r\n");
@@ -1930,7 +2103,7 @@ int main(void)
   			}
   		}
   		CollectADC();
-  		CheckVoltage();
+  		if (Voltage != 0) CheckVoltage();
   	}
   	else {
   		perimeterTracker();
@@ -2065,6 +2238,64 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = ENABLE;
+  hadc2.Init.ContinuousConvMode = ENABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 2;
+  hadc2.Init.DMAContinuousRequests = ENABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
 
 }
 
@@ -2534,6 +2765,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  /* DMA2_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 
 }
 

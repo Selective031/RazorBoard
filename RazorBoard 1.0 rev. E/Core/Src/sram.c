@@ -136,6 +136,7 @@ sram_settings read_all_settings(void)
 	settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
 	settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
 	settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
+	settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -185,6 +186,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
 	write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
+	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
 
 
 	// uint32_t & float
@@ -218,7 +220,7 @@ void save_default_settings(void) {
 	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
 	settings.Outside_Threshold = 8;
-	settings.Motor_Limit = 3.0;
+	settings.Motor_Limit = 3.5;
 	settings.Overturn_Limit = 35;
 	settings.Signal_Integrity_IN = 0.80;
 	settings.Signal_Integrity_OUT = -0.80;
@@ -229,14 +231,15 @@ void save_default_settings(void) {
 	settings.kd = 0.03;
 	settings.Motor_Max_Limit = 0.3;
 	settings.Motor_Min_Limit = 0.1;
-	settings.magValue = 370;
-	settings.magMinValue = 350;
+	settings.magValue = 400;
+	settings.magMinValue = 370;
 	settings.voltageMultiply = 5.0;
 	settings.proximitySpeed = 0.80;
 	settings.movement = 0.5;
 	settings.motorMaxSpeed = 3360 -1;
 	settings.motorMinSpeed = 2000;
 	settings.cutterSpeed = 2750;
+	settings.adcLevel = 1267;
 
 	write_all_settings(settings);
 
