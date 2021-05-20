@@ -1,4 +1,4 @@
-# RazorBoard 1.0 rev. E (Soon also RazorBoard 1.2)
+# RazorBoard 1.0 rev. E and 1.2 rev. B
 
 Welcome to Razorboard! This is the first GA version of RazorBoard.
 
@@ -332,7 +332,7 @@ You should now be able to "Build Project" from:
 # Hardware hacks
 
 - If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins (This is now included in PCB revision 1.2).
-- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder, (This is now included in PCB revision 1.2).
+- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. THIS IS NOW CONFIRMED TO BE WORKING GREAT, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder, (This is now included in PCB revision 1.2).
 - As you might noticed, when using the MPU-6050, you use SDA and SCL which are shared with UART3. However, in software you can move UART3 to PD8 and PD9. So you dont loose UART3 just because an MPU-6050 is connected. You got to love STM32 ;)
 - If you dont want to add a Raspberry Pi but still want the environmental temperature and humidity, you could bridge the DHT11/22 pin (from the RPi connector) to a digital pin on the STM32, both are 3.3V so no harm will be done, however at the time writing this there is no code for it yet on the STM32.
 
