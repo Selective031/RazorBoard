@@ -234,6 +234,7 @@ static void MotorBrake(void);
 static void MotorHardBrake(void);
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
 static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
+static void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void CheckState(void);
@@ -354,6 +355,7 @@ void TimeToGoHome(void) {
 
 	if (currTime.Hours >= settings.WorkingHourEnd) {
 		perimeterTracking = 1;
+		Serial_Console("Time To Go Home!\r\n");
 	}
 
 }
@@ -630,6 +632,28 @@ void SendInfo() {
 		else sprintf(msg, "Movement Verdict: Moving\r\n");
 		Serial_Console(msg);
 
+		if (Security == 0) Serial_Console("SECURITY_FAIL ");
+		if (Security == 1) Serial_Console("SECURITY_OK ");
+		if (Security == 2) Serial_Console("SECURITY_NOSIGNAL ");
+		if (Security == 3) Serial_Console("SECURITY_LEFT ");
+		if (Security == 4) Serial_Console("SECURITY_RIGHT ");
+		if (Security == 5) Serial_Console("SECURITY_BUMPER ");
+		if (Security == 6) Serial_Console("SECURITY_IMU_FAIL ");
+		if (Security == 7) Serial_Console("SECURITY_OUSIDE ");
+		if (Security == 8) Serial_Console("SECURITY_MOVEMENT ");
+		if (Security == 9) Serial_Console("SECURITY_BACKWARD_OUTSIDE ");
+
+		if (State == 0) Serial_Console(", STATE_STOP \r\n");
+		if (State == 1) Serial_Console(", STATE_FORWARD \r\n");
+		if (State == 2) Serial_Console(", STATE_BACKWARD \r\n");
+		if (State == 3) Serial_Console(", STATE_LEFT \r\n");
+		if (State == 4) Serial_Console(", STATE_RIGHT \r\n");
+		if (State == 5) Serial_Console(", STATE_AVOID_OBSTACLE \r\n");
+		if (State == 6) Serial_Console(", STATE_FAIL \r\n");
+		if (State == 7) Serial_Console(", STATE_BRAKE \r\n");
+		if (State == 8) Serial_Console(", STATE_HARDBRAKE \r\n");
+
+
 		char Data[128];
 
 		sprintf(Data, "Battery Voltage,%.2f\r\n"
@@ -689,6 +713,8 @@ void CollectADC() {
             C1_amp = fabs(C1 - C1_error);
             if (C1_amp >= settings.Cutter_Limit) {
             	MasterSwitch =  0;
+            	sprintf(msg, "Cutter Current Limit reached: %f", C1_amp);
+            	Serial_Console(msg);
             	return;
             }
 
@@ -736,9 +762,8 @@ void unDock(void) {
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 		HAL_Delay(5000);
 
-		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
-
-		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);			// This needs to be changed if your docking is on the right side
+		Serial_Console("Undocking...\r\n");
+		MotorBackwardTurn(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
 
 		Docked = 0;
 		Initial_Start = 0;
@@ -789,6 +814,7 @@ void ChargerConnected(void) {
 
 void perimeterTracker() {
 
+
 	CheckSecurity();
 
 	elapsedTime = HAL_GetTick() - previousTime;
@@ -803,7 +829,8 @@ void perimeterTracker() {
     	Tick1 = 0;
     }
 
-    error = 2800 - (Tick1 + Tick2);                // determine error
+
+    error = 2500 - (Tick1 + Tick2);      // determine error
     cumError += error * elapsedTime;               // compute integral
     rateError = (error - lastError)/elapsedTime;   // compute derivative
 
@@ -812,11 +839,11 @@ void perimeterTracker() {
     lastError = error;                             //remember current error
     previousTime = HAL_GetTick();                  //remember current time
 
-    int speedA = (2800 + round(out));
-    int speedB = (2800 - round(out));
+    int speedA = (2500 + round(out));
+    int speedB = (2500 - round(out));
 
-    if (speedA > 3200) speedA = 3200;				// limit upper and lower speed
-    if (speedB > 3200) speedB = 3200;
+    if (speedA > 2500) speedA = 2900;				// limit upper and lower speed
+    if (speedB > 2500) speedB = 2900;
 
     if (speedA < 1500) speedA = 1500;
     if (speedB < 1500) speedB = 1500;
@@ -834,7 +861,6 @@ void perimeterTracker() {
 
 		  TIM4->CCR3 = speedA;
 		  TIM4->CCR4 = 0;
-
     }
 
     if (BWF2_Status == INSIDE) {
@@ -1255,7 +1281,8 @@ uint8_t CheckSecurity(void) {
     	OUTSIDE_timer = HAL_GetTick();		// We are inside, reset OUTSIDE_timer
 		return SECURITY_OK;
 	}
-	else if (BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) {
+
+    else if (BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) {
 		Security = OUTSIDE;
 		return SECURITY_FAIL;
 	}
@@ -1657,7 +1684,7 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 		  MotorHardBrake();
 		  HAL_Delay(1000);
 		  MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-		  HAL_Delay(500);
+		  HAL_Delay(1000);
 		  MotorStop();
 		  HAL_Delay(500);
 		  return;
@@ -1680,6 +1707,63 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 }
 	MotorStop();
 }
+
+void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
+
+	uint32_t motor_timer;
+	State = BACKWARD;
+	motor_timer = HAL_GetTick();
+
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+
+			currentSpeed += 3;
+
+		  if (currentSpeed >= maxSpeed) {
+			  break;
+		  }
+
+		  TIM4->CCR1 = currentSpeed * 0.75;    // This needs to be changed if you want to back in another direction or have a broader or narrow turn
+		  TIM4->CCR2 = 0;
+		  TIM4->CCR3 = 0;
+		  TIM4->CCR4 = currentSpeed;
+
+		  HAL_Delay(1);
+
+		  if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+				  MotorHardBrake();
+				  HAL_Delay(1000);
+				  MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+				  HAL_Delay(1000);
+				  MotorStop();
+				  HAL_Delay(500);
+				  return;
+			  }
+
+
+		  if (HAL_GetTick() - motor_timer >= time_ms) {
+			  break;
+		  }
+	 }
+
+	while (HAL_GetTick() - motor_timer < time_ms) {
+
+		if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+				MotorHardBrake();
+				HAL_Delay(1000);
+				MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+				HAL_Delay(500);
+				MotorStop();
+				HAL_Delay(500);
+				return;
+			}
+	}
+
+	MotorStop();
+}
+
+
+
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
 	State = RIGHT;
@@ -1711,6 +1795,8 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 }
 	MotorStop();
 }
+
+
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 
 	State = LEFT;
@@ -1742,6 +1828,8 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 }
 	MotorStop();
 }
+
+
 void MotorStop(void) {
 
 	LastState = State;
@@ -1900,12 +1988,12 @@ void CheckState(void) {
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 
@@ -1913,10 +2001,10 @@ void CheckState(void) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 			}
 			else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 				}
 		}
 
@@ -1946,14 +2034,14 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 		}
 		else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
 		}
 	}
 
