@@ -69,6 +69,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
 	Serial_Console(msg);
+	sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
+	Serial_Console(msg);
 
 }
 

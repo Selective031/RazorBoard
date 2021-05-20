@@ -135,6 +135,7 @@ sram_settings read_all_settings(void)
 	settings.magMinValue = read_sram_uint16(MAGMINVALUE_ADDR);
 	settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
 	settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
+	settings.perimeterTrackerSpeed = read_sram_uint16(PERIMETERTRACKERSPEED_ADDR);
 	settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
 	settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
 
@@ -165,8 +166,8 @@ void write_all_settings(sram_settings settings)
 
 	// uint8_t = 1 byte
 	// uint16_t = 2 byte
-	//uint32_t = 4 byte
-	//float = 4 byte
+	// uint32_t = 4 byte
+	// float = 4 byte
 
 	// uint8_t
 	settings.Config_Set = 42;
@@ -185,6 +186,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.magMinValue, MAGMINVALUE_ADDR);
 	write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
 	write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
+	write_sram_uint16(settings.perimeterTrackerSpeed, PERIMETERTRACKERSPEED_ADDR);
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
 	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
 
@@ -238,8 +240,10 @@ void save_default_settings(void) {
 	settings.movement = 0.5;
 	settings.motorMaxSpeed = 3360 -1;
 	settings.motorMinSpeed = 2000;
+	settings.perimeterTrackerSpeed = 2800;
 	settings.cutterSpeed = 2750;
 	settings.adcLevel = 1267;
+
 
 	write_all_settings(settings);
 

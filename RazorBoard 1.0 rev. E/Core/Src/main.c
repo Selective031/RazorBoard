@@ -830,20 +830,22 @@ void perimeterTracker() {
     }
 
 
-    error = 2500 - (Tick1 + Tick2);      // determine error
+    error = settings.perimeterTrackerSpeed - (Tick1 + Tick2);     		   // determine error
     cumError += error * elapsedTime;               // compute integral
     rateError = (error - lastError)/elapsedTime;   // compute derivative
 
     double out = settings.kp*error + settings.ki*cumError + settings.kd*rateError;                //PID output
 
+
     lastError = error;                             //remember current error
     previousTime = HAL_GetTick();                  //remember current time
 
-    int speedA = (2500 + round(out));
-    int speedB = (2500 - round(out));
+    int speedA = (settings.perimeterTrackerSpeed + round(out));
+    int speedB = (settings.perimeterTrackerSpeed - round(out));
 
-    if (speedA > 2500) speedA = 2900;				// limit upper and lower speed
-    if (speedB > 2500) speedB = 2900;
+
+    if (speedA > 3200) speedA = 3200;				// limit upper and lower speed
+    if (speedB > 3200) speedB = 3200;
 
     if (speedA < 1500) speedA = 1500;
     if (speedB < 1500) speedB = 1500;
