@@ -278,7 +278,7 @@ Look at the picture "mpu_placement.jpg" for guidance.
 - 1 Red LED to show status
 - 1 Fuse of 4A
 
-You need to add a power resistor for each loop you want to use. Without a power resistor you can damage the driver.
+You need to add a power resistor in series for each loop you want to use. Without a power resistor you can damage the driver.
 Your total Ohm should be in the range of 5-12 ohm.
 
 So lets take an example, you measure your loop with a multimeter and you discover you have about 2.5 ohms.
