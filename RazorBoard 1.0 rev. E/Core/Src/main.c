@@ -125,6 +125,8 @@ uint8_t cutterStatus = 0;
 
 uint32_t ADC_timer = 0;
 uint32_t IMU_timer = 0;
+uint32_t Charger_start_Timer = 0;		// start of charging time
+uint16_t Charger_elapsed_Timer = 0;		// how long charge time
 uint32_t OUTSIDE_timer = 0;
 uint8_t SendInfoStatus = 0;
 
@@ -234,7 +236,7 @@ static void MotorBrake(void);
 static void MotorHardBrake(void);
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
 static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
-static void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
+static void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms, uint8_t turnDirection);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
 static void CheckState(void);
@@ -520,7 +522,7 @@ void CheckMotorCurrent(int RAW) {
 	            if (M1_F < settings.Motor_Min_Limit) M1_F = settings.Motor_Min_Limit;
 	            if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
 
-	            	sprintf(msg, "Motor Current Limit reached for M1: %f", M1_amp);
+	            	sprintf(msg, "Motor Current Limit reached for M1: %f\r\n", M1_amp);
 	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
@@ -529,7 +531,7 @@ void CheckMotorCurrent(int RAW) {
 	            	MotorBrake();
 	            	HAL_Delay(500);
 	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-	            	HAL_Delay(500);
+	                HAL_Delay(500);
 	            	MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
 
@@ -551,7 +553,7 @@ void CheckMotorCurrent(int RAW) {
 	            if (M2_F < settings.Motor_Min_Limit) M2_F = settings.Motor_Min_Limit;
 	            if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
 
-	            	sprintf(msg, "Motor Current Limit reached for M2: %f", M2_amp);
+	            	sprintf(msg, "Motor Current Limit reached for M2: %f\r\n", M2_amp);
 	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
@@ -614,6 +616,10 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
 		Serial_Console(msg);
+		if (ChargerConnect == 1){
+			sprintf(msg,"Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
+			Serial_Console(msg);
+		}
 		sprintf(msg,"IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside, bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
 		Serial_Console(msg);
 		sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
@@ -713,7 +719,7 @@ void CollectADC() {
             C1_amp = fabs(C1 - C1_error);
             if (C1_amp >= settings.Cutter_Limit) {
             	MasterSwitch =  0;
-            	sprintf(msg, "Cutter Current Limit reached: %f", C1_amp);
+            	sprintf(msg, "Cutter Current Limit reached: %f\r\n", C1_amp);
             	Serial_Console(msg);
             	return;
             }
@@ -763,7 +769,8 @@ void unDock(void) {
 		HAL_Delay(5000);
 
 		Serial_Console("Undocking...\r\n");
-		MotorBackwardTurn(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
+
+		MotorBackwardTurn(settings.motorMinSpeed, settings.motorMaxSpeed, 3000, 1);
 
 		Docked = 0;
 		Initial_Start = 0;
@@ -782,8 +789,20 @@ void ChargerConnected(void) {
 
 	// Is the charger connected?
 
+
+	if (ChargerConnect == 0) { 					// We are not charging, reset charger start timer
+		Charger_start_Timer = HAL_GetTick();
+		Charger_elapsed_Timer = 0;
+	}
+
+	if (ChargerConnect == 1) { 					// We are charging, calculate duration in minutes
+		Charger_elapsed_Timer = (HAL_GetTick() - Charger_start_Timer) / 60000;
+
+	}
+
 	if (ChargerConnect == 1 || Docked == 1) {
-		if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0) {
+
+		if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0 && Charger_elapsed_Timer >= settings.BatteryChargeTime) {
 			Battery_Ready = 1;
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
 			Serial_Console("Charger disconnected.\r\n");
@@ -793,7 +812,7 @@ void ChargerConnected(void) {
 	}
 
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {			// Read Volt sense pin
-		HAL_Delay(settings.HoldChargeDetection);									// Wait for a while so a proper connection is made
+		HAL_Delay(settings.HoldChargeDetection);						// Wait for a while so a proper connection is made
 		Force_Active = 0;
 		MotorBrake();
 		cutterHardBreak();
@@ -1034,6 +1053,12 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
 				settings.motorMinSpeed = speed;
 			}
+			if (strncmp(Command, "SET PERIMETER SPEED", 19) == 0) {
+				int speed;
+				char cmd1[3], cmd2[9], cmd3[5];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
+				settings.perimeterTrackerSpeed = speed;
+			}
 			if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
 				int adc;
 				char cmd1[3], cmd2[3], cmd3[5];
@@ -1075,6 +1100,12 @@ void parseCommand_Console(void) {
 				char cmd1[3], cmd2[3], cmd3[3];
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.Battery_Low_Limit = limit;
+			}
+			if (strncmp(Command, "SET BAT CHARGER TIME", 20) == 0) {
+				int minutes;
+				char cmd1[3], cmd2[3], cmd3[7], cmd4[4];
+				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &minutes);
+				settings.BatteryChargeTime = minutes;
 			}
 			if (strncmp(Command, "SET BWF OUT", 11) == 0) {
 				float limit;
@@ -1710,7 +1741,16 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 	MotorStop();
 }
 
-void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
+void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms, uint8_t turnDirection) {
+
+	// turn direction == 1 Left turn
+	// turn direction == 2 right turn
+
+	float leftTurn;
+	float rightTurn;
+
+	if (turnDirection == 1) { leftTurn = 0.75; rightTurn = 1; }
+	if (turnDirection == 2) { leftTurn = 1; rightTurn = 0.75; }
 
 	uint32_t motor_timer;
 	State = BACKWARD;
@@ -1725,10 +1765,10 @@ void MotorBackwardTurn(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
 			  break;
 		  }
 
-		  TIM4->CCR1 = currentSpeed * 0.75;    // This needs to be changed if you want to back in another direction or have a broader or narrow turn
+		  TIM4->CCR1 = currentSpeed * leftTurn;
 		  TIM4->CCR2 = 0;
 		  TIM4->CCR3 = 0;
-		  TIM4->CCR4 = currentSpeed;
+		  TIM4->CCR4 = currentSpeed * rightTurn;
 
 		  HAL_Delay(1);
 

@@ -15,7 +15,7 @@ void show_config(sram_settings settings) {
 
 	sprintf(msg, "Go Home Direction: %d\r\n", settings.Go_Home_Direction);
 	Serial_Console(msg);
-	sprintf(msg, "Boundary_Timeout: %d\r\n", settings.Boundary_Timeout);
+	sprintf(msg, "Boundary_Timeout (sec): %d\r\n", settings.Boundary_Timeout);
 	Serial_Console(msg);
 	sprintf(msg, "WorkingHourStart: %d\r\n", settings.WorkingHourStart);
 	Serial_Console(msg);
@@ -23,15 +23,17 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Overturn_Limit: %d\r\n", settings.Overturn_Limit);
 	Serial_Console(msg);
-	sprintf(msg, "MotorSpeedUpdateFreq: %d\r\n", settings.MotorSpeedUpdateFreq);
+	sprintf(msg, "MotorSpeedUpdateFreq (ms): %d\r\n", settings.MotorSpeedUpdateFreq);
 	Serial_Console(msg);
-	sprintf(msg, "Outside_Threshold: %d\r\n", settings.Outside_Threshold);
+	sprintf(msg, "Outside_Threshold (sec): %d\r\n", settings.Outside_Threshold);
 	Serial_Console(msg);
 	sprintf(msg, "HoldChargeDetection: %d\r\n", settings.HoldChargeDetection);
 	Serial_Console(msg);
 	sprintf(msg, "Battery High: %.2f\r\n", settings.Battery_High_Limit);
 	Serial_Console(msg);
 	sprintf(msg, "Battery Low: %.2f\r\n", settings.Battery_Low_Limit);
+	Serial_Console(msg);
+	sprintf(msg, "Battery charge time (min): %d\r\n", settings.BatteryChargeTime);
 	Serial_Console(msg);
 	sprintf(msg, "Signal IN: %.2f\r\n", settings.Signal_Integrity_IN);
 	Serial_Console(msg);
@@ -134,6 +136,8 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "SET BAT HIGH            - Limit when considering battery full\r\n");
 	Serial_Console(msg);
+	sprintf(msg, "SET BAT CHARGER TIME    - How many minutes to charge battery\r\n");
+	Serial_Console(msg);
 	sprintf(msg, "SET BWF OUT             - Limit for considering BWF OUT\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET BWF IN              - Limit for considering BWF IN\r\n");
@@ -156,6 +160,7 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "TRACK PERIMETER 	- Track perimeter next time it crosses\r\n");
 	Serial_Console(msg);
+	sprintf(msg, "SET PERIMETER SPEED   - Set track perimeter speed\r\n");
 	sprintf(msg, "SET KP			- PID Controller KP for Perimeter Tracking\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET KI			- PID Controller KI for Perimeter Tracking\r\n");

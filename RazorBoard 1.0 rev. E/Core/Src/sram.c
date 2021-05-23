@@ -141,6 +141,7 @@ sram_settings read_all_settings(void)
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
+	settings.BatteryChargeTime =  read_sram_uint16(BATTERYCHARGETIME_ADDR);
 
 	settings.Signal_Integrity_IN = read_sram_float(SIGNAL_INTEGRITY_IN_ADDR);
 	settings.Signal_Integrity_OUT = read_sram_float(SIGNAL_INTEGRITY_OUT_ADDR);
@@ -189,7 +190,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.perimeterTrackerSpeed, PERIMETERTRACKERSPEED_ADDR);
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
 	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
-
+	write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
 
 	// uint32_t & float
 	write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -217,11 +218,12 @@ void save_default_settings(void) {
 	settings.Go_Home_Direction = 0;
 	settings.Battery_Low_Limit = 22.00;
 	settings.Battery_High_Limit = 25.00;
-	settings.Boundary_Timeout = 6;
+	settings.BatteryChargeTime = 60;			// in min
+    settings.Boundary_Timeout = 6;              // in sec
 	settings.Cutter_Limit = 2.0;
 	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
-	settings.Outside_Threshold = 8;
+	settings.Outside_Threshold = 8;             // sec
 	settings.Motor_Limit = 3.5;
 	settings.Overturn_Limit = 35;
 	settings.Signal_Integrity_IN = 0.80;
@@ -243,7 +245,6 @@ void save_default_settings(void) {
 	settings.perimeterTrackerSpeed = 2800;
 	settings.cutterSpeed = 2750;
 	settings.adcLevel = 1267;
-
 
 	write_all_settings(settings);
 
