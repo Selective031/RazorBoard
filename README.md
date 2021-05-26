@@ -1,11 +1,11 @@
-# RazorBoard 1.0 rev. E
+# RazorBoard 1.0 rev. E and 1.2 rev. B
 
 Welcome to Razorboard! This is the first GA version of RazorBoard.
 
 # Brief description:
 
 RazorBoard is a PCB with most hardware integrated for building a DIY Robotic Lawn Mower.
-With this revision, you need to get a MPU-6050 and a RTC battery. In a future revision, this will be included on the PCB.
+With this revision, you need to get a MPU-6050 and a RTC battery. In a future revision, this will be included on the PCB (MPU-6050 is now included in PCB revision 1.2).
 
 # Hardware:
 
@@ -29,7 +29,7 @@ Board size: 95 x 95mm
 
 # Required add-ons
 
-- MPU-6050
+- MPU-6050  (This is now included in PCB revision 1.2)
 - Power Resistor for each loop
 - RTC battery
 
@@ -116,13 +116,14 @@ https://www.st.com/en/development-tools/flasher-stm32.html#overview
 1. First change the jumper from RUN to UPGRADE
 2. Power the board
 3. Start "Flash Loader Demonstrator"
-4. Click NEXT 3 times.
-5. Select "Download to Device"
-6. Locate the .bin file.
-7. Click Next and your file will now be uploaded.
-8. Remove Power from board.
-9. Change the jumper back to RUN.
-10. Power the board.
+4. Select the com-port for RazorBoard
+5. Click NEXT 3 times.
+6. Select "Download to Device"
+7. Locate the .bin file.
+8. Click Next and your file will now be uploaded.
+9. Remove Power from board.
+10. Change the jumper back to RUN.
+11. Power the board.
 
 After this inital upload, you can use the ST-Link interface for upgrading without changing jumper.
 Also, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper.
@@ -243,6 +244,19 @@ In the "debug" menu, you can record a new signature and see how well it it detec
 You can also type "show sig" to plot the signature onto a plotter (like the Arduino Plotter).
 Type "export sig" and you will get the signature as an array if you like to save the signture in software and compile it.
 
+# Proximity Magnitude
+
+A new function as been added in the "dev" branch, this function can determine how near the mower are to the boundary wire and start to de-accelerate before going over the boundary. This is usefull when the mower is going down a slope in full speed, if the boundary is very near an edge it can go further over the boundary than it is suppose to.
+To use this function, place the mower (with the sensors towards the boundary) at a distance from the boundary you wish to start the slow down. Make sure you disable the system, then enter the "debug on" command. Check the "Magnitude" line. Remember this value and type "set mag value xxx" - "save config".
+By default the mower will slow down to 80% of normal speed when the proximity has has been reached.
+A new "magmin value" has also been added, the magnitude needs to be under this value to release the "slowdown" function.
+
+# Spinning detection
+
+In firmware version 1.0.2, a function has been created to detect movements. This can be useful if the mower is stuck in some way and the wheels are spinning forever.
+The function uses the MPU-6050 to detect movement on all axles. After some calculations a value is produced, the higher the value the more movements are detected.
+If going below a set threshold for more than 2 seconds, the mower will stop and try to go backward and then turn. This function will be futher improved in future versions.
+
 # MPU-6050
 
 You only need to solder 4 pins on the 6050: SDA, SCL, GND and VCC.
@@ -264,7 +278,7 @@ Look at the picture "mpu_placement.jpg" for guidance.
 - 1 Red LED to show status
 - 1 Fuse of 4A
 
-You need to add a power resistor for each loop you want to use. Without a power resistor you can damage the driver.
+You need to add a power resistor in series for each loop you want to use. Without a power resistor you can damage the driver.
 Your total Ohm should be in the range of 5-12 ohm.
 
 So lets take an example, you measure your loop with a multimeter and you discover you have about 2.5 ohms.
@@ -275,6 +289,11 @@ By default, Loop1 is the primary connector for the boundary wire. Loop2 will com
 
 At power up, the PCB takes a series of measurements to determine what the current level on the charge connector is (to be able to detect when the mower is docked). Do not have the mower connected to the connector, that will interfere with the measurements. If you are certain about the level, you could hardcode it and compile a new .bin file.
 When the red LED is static, the PCB is powered. When blinking (2 hz) the boundary wire is active.
+
+# DHT11/22
+As can been seen on the PCB, there is a weird looking connection under the USB connector, this is where you can solder a DHT11/22 sensor, this will give you environmental temperature and humidity.
+The idea is to monitor the temperature and humidity during the mowing time, if the tempereture is above a specific level, GO HOME!
+The DHT22 is very sensitive and could potentielly also tell you when it is raining, a perfect sensor for detecting rain! If the humidity level is above a certain level, GO HOME!
 
 # Importing the project
 
@@ -312,9 +331,10 @@ You should now be able to "Build Project" from:
 
 # Hardware hacks
 
-- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins.
-- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. This is not yet tested in the field, but looks promising on the oscilloskop, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder.
+- If you experience random connections issues when uploading firmware, you can solder a bit of wire between two pins, a picture called "USB" shows which pins (This is now included in PCB revision 1.2).
+- A low pass filter in hardware for the boundary sensors, solder a 22pF ceramic capacitor between the legs of each resistor, R22, R11, R25 and R16. THIS IS NOW CONFIRMED TO BE WORKING GREAT, with 22pF the cutoff frequency is at 13KHz. Everything under 13KHz should pass, while blocking anything above. A picture called "LOWPASS" shows how to solder, (This is now included in PCB revision 1.2).
 - As you might noticed, when using the MPU-6050, you use SDA and SCL which are shared with UART3. However, in software you can move UART3 to PD8 and PD9. So you dont loose UART3 just because an MPU-6050 is connected. You got to love STM32 ;)
+- If you dont want to add a Raspberry Pi but still want the environmental temperature and humidity, you could bridge the DHT11/22 pin (from the RPi connector) to a digital pin on the STM32, both are 3.3V so no harm will be done, however at the time writing this there is no code for it yet on the STM32.
 
 # Troubleshooting:
 
@@ -336,6 +356,6 @@ If you find any bugs please report them so we can fix them!
 
 You can find me here: calle ( at ) lanstep.com
 
-I whish you a succesfull robot build! 😎
+I wish you a succesfull robot build! 😎
 
 

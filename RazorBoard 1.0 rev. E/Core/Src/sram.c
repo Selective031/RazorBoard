@@ -129,6 +129,8 @@ sram_settings read_all_settings(void)
 	settings.Overturn_Limit = read_sram_uint8(OVERTURN_LIMIT_ADDR);
 	settings.MotorSpeedUpdateFreq = read_sram_uint8(MOTORSPEEDUPDATEFREQ_ADDR);
 	settings.Outside_Threshold = read_sram_uint8(OUTSIDE_THRESHOLD_ADDR);
+	settings.move_count_limit = read_sram_uint8(MOVE_COUNT_ADDR);
+	settings.bumber_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
 
 	settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
 	settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
@@ -180,6 +182,9 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint8(settings.Overturn_Limit, OVERTURN_LIMIT_ADDR);
 	write_sram_uint8(settings.MotorSpeedUpdateFreq, MOTORSPEEDUPDATEFREQ_ADDR);
 	write_sram_uint8(settings.Outside_Threshold, OUTSIDE_THRESHOLD_ADDR);
+	write_sram_uint8(settings.move_count_limit, MOVE_COUNT_ADDR);
+	write_sram_uint8(settings.bumber_count_limit, BUMPER_COUNT_ADDR);
+
 
 	// uint16_t
 	write_sram_uint16(settings.HoldChargeDetection, HOLDCHARGEDETECTION_ADDR);
@@ -191,6 +196,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
 	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
 	write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
+
 
 	// uint32_t & float
 	write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -219,7 +225,7 @@ void save_default_settings(void) {
 	settings.Battery_Low_Limit = 22.00;
 	settings.Battery_High_Limit = 25.00;
 	settings.BatteryChargeTime = 60;			// in min
-    settings.Boundary_Timeout = 6;              // in sec
+  settings.Boundary_Timeout = 6;              // in sec
 	settings.Cutter_Limit = 2.0;
 	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
@@ -245,6 +251,8 @@ void save_default_settings(void) {
 	settings.perimeterTrackerSpeed = 2800;
 	settings.cutterSpeed = 2750;
 	settings.adcLevel = 1267;
+	settings.move_count_limit = 5;
+	settings.bumber_count_limit = 10;
 
 	write_all_settings(settings);
 

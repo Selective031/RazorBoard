@@ -72,6 +72,10 @@ void show_config(sram_settings settings) {
 	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
 	Serial_Console(msg);
 	sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
+  Serial_Console(msg);
+	sprintf(msg, "Movement limit: %d\r\n", settings.move_count_limit);
+	Serial_Console(msg);
+	sprintf(msg, "Bumber limit: %d\r\n", settings.bumber_count_limit);
 	Serial_Console(msg);
 
 }
@@ -149,6 +153,12 @@ void help(void) {
 	sprintf(msg, "SET MOVEMENT LIMIT      - Set Movement Limit for detecting movement\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET ADC LEVEL           - Set the ADC level for BWF\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET CUTTER SPEED        - Set speed of cutter motor\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET MOVEMENT COUNT LIMIT    - Set limit for movement detection before HALT\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET BUMBER COUNT LIMIT  - Set limit for bumber detection before HALT\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
 	Serial_Console(msg);

@@ -171,6 +171,8 @@ uint8_t mag_near_bwf = 0;
 
 uint32_t mag_timer = 0;
 uint32_t move_timer = 0;
+uint8_t bumber_count = 0;
+uint8_t move_count = 0;
 
 sram_settings settings;
 mpu6050 mpu;
@@ -332,7 +334,6 @@ void CalcMagnitude(uint8_t Sensor) {
 			  mag_near_bwf = 1;
 			  Serial_Console("PROXIMITY ALERT!\r\n");
 		  }
-		  mag_near_bwf = 1;
 		  mag_timer = HAL_GetTick();
 	  }
 	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
@@ -531,9 +532,10 @@ void CheckMotorCurrent(int RAW) {
 	            	MotorBrake();
 	            	HAL_Delay(500);
 	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-	                HAL_Delay(500);
+	            	HAL_Delay(500);
 	            	MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
+	            	bumber_count++;
 
 	            }
 			}
@@ -565,6 +567,7 @@ void CheckMotorCurrent(int RAW) {
 	            	HAL_Delay(500);
 	            	MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
+	            	bumber_count++;
 
 	            }
 			}
@@ -616,10 +619,12 @@ void SendInfo() {
 		Serial_Console(msg);
 		sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
 		Serial_Console(msg);
+
 		if (ChargerConnect == 1){
 			sprintf(msg,"Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
 			Serial_Console(msg);
 		}
+
 		sprintf(msg,"IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside, bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
 		Serial_Console(msg);
 		sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
@@ -658,7 +663,6 @@ void SendInfo() {
 		if (State == 6) Serial_Console(", STATE_FAIL \r\n");
 		if (State == 7) Serial_Console(", STATE_BRAKE \r\n");
 		if (State == 8) Serial_Console(", STATE_HARDBRAKE \r\n");
-
 
 		char Data[128];
 
@@ -768,10 +772,8 @@ void unDock(void) {
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 		HAL_Delay(5000);
 
-		Serial_Console("Undocking...\r\n");
-
-		MotorBackwardTurn(settings.motorMinSpeed, settings.motorMaxSpeed, 3000, 1);
-
+		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);			// This needs to be changed if your docking is on the right side
 		Docked = 0;
 		Initial_Start = 0;
 		Start_Threshold = 0;
@@ -1143,6 +1145,18 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.movement = limit;
 			}
+			if (strncmp(Command, "SET MOVEMENT COUNT LIMIT", 24) == 0) {
+				int limit;
+				char cmd1[3], cmd2[8], cmd3[5], cmd4[5];
+				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
+				settings.move_count_limit = limit;
+			}
+			if (strncmp(Command, "SET BUMBER COUNT LIMIT", 22) == 0) {
+				int limit;
+				char cmd1[3], cmd2[6], cmd3[5], cmd4[5];
+				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
+				settings.bumber_count_limit = limit;
+			}
 			if (strncmp(Command, "SET DATE", 8) == 0) {
 				int year = 0, month = 0, day = 0, weekday = 0;
 				char cmd1[3], cmd2[4];
@@ -1302,6 +1316,7 @@ uint8_t CheckSecurity(void) {
 
     if ((TIM4->CCR2 >= (settings.motorMaxSpeed * settings.proximitySpeed) || TIM4->CCR3 >= (settings.motorMaxSpeed * settings.proximitySpeed)) && mpu.movement < settings.movement) {
         if (HAL_GetTick() - move_timer >= 5000) {
+        	move_count++;
         	return SECURITY_MOVEMENT;
         }
     }
@@ -1383,7 +1398,6 @@ void CheckBWF_Rear() {
 	float Result_Signal = 0;
 	float BWF3_Verdict_Signal = 0.0;
 	int count = 0;
-
 	for (int x = 0; x < ADC_SAMPLE_LEN; x++) {
 		if (x%2) {
 			count++;
@@ -1717,7 +1731,7 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 		  MotorHardBrake();
 		  HAL_Delay(1000);
 		  MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-		  HAL_Delay(1000);
+		  HAL_Delay(500);
 		  MotorStop();
 		  HAL_Delay(500);
 		  return;
@@ -1962,9 +1976,18 @@ void CheckState(void) {
 		unDock();
 		return;
 		}
+	if (bumber_count >= settings.bumber_count_limit) {
+		MotorStop();
+		MasterSwitch = 0;
+		return;
+	}
 
 	if (CheckSecurity() == SECURITY_MOVEMENT) {
 		MotorStop();
+		if (move_count >= settings.move_count_limit) {
+			MasterSwitch = 0;
+			return;
+		}
 		HAL_Delay(500);
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
@@ -1983,6 +2006,8 @@ void CheckState(void) {
 
 	else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL) {
 		MotorStop();
+		move_count = 0;
+		bumber_count = 0;
 		TimeToGoHome();			// Check if within working hours, if not, go home
 		if (perimeterTracking == 1) {
 			cutterOFF();
