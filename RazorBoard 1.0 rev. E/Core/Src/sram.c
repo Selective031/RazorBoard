@@ -129,6 +129,8 @@ sram_settings read_all_settings(void)
 	settings.Overturn_Limit = read_sram_uint8(OVERTURN_LIMIT_ADDR);
 	settings.MotorSpeedUpdateFreq = read_sram_uint8(MOTORSPEEDUPDATEFREQ_ADDR);
 	settings.Outside_Threshold = read_sram_uint8(OUTSIDE_THRESHOLD_ADDR);
+	settings.move_count_limit = read_sram_uint8(MOVE_COUNT_ADDR);
+	settings.bumber_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
 
 	settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
 	settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
@@ -136,6 +138,7 @@ sram_settings read_all_settings(void)
 	settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
 	settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
 	settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
+	settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -177,6 +180,9 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint8(settings.Overturn_Limit, OVERTURN_LIMIT_ADDR);
 	write_sram_uint8(settings.MotorSpeedUpdateFreq, MOTORSPEEDUPDATEFREQ_ADDR);
 	write_sram_uint8(settings.Outside_Threshold, OUTSIDE_THRESHOLD_ADDR);
+	write_sram_uint8(settings.move_count_limit, MOVE_COUNT_ADDR);
+	write_sram_uint8(settings.bumber_count_limit, BUMPER_COUNT_ADDR);
+
 
 	// uint16_t
 	write_sram_uint16(settings.HoldChargeDetection, HOLDCHARGEDETECTION_ADDR);
@@ -185,6 +191,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
 	write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
+	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
 
 
 	// uint32_t & float
@@ -218,25 +225,28 @@ void save_default_settings(void) {
 	settings.HoldChargeDetection = 350;
 	settings.MotorSpeedUpdateFreq = 100;
 	settings.Outside_Threshold = 8;
-	settings.Motor_Limit = 3.0;
+	settings.Motor_Limit = 4.0;
 	settings.Overturn_Limit = 35;
 	settings.Signal_Integrity_IN = 0.80;
 	settings.Signal_Integrity_OUT = -0.80;
 	settings.WorkingHourStart = 10;
 	settings.WorkingHourEnd = 20;
-	settings.kp = 0.11;
+	settings.kp = 0.12;
 	settings.ki = 0.0;
 	settings.kd = 0.03;
 	settings.Motor_Max_Limit = 0.3;
 	settings.Motor_Min_Limit = 0.1;
-	settings.magValue = 370;
-	settings.magMinValue = 350;
+	settings.magValue = 400;
+	settings.magMinValue = 370;
 	settings.voltageMultiply = 5.0;
 	settings.proximitySpeed = 0.80;
 	settings.movement = 0.5;
 	settings.motorMaxSpeed = 3360 -1;
 	settings.motorMinSpeed = 2000;
-	settings.cutterSpeed = 2750;
+	settings.cutterSpeed = 3000;
+	settings.adcLevel = 1267;
+	settings.move_count_limit = 5;
+	settings.bumber_count_limit = 10;
 
 	write_all_settings(settings);
 
