@@ -45,6 +45,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Motor Min Limit: %.2f\r\n", settings.Motor_Min_Limit);
 	Serial_Console(msg);
+	sprintf(msg, "ADC Level: %d\r\n", settings.adcLevel);
+	Serial_Console(msg);
 	sprintf(msg, "KP: %.4f\r\n", settings.kp);
 	Serial_Console(msg);
 	sprintf(msg, "KI: %.4f\r\n", settings.ki);
@@ -59,13 +61,17 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Proximity Speed: %.2f\r\n", settings.proximitySpeed);
 	Serial_Console(msg);
-	sprintf(msg, "Movement Value: %.2f\r\n", settings.movement);
+	sprintf(msg, "Movement Limit: %.2f\r\n", settings.movement);
 	Serial_Console(msg);
 	sprintf(msg, "Motor Max Speed: %d\r\n", settings.motorMaxSpeed);
 	Serial_Console(msg);
 	sprintf(msg, "Motor Min Speed: %d\r\n", settings.motorMinSpeed);
 	Serial_Console(msg);
 	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
+	Serial_Console(msg);
+	sprintf(msg, "Movement limit: %d\r\n", settings.move_count_limit);
+	Serial_Console(msg);
+	sprintf(msg, "Bumber limit: %d\r\n", settings.bumber_count_limit);
 	Serial_Console(msg);
 
 }
@@ -139,6 +145,14 @@ void help(void) {
 	sprintf(msg, "SET MOTOR LIMIT         - Set Motor Limit, in multiply, default = 3.0\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET MOVEMENT LIMIT      - Set Movement Limit for detecting movement\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET ADC LEVEL           - Set the ADC level for BWF\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET CUTTER SPEED        - Set speed of cutter motor\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET MOVEMENT COUNT LIMIT    - Set limit for movement detection before HALT\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET BUMBER COUNT LIMIT  - Set limit for bumber detection before HALT\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
 	Serial_Console(msg);

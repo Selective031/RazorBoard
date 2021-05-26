@@ -8,7 +8,7 @@
 #ifndef INC_SRAM_H_
 #define INC_SRAM_H_
 
-static const char VERSION[] = "Version 1.0.2";
+static const char VERSION[] = "Version 1.0.3";
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t
@@ -18,6 +18,8 @@ static const char VERSION[] = "Version 1.0.2";
 #define OVERTURN_LIMIT_ADDR				0x06	//uint8_t
 #define MOTORSPEEDUPDATEFREQ_ADDR		0x07	//uint8_t
 #define OUTSIDE_THRESHOLD_ADDR			0x08	//uint8_t
+#define MOVE_COUNT_ADDR					0x09	//uint8_t
+#define BUMPER_COUNT_ADDR				0x0A	//uint8_t
 
 #define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
 #define MAGVALUE_ADDR					0x34	//uint16_t
@@ -25,6 +27,7 @@ static const char VERSION[] = "Version 1.0.2";
 #define MOTORMAXSPEED_ADDR				0x38	//uint16_t
 #define MOTORMINSPEED_ADDR				0x3A	//uint16_t
 #define CUTTERSPEED_ADDR				0x3C	//uint16_t
+#define ADC_LEVEL_ADDR					0x3E	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -53,12 +56,15 @@ typedef struct SRAM {
 	uint8_t Overturn_Limit;
 	uint8_t MotorSpeedUpdateFreq;
 	uint8_t Outside_Threshold;
+	uint8_t move_count_limit;
+	uint8_t bumber_count_limit;
 	uint16_t HoldChargeDetection;
 	uint16_t magValue;
 	uint16_t magMinValue;
 	uint16_t motorMaxSpeed;
 	uint16_t motorMinSpeed;
 	uint16_t cutterSpeed;
+	uint16_t adcLevel;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
