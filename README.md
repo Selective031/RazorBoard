@@ -36,7 +36,7 @@ Board size: 95 x 95mm
 # To successfully build a robot, you need:
 
 - 1 Razorboard
-- 2 Boundary Sensors
+- 2 Boundary Sensors (3rd sensor is now optional)
 - 1 Boundary wire signal generator
 - 2 motors for the wheels
 - 2 wheels
@@ -103,8 +103,8 @@ Explaination of connectors:
 - Charge Pins = Connect this to your charge pins at the front of your mower
 - Battery Charge = Connect this your battery charge cable, if your battery does not have a dedicated charge cable, you can connect it to the battery.
 - BWF1 = Connect to your Left front sensor  (default)
-- BWF2 = Connect to you Right front sensor  (default)
-- BWF3 = Currently not in use in software
+- BWF2 = Connect to your Right front sensor  (default)
+- BWF3 = Connect to your rear center sensor (optional)
 - BWF4 = Currently not in use in software
 - USB STM32 = Used for upgrading firmware in STM32, also used for debugging and interfacing with the STM32
 - I2C_2 SDA = Connect this to your MPU-6050 (located to the left of the motors connections)
