@@ -33,6 +33,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Battery Low: %.2f\r\n", settings.Battery_Low_Limit);
 	Serial_Console(msg);
+	sprintf(msg, "Battery charge time (min): %d\r\n", settings.BatteryChargeTime);
+	Serial_Console(msg);
 	sprintf(msg, "Signal IN: %.2f\r\n", settings.Signal_Integrity_IN);
 	Serial_Console(msg);
 	sprintf(msg, "Signal OUT: %.2f\r\n", settings.Signal_Integrity_OUT);
@@ -69,6 +71,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
 	Serial_Console(msg);
+	sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
+    Serial_Console(msg);
 	sprintf(msg, "Movement limit: %d\r\n", settings.move_count_limit);
 	Serial_Console(msg);
 	sprintf(msg, "Bumber limit: %d\r\n", settings.bumber_count_limit);
@@ -136,6 +140,8 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "SET BAT HIGH            - Limit when considering battery full\r\n");
 	Serial_Console(msg);
+	sprintf(msg, "SET BAT CHARGER TIME    - How many minutes to charge battery\r\n");
+	Serial_Console(msg);
 	sprintf(msg, "SET BWF OUT             - Limit for considering BWF OUT\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET BWF IN              - Limit for considering BWF IN\r\n");
@@ -164,6 +170,7 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "TRACK PERIMETER 	- Track perimeter next time it crosses\r\n");
 	Serial_Console(msg);
+	sprintf(msg, "SET PERIMETER SPEED   - Set track perimeter speed\r\n");
 	sprintf(msg, "SET KP			- PID Controller KP for Perimeter Tracking\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET KI			- PID Controller KI for Perimeter Tracking\r\n");

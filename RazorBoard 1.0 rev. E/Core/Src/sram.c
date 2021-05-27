@@ -137,11 +137,13 @@ sram_settings read_all_settings(void)
 	settings.magMinValue = read_sram_uint16(MAGMINVALUE_ADDR);
 	settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
 	settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
+	settings.perimeterTrackerSpeed = read_sram_uint16(PERIMETERTRACKERSPEED_ADDR);
 	settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
 	settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
 
 	settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
 	settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
+	settings.BatteryChargeTime =  read_sram_uint16(BATTERYCHARGETIME_ADDR);
 
 	settings.Signal_Integrity_IN = read_sram_float(SIGNAL_INTEGRITY_IN_ADDR);
 	settings.Signal_Integrity_OUT = read_sram_float(SIGNAL_INTEGRITY_OUT_ADDR);
@@ -190,8 +192,10 @@ void write_all_settings(sram_settings settings)
 	write_sram_uint16(settings.magMinValue, MAGMINVALUE_ADDR);
 	write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
 	write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
+	write_sram_uint16(settings.perimeterTrackerSpeed, PERIMETERTRACKERSPEED_ADDR);
 	write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
 	write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
+	write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
 
 
 	// uint32_t & float
@@ -247,6 +251,8 @@ void save_default_settings(void) {
 	settings.adcLevel = 1267;
 	settings.move_count_limit = 5;
 	settings.bumber_count_limit = 10;
+	settings.BatteryChargeTime = 60;
+	settings.perimeterTrackerSpeed = 2800;
 
 	write_all_settings(settings);
 
