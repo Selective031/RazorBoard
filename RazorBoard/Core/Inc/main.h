@@ -49,6 +49,7 @@ extern void reInitIMU(void);
 /* USER CODE BEGIN EC */
 
 char msg[128];
+char emsg[50];
 
 /* USER CODE END EC */
 

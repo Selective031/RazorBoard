@@ -38,6 +38,7 @@
 #include <sram.h>
 #include <mpu6050.h>
 #include <adc.h>
+#include <inttypes.h>
 
 
 /* USER CODE END Includes */
@@ -85,14 +86,15 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64				// Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64			// Buffer size for Serial Console
 
-double Tick1 = 0;
-double Tick2 = 0;
-double error = 0;
-double lastError = 0;
-double cumError = 0;
-double elapsedTime = 0;
-double rateError = 0;
-double previousTime = 0;
+uint32_t Tick1 = 0;
+uint32_t Tick2 = 0;
+uint32_t error = 0;
+uint32_t lastError = 0;
+uint32_t cumError = 0;
+uint32_t elapsedTime = 0;
+uint32_t rateError = 0;
+uint32_t previousTime = 0;
+
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
 
@@ -169,11 +171,18 @@ uint8_t mag_near_bwf = 0;
 
 uint32_t mag_timer = 0;
 uint32_t move_timer = 0;
+uint32_t highgrass_timer = 0;
+uint32_t tracking_timeout_timer = 0;
+uint32_t GoHome_timer_IN = 0;
+uint32_t GoHome_timer_OUT = 0;
+
+uint8_t highgrass_slowdown = 0;
 
 uint8_t bumber_count = 0;
 uint8_t move_count = 0;
 
 sram_settings settings;
+sram_error errors;
 mpu6050 mpu;
 
 
@@ -191,7 +200,6 @@ DMA_HandleTypeDef hdma_adc1;
 DMA_HandleTypeDef hdma_adc2;
 
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
 
 IWDG_HandleTypeDef hiwdg;
 
@@ -228,7 +236,6 @@ static void MX_RTC_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_ADC2_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -236,9 +243,9 @@ static void MotorStop(void);
 static void MotorBrake(void);
 static void MotorHardBrake(void);
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
-static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
-static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
-static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms);
+static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void CheckState(void);
 static uint8_t CheckSecurity(void);
 static void CheckBWF(void);
@@ -250,9 +257,7 @@ static void parseCommand_RPI(void);
 static void parseCommand_Console(void);
 static void perimeterTracker(void);
 static void ChargerConnected(void);
-void HAL_UART_RxCpltCallback_UART1(UART_HandleTypeDef *huart);
-void HAL_UART_RxCpltCallback_UART2(UART_HandleTypeDef *huart);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 static void delay_us(uint16_t us);
 static void ADC_Send(uint8_t channel);
 static int ADC_Receive();
@@ -286,10 +291,11 @@ void reInitIMU(void) {
 
 	// If the I2C bus hangs, this will clear the deadlock and re-init the MPU
 
+	add_error_event("reInit IMU");
 	Serial_Console("reInit IMU\r\n");
 
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
-	HAL_I2C_DeInit(&hi2c2);
+	HAL_I2C_DeInit(&hi2c1);
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
 	GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -303,7 +309,7 @@ void reInitIMU(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 	HAL_Delay(1);
-	MX_I2C2_Init();
+	MX_I2C1_Init();
 	Init6050();
 }
 
@@ -330,14 +336,36 @@ void CalcMagnitude(uint8_t Sensor) {
 	  if (magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) {
 		  if (mag_near_bwf == 0) {
 			  mag_near_bwf = 1;
+			  highgrass_slowdown = 0;
+			  sprintf(emsg, "proximity alert BWF1: %d BWF2: %d", magBWF1, magBWF2);
+			  add_error_event(emsg);
 			  Serial_Console("PROXIMITY ALERT!\r\n");
 		  }
 		  mag_timer = HAL_GetTick();
 	  }
 	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
 		  if (mag_near_bwf == 1) {
-			  if (HAL_GetTick() - mag_timer >= 3000) {
+			  if (HAL_GetTick() - mag_timer >= 4000) {
+
+				  if (mag_near_bwf == 1) {
+					  if (TIM4->CCR2 >= settings.motorMinSpeed || TIM4->CCR3 >= settings.motorMinSpeed) {
+
+						  for (uint32_t x = (round(TIM4->CCR2 + TIM4->CCR3) / 2); x < settings.motorMaxSpeed; x++) {
+							  if (x < settings.motorMinSpeed || x > settings.motorMaxSpeed) break;
+
+							  TIM4->CCR2 = x;
+							  TIM4->CCR3 = x;
+							  HAL_Delay(1);
+							  if (CheckSecurity() == SECURITY_FAIL) {
+								  MotorStop();
+								  break;
+							  }
+						  }
+					  }
+				  }
 				  mag_near_bwf = 0;
+				  sprintf(emsg, "proximity cleared BWF1: %d BWF2: %d", magBWF1, magBWF2);
+				  add_error_event(emsg);
 				  Serial_Console("PROXIMITY CLEARED!\r\n");
 			  }
 		  }
@@ -355,6 +383,8 @@ void TimeToGoHome(void) {
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
 	if (currTime.Hours >= settings.WorkingHourEnd) {
+		sprintf(emsg, "tracking enabled %d", currTime.Hours);
+		add_error_event(emsg);
 		perimeterTracking = 1;
 	}
 
@@ -372,6 +402,7 @@ void setTime(uint8_t hour, uint8_t minute, uint8_t second) {
 	HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
 
 }
+
 void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday) {
 
 	RTC_DateTypeDef sDate = {0};
@@ -520,7 +551,9 @@ void CheckMotorCurrent(int RAW) {
 	            if (M1_F < settings.Motor_Min_Limit) M1_F = settings.Motor_Min_Limit;
 	            if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
 
-	            	sprintf(msg, "Motor Current Limit reached for M1: %f", M1_amp);
+	  			    sprintf(emsg, "M1 current: %.2f", M1_amp);
+	  			    add_error_event(emsg);
+	  			    sprintf(msg, "Motor Current Limit reached for M1: %.2f", M1_amp);
 	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
@@ -552,7 +585,9 @@ void CheckMotorCurrent(int RAW) {
 	            if (M2_F < settings.Motor_Min_Limit) M2_F = settings.Motor_Min_Limit;
 	            if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
 
-	            	sprintf(msg, "Motor Current Limit reached for M2: %f", M2_amp);
+	  			    sprintf(emsg, "M2 current: %.2f", M2_amp);
+	  			    add_error_event(emsg);
+	            	sprintf(msg, "Motor Current Limit reached for M2: %.2f", M2_amp);
 	            	Serial_Console(msg);
 
 	            	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8 ) == GPIO_PIN_SET) {
@@ -576,6 +611,8 @@ void CheckVoltage() {
 
 	if ( Voltage < settings.Battery_Low_Limit) {
 		if (perimeterTracking == 1) return;
+		sprintf(emsg, "low voltage: %.2f", Voltage);
+		add_error_event(emsg);
 		sprintf(msg, "Low Voltage - Searching for perimeter wire...\r\n");
 		Serial_RPi(msg);
 		Serial_Console(msg);
@@ -691,7 +728,37 @@ void CollectADC() {
             C1 = fabs(((C1_Value * 0.1875) - 2500) / 100);
             if (Initial_Start == 0) C1_error = C1;
             C1_amp = fabs(C1 - C1_error);
+
+            if (C1_amp >= 1.5) {
+            	highgrass_slowdown = 1;
+            	MotorStop();
+            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+            	HAL_Delay(2000);
+            	MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed * 0.78);
+            	highgrass_timer = HAL_GetTick();
+            }
+            else {
+            	if (HAL_GetTick() - highgrass_timer >= 10000) {
+            		if (highgrass_slowdown == 1) {
+            			if (TIM4->CCR2 >= settings.motorMinSpeed || TIM4->CCR3 >= settings.motorMinSpeed) {
+
+            				for (uint32_t x = (round(TIM4->CCR2 + TIM4->CCR3) / 2); x < settings.motorMaxSpeed; x++) {
+            					TIM4->CCR2 = x;
+            					TIM4->CCR3 = x;
+            					HAL_Delay(1);
+            					if (CheckSecurity() == SECURITY_FAIL) {
+            						MotorStop();
+            						break;
+            					}
+            				}
+            			}
+            		}
+            		highgrass_slowdown = 0;
+            	}
+            }
             if (C1_amp >= settings.Cutter_Limit) {
+            	sprintf(emsg, "C1 current: %.2f", C1_amp);
+            	add_error_event(emsg);
             	MasterSwitch =  0;
             	return;
             }
@@ -736,9 +803,16 @@ void unDock(void) {
 
 	if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1) {
 
+		add_error_event("Switch Main Battery");
+		add_error_event("Test UNDOCK");
 		Serial_Console("Switching to Main Battery\r\n");
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 		HAL_Delay(5000);
+
+		MasterSwitch = 1;
+
+		mpu.roll = 0;
+		mpu.pitch = 0;
 
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
 
@@ -765,8 +839,11 @@ void ChargerConnected(void) {
 		if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0) {
 			Battery_Ready = 1;
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+			add_error_event("Charger disconnect");
 			Serial_Console("Charger disconnected.\r\n");
 			ChargerConnect = 0;
+			perimeterTracking = 0;
+			perimeterTrackingActive = 0;
 		}
 		return;
 	}
@@ -776,6 +853,7 @@ void ChargerConnected(void) {
 		Force_Active = 0;
 		MotorBrake();
 		cutterHardBreak();
+		add_error_event("Charger connect");
 		Serial_Console("Charger Connected\r\n");
 		HAL_Delay(10000);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);				// Main Power switch
@@ -784,51 +862,77 @@ void ChargerConnected(void) {
 		Docked = 1;
 		HAL_Delay(5000);
 		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);			// Charger Switch
+		add_error_event("Charging active");
 		Serial_Console("Charging activated\r\n");
 		perimeterTracking = 0;
 		perimeterTrackingActive = 0;
+
 		return;
 		}
 }
 
-void perimeterTracker() {
+void perimeterTracker(void) {
 
 	CheckSecurity();
+
+	mag_near_bwf = 0;
+	highgrass_slowdown = 0;
 
 	elapsedTime = HAL_GetTick() - previousTime;
 
     if (BWF2_Status == OUTSIDE) {
     	Tick1 -= elapsedTime;
     	Tick2 = 0;
+    	GoHome_timer_IN = HAL_GetTick();
+
+    	if (HAL_GetTick() - GoHome_timer_OUT >= 10000) {		// 10 seconds
+    		perimeterTrackingActive = 0;
+    		perimeterTracking = 0;
+    		MasterSwitch = 0;
+    		add_error_event("Stuck during perimeterTracking - HALT");
+    		return;
+
+    	}
     }
 
     if (BWF2_Status == INSIDE) {
     	Tick2 -= elapsedTime;
     	Tick1 = 0;
+    	GoHome_timer_OUT = HAL_GetTick();
+
+    	if (HAL_GetTick() - GoHome_timer_IN >= 10000) {			// 10 seconds
+    		perimeterTrackingActive = 0;
+    		perimeterTracking = 0;
+    		MasterSwitch = 0;
+    		add_error_event("Stuck during perimeterTracking - HALT");
+    		return;
+
+    	}
     }
 
-    error = 2800 - (Tick1 + Tick2);                // determine error
+    error = settings.motorMaxSpeed - (Tick1 + Tick2);                // determine error
     cumError += error * elapsedTime;               // compute integral
     rateError = (error - lastError)/elapsedTime;   // compute derivative
 
-    double out = settings.kp*error + settings.ki*cumError + settings.kd*rateError;                //PID output
+    float out = settings.kp*error + settings.ki*cumError + settings.kd*rateError;                //PID output
 
     lastError = error;                             //remember current error
     previousTime = HAL_GetTick();                  //remember current time
 
-    int speedA = (2800 + round(out));
-    int speedB = (2800 - round(out));
+    int speedA = (settings.motorMaxSpeed + round(out));
+    int speedB = (settings.motorMaxSpeed - round(out));
 
-    if (speedA > 3200) speedA = 3200;				// limit upper and lower speed
-    if (speedB > 3200) speedB = 3200;
+    if (speedA > settings.motorMaxSpeed) speedA = settings.motorMaxSpeed;				// limit upper and lower speed
+    if (speedB > settings.motorMaxSpeed) speedB = settings.motorMaxSpeed;
 
-    if (speedA < 1500) speedA = 1500;
-    if (speedB < 1500) speedB = 1500;
+    if (speedA < 1000) speedA = 1000;
+    if (speedB < 1000) speedB = 1000;
 
     if (BWF2_Status == OUTSIDE) {
 
 		  if (BWF1_Status == OUTSIDE) {
-			  TIM4->CCR1 = 2300;			// if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
+			  TIM4->CCR1 = settings.motorMaxSpeed;			// if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
+			  HAL_Delay(300);
 			  TIM4->CCR2 = 0;
 		  }
 		  else if (BWF1_Status == INSIDE) {
@@ -845,7 +949,7 @@ void perimeterTracker() {
 		  TIM4->CCR1 = 0;
 		  TIM4->CCR2 = speedA;
 
-		  TIM4->CCR3 = round(speedB * 0.95);
+		  TIM4->CCR3 = speedB;
 		  TIM4->CCR4 = 0;
     }
 
@@ -942,6 +1046,21 @@ void parseCommand_Console(void) {
 				show_config(settings);
 
 			}
+			if (strcmp(Command, "SHOW ERRORS") == 0) {
+
+				show_error();
+
+			}
+			if (strcmp(Command, "ADD ERROR") == 0) {
+				add_error_event("This is a test error!");
+
+			}
+
+			if (strcmp(Command, "CLEAR ERRORS") == 0) {
+				clear_errors();
+
+			}
+
 			if (strcmp(Command, "SAVE CONFIG") == 0) {
 				write_all_settings(settings);
 				settings = read_all_settings();
@@ -973,6 +1092,18 @@ void parseCommand_Console(void) {
 				TIM4->CCR2 = 0;
 				TIM4->CCR3 = 0;
 				TIM4->CCR4 = 2000;
+			}
+			if (strncmp(Command, "SET PITCH COMP", 14) == 0) {
+				float pitch;
+				char cmd1[3], cmd2[5], cmd3[4];
+				sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &pitch);
+				settings.pitch_comp = pitch;
+			}
+			if (strncmp(Command, "SET ROLL COMP", 13) == 0) {
+				float roll;
+				char cmd1[3], cmd2[4], cmd3[4];
+				sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &roll);
+				settings.roll_comp = roll;
 			}
 			if (strncmp(Command, "SET PROXIMITY SPEED", 19) == 0) {
 				float speed;
@@ -1156,12 +1287,15 @@ void parseCommand_Console(void) {
 			}
 			if (strcmp(Command, "DISABLE") == 0) {
 				MasterSwitch = 0;
+				add_error_event("User typed disable");
 				Serial_Console("RazorBoard DISABLED.\r\n");
 				Serial_Console("Please type <help> to see available commands\r\n");
+
 			}
 
 			if (strcmp(Command, "ENABLE") == 0) {
 				MasterSwitch = 1;
+				add_error_event("User typed enable");
 				Serial_Console("RazorBoard ENABLED. STEP AWAY FROM THE VEHICLE!\r\n");
 				Initial_Start = 0;
 				Initial_Start = 0;
@@ -1232,6 +1366,7 @@ uint8_t CheckSecurity(void) {
 	// Check security, what is our status with the boundary signals
 
     CheckBWF();
+
     if (State == BACKWARD) {
     	CheckBWF_Rear();
     	if (BWF3_Status == OUTSIDE) {
@@ -1239,7 +1374,9 @@ uint8_t CheckSecurity(void) {
     	}
     }
 
-	if (abs(mpu.pitch) >= settings.Overturn_Limit || abs(mpu.roll) >= settings.Overturn_Limit) {
+	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
+		sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
+		add_error_event(emsg);
 		MotorHardBrake();
 		cutterHardBreak();
 		return SECURITY_IMU_FAIL;
@@ -1297,6 +1434,7 @@ void cutterON(void) {
 	cutterStatus = 1;
 
 	Serial_Console("Cutter Motor ON\r\n");
+	add_error_event("Cutter Motor ON");
 
 	if (rnd(10000) < 5000 ) {			// Randomly select CW or CCW
 
@@ -1324,6 +1462,7 @@ void cutterON(void) {
 
 void cutterOFF(void) {
 
+	add_error_event("Cutter Motor OFF");
 	cutterStatus = 0;
 
 	TIM3->CCR1 = 0;
@@ -1570,9 +1709,15 @@ void UpdateMotorSpeed() {
 	if (diff < -1000) diff = -1000;
 
 	uint16_t Speed;
-	if (mag_near_bwf == 1) {
+	if (mag_near_bwf == 1 || highgrass_slowdown == 1) {
 		Speed = settings.motorMaxSpeed;
-		Speed = round(Speed * settings.proximitySpeed);
+		if (mag_near_bwf == 1) {
+			Speed = round(Speed * settings.proximitySpeed);
+		}
+		else if (highgrass_slowdown == 1) {
+			Speed = round(Speed * 0.78);
+
+		}
 	}
 
 	else Speed = settings.motorMaxSpeed;
@@ -1602,7 +1747,7 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 	State = FORWARD;
 
 	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-	ProcessIMUData();			// Compute Pitch/Roll
+	ProcessIMUData(settings);			// Compute Pitch/Roll
 	move_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
@@ -1637,13 +1782,14 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 
  }
 }
-void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
+void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
+	add_error_event("MotorBackward");
 	uint32_t motor_timer;
 	State = BACKWARD;
 	motor_timer = HAL_GetTick();
 	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-	ProcessIMUData();			// Compute Pitch/Roll
+	ProcessIMUData(settings);			// Compute Pitch/Roll
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -1697,8 +1843,9 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 }
 	MotorStop();
 }
-void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
+void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
+	add_error_event("MotorRight");
 	State = RIGHT;
 	uint32_t motor_timer;
 	motor_timer = HAL_GetTick();
@@ -1728,8 +1875,9 @@ while (HAL_GetTick() - motor_timer < time_ms) {
 }
 	MotorStop();
 }
-void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint16_t time_ms) {
+void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
+	add_error_event("MotorLeft");
 	State = LEFT;
 	uint32_t motor_timer;
 	motor_timer = HAL_GetTick();
@@ -1850,6 +1998,8 @@ void CheckState(void) {
 		return;
 		}
 	if (bumber_count >= settings.bumber_count_limit) {
+
+		add_error_event("Bumber detection HALT");
 		MotorStop();
 		MasterSwitch = 0;
 		Serial_Console("Bumber detection - HALT\r\n");
@@ -1857,6 +2007,7 @@ void CheckState(void) {
 	}
 
 	if (CheckSecurity() == SECURITY_MOVEMENT) {
+		add_error_event("Movement detection HALT");
 		MotorStop();
 		if (move_count >= settings.move_count_limit) {
 			MasterSwitch = 0;
@@ -1869,6 +2020,7 @@ void CheckState(void) {
 		return;
 	}
 	if (State == FAIL) {
+		add_error_event("State Fail, waiting");
 		MotorStop();
 		cutterOFF();
 		while (CheckSecurity() != SECURITY_OK) {
@@ -1879,6 +2031,7 @@ void CheckState(void) {
 	}
 
 	else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL) {
+		add_error_event("FORWARD+SECURITY_FAIL");
 		MotorStop();
 		move_count = 0;
 		bumber_count = 0;
@@ -1886,12 +2039,14 @@ void CheckState(void) {
 		if (perimeterTracking == 1) {
 			cutterOFF();
 			perimeterTrackingActive = 1;
+			GoHome_timer_IN = HAL_GetTick();
+			GoHome_timer_OUT = HAL_GetTick();
 			HAL_Delay(500);
-
+/*
 			while (BWF2_Status != OUTSIDE) {
 
 				MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-				ProcessIMUData();			// Compute Pitch/Roll
+				ProcessIMUData(settings);			// Compute Pitch/Roll
 
 				uint16_t leftTilt = 0;
 				uint16_t rightTilt = 0;
@@ -1906,20 +2061,22 @@ void CheckState(void) {
 				}
 
 				TIM4->CCR1 = 0;
-				TIM4->CCR2 = 2700 - round(leftTilt);
+				TIM4->CCR2 = settings.motorMaxSpeed - round(leftTilt);
 
-				TIM4->CCR3 = 2700 - round(rightTilt);
+				TIM4->CCR3 = settings.motorMaxSpeed - round(rightTilt);
 				TIM4->CCR4 = 0;
 				CheckSecurity();
 
 			}
+
 			MotorStop();
 			while (BWF2_Status != INSIDE) {
 
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900);
 				CheckSecurity();
 
 			}
+*/
 			return;
 		}
 		HAL_Delay(500);
@@ -1927,25 +2084,27 @@ void CheckState(void) {
 		CheckSecurity();				// Double check status of the sensors when we are standing still
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
+			add_error_event("BWF1 OUT BWF2 IN");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
+			add_error_event("BWF1 IN BWF2 OUT");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-
+			add_error_event("BWF1 OUT BWF2 OUT");
 			Serial_Console("Going Backward\r\n");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 			HAL_Delay(500);
 			if (rnd(1000) < 500 ) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 			}
 			else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 				}
 		}
 
@@ -1959,6 +2118,7 @@ void CheckState(void) {
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_OK) {
 		HAL_Delay(500);
+		add_error_event("STOP+SECURITY_OK");
 		mpu.hold_heading = mpu.heading;
 		if (cutterStatus == 0 && perimeterTracking == 0) {
 			cutterON();
@@ -1970,6 +2130,7 @@ void CheckState(void) {
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
 		HAL_Delay(500);
+		add_error_event("STOP+SECURITY_FAIL");
 		Serial_Console("STOP + Security Fail\r\n");
 
 		CheckSecurity();
@@ -2030,7 +2191,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
 
@@ -2058,6 +2218,8 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+  enable_backup_sram();
+
   WatchdogInit();								// STM32 Watchdog - NEVER DISABLE THIS (for safety!)
   HAL_TIM_Base_Start_IT(&htim2);				// 1 second interrupt, will update the watchdog and send info to Serial Console
 
@@ -2084,13 +2246,12 @@ int main(void)
 
   Boundary_Timer = HAL_GetTick();				// Initiate timer for the Boundary Wire
 
-  enable_backup_sram();
-
   delay_us(100);
 
   settings = read_all_settings();
   if (settings.Config_Set != 42) {
 	  save_default_settings();
+	  add_error_event("No config found");
 	  Serial_Console("No config found - Saving factory defaults\r\n");
 	  Serial_Console("Masterswitch set to OFF - please configure settings and reboot\r\n");
 	  MasterSwitch = 0;
@@ -2104,6 +2265,7 @@ int main(void)
 
   Serial_RPi("Booting done!\r\n");
   Serial_Console("Booting done!\r\n");
+  add_error_event("RazorBoard booted");
 
   while (1)
     {
@@ -2112,7 +2274,7 @@ int main(void)
   	if (HAL_GetTick() - IMU_timer >= 20) {
    	  MPU6050_Read_Accel();
   	  MPU6050_Read_Gyro();
-  	  ProcessIMUData();
+  	  ProcessIMUData(settings);
   	  IMU_timer = HAL_GetTick();
   	  }
 
@@ -2344,7 +2506,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -2359,40 +2521,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.ClockSpeed = 100000;
-  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -2813,8 +2941,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -2825,7 +2953,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC10 */
@@ -2848,10 +2976,13 @@ static void MX_GPIO_Init(void)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == GPIO_PIN_8) // If The INT Source Is EXTI Line9 (A9 Pin)
-    {
+    	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) {
 
-    }
+    		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+    		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+
+    	}
+
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
@@ -2865,47 +2996,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 
 }
-void HAL_UART_RxCpltCallback_UART1(UART_HandleTypeDef *huart) {
-	// UART Rx Complete Callback;
-	// Rx Complete is called by: DMA (automatically), if it rolls over
-	// and when an IDLE Interrupt occurs
-	// DMA Interrupt allays occurs BEFORE the idle interrupt can be fired because
-	// idle detection needs at least one UART clock to detect the bus is idle. So
-	// in the case, that the transmission length is one full buffer length
-	// and the start buffer pointer is at 0, it will be also 0 at the end of the
-	// transmission. In this case the DMA rollover will increment the RxRollover
-	// variable first and len will not be zero.
 
-	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
-		__HAL_UART_CLEAR_IDLEFLAG(&huart1);								// clear the interrupt
-		HAL_UART_DMAStop(&huart1);
-		UART1_ready = 1;												// Serial Console data is now ready to be processed
-
-	}
-
-}
-void HAL_UART_RxCpltCallback_UART2(UART_HandleTypeDef *huart) {
-	// UART Rx Complete Callback;
-	// Rx Complete is called by: DMA (automatically), if it rolls over
-	// and when an IDLE Interrupt occurs
-	// DMA Interrupt allays occurs BEFORE the idle interrupt can be fired because
-	// idle detection needs at least one UART clock to detect the bus is idle. So
-	// in the case, that the transmission length is one full buffer length
-	// and the start buffer pointer is at 0, it will be also 0 at the end of the
-	// transmission. In this case the DMA rollover will increment the RxRollover
-	// variable first and len will not be zero.
-
-	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
-		__HAL_UART_CLEAR_IDLEFLAG(&huart2);								// clear the interrupt
-		HAL_UART_DMAStop(&huart2);
-		UART2_ready = 1;												// // Raspberry Pi data is now ready to be processed
-
-	}
-
-}
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	// UART Tx Complete Callback;
+
+
+	if (huart == &huart1) {
+
+		if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
+			__HAL_UART_CLEAR_IDLEFLAG(&huart1);								// clear the interrupt
+			HAL_UART_DMAStop(&huart1);
+			UART1_ready = 1;												// Serial Console data is now ready to be processed
+
+		}
+	}
+	if (huart == &huart2) {
+
+		if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
+			__HAL_UART_CLEAR_IDLEFLAG(&huart2);								// clear the interrupt
+			HAL_UART_DMAStop(&huart2);
+			UART2_ready = 1;												// // Raspberry Pi data is now ready to be processed
+
+		}
+	}
+
 
 }
 
