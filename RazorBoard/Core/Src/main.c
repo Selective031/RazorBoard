@@ -842,8 +842,11 @@ void ChargerConnected(void) {
 			add_error_event("Charger disconnect");
 			Serial_Console("Charger disconnected.\r\n");
 			ChargerConnect = 0;
-			perimeterTracking = 0;
-			perimeterTrackingActive = 0;
+			HAL_Delay(5000);
+			Serial_Console("Switching to Main Battery\r\n");
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+			HAL_Delay(5000);
+			unDock();
 		}
 		return;
 	}
@@ -864,8 +867,6 @@ void ChargerConnected(void) {
 		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);			// Charger Switch
 		add_error_event("Charging active");
 		Serial_Console("Charging activated\r\n");
-		perimeterTracking = 0;
-		perimeterTrackingActive = 0;
 
 		return;
 		}
@@ -1462,7 +1463,6 @@ void cutterON(void) {
 
 void cutterOFF(void) {
 
-	add_error_event("Cutter Motor OFF");
 	cutterStatus = 0;
 
 	TIM3->CCR1 = 0;
