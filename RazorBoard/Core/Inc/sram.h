@@ -44,7 +44,18 @@ static const char VERSION[] = "Version 1.0.3";
 #define voltageMultiply_ADDR			0x94	//uint32_t
 #define proximitySpeed_ADDR				0x98	//uint32_t
 #define Motor_Min_Limit_ADDR			0x9C	//uint32_t
+#define ROLL_COMP_ADDR					0xA0
+#define PITCH_COMP_ADDR					0xA4
 
+#define ERRORLOG_INDEX_ADDR				0x1FF
+#define ERRORLOG_ADDR					0x200
+
+typedef struct SRAM_ERROR {
+
+	uint8_t index;
+	char elog[20][50];
+
+}sram_error;
 
 typedef struct SRAM {
 
@@ -79,11 +90,19 @@ typedef struct SRAM {
 	float voltageMultiply;
 	float proximitySpeed;
 	float movement;
+	float roll_comp;
+	float pitch_comp;
 
 } sram_settings;
 
 extern void enable_backup_sram(void);
-
+extern void clear_errors(void);
+extern void scroll_error_list(void);
+extern void add_error_event(char *errormsg);
+extern sram_error read_error_log(void);
+extern void write_error_log(sram_error errors);
+extern uint8_t read_sram_errorlog(uint16_t addr);
+extern void write_sram_errorlog(uint8_t l_data, uint16_t addr);
 extern void write_sram_uint8(uint8_t l_data, uint8_t addr);
 extern uint8_t read_sram_uint8(uint8_t);
 extern void write_sram_uint16(uint16_t l_data, uint8_t addr);

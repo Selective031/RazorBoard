@@ -11,6 +11,31 @@
 #include "stdio.h"
 #include <stdlib.h>
 
+extern RTC_HandleTypeDef hrtc;
+
+uint8_t read_sram_errorlog(uint16_t addr)
+{
+   uint8_t i_retval;
+
+  /* Enable clock to BKPSRAM */
+  __HAL_RCC_BKPSRAM_CLK_ENABLE();
+  /* Pointer write from specific location of backup SRAM */
+  i_retval =  *(uint16_t*) (BKPSRAM_BASE + addr);
+  /* Disable clock to BKPSRAM */
+  __HAL_RCC_BKPSRAM_CLK_DISABLE();
+  return i_retval;
+}
+
+void write_sram_errorlog(uint8_t l_data, uint16_t addr)
+{
+   /* Enable clock to BKPSRAM */
+  __HAL_RCC_BKPSRAM_CLK_ENABLE();
+  /* Pointer write on specific location of backup SRAM */
+  *(uint16_t *) (BKPSRAM_BASE + addr) = l_data;
+ /* Disable clock to BKPSRAM */
+ __HAL_RCC_BKPSRAM_CLK_DISABLE();
+}
+
 
 uint8_t read_sram_uint8(uint8_t addr)
 {
@@ -117,6 +142,81 @@ void enable_backup_sram(void)
 //    HAL_PWR_DisableBkUpAccess();
 }
 
+void clear_errors(void) {
+
+	sram_error errors;
+	errors = read_error_log();
+
+	for (int x = 0; x < 20; x++) {
+		sprintf(errors.elog[x], " ");
+	}
+	errors.index = 0;
+
+	write_error_log(errors);
+
+
+}
+
+void scroll_error_list(void) {
+
+	sram_error errors;
+	errors = read_error_log();
+
+	for (int x = 0; x < 19; x++) {
+		strcpy(errors.elog[x], errors.elog[x+1]);
+	}
+
+	write_error_log(errors);
+
+}
+
+void add_error_event(char *errormsg) {
+
+	sram_error errors;
+	errors = read_error_log();
+
+	if (errors.index < 0 || errors.index > 20) errors.index = 0;
+
+	if (errors.index >= 20) {
+
+		scroll_error_list();
+		errors = read_error_log();
+		errors.index = 19;
+
+	}
+
+	RTC_TimeTypeDef currTime = {0};
+	RTC_DateTypeDef currDate = {0};
+
+	HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
+
+	sprintf(errors.elog[errors.index], "<%d:%d:%d> %s", currTime.Hours, currTime.Minutes, currTime.Seconds, errormsg);
+
+	errors.index++;
+
+	write_error_log(errors);
+}
+
+sram_error read_error_log(void)
+{
+
+	sram_error errors;
+
+	uint16_t index = 0;
+	for (int line = 0; line < 20; line++) {
+		for (int ch = 0; ch < 50; ch++) {
+			errors.elog[line][ch] = read_sram_errorlog(ERRORLOG_ADDR + (index + 1));
+			index++;
+		}
+	}
+
+	errors.index = read_sram_errorlog(ERRORLOG_INDEX_ADDR);
+
+	return errors;
+
+}
+
 sram_settings read_all_settings(void)
 {
 	sram_settings settings;
@@ -158,9 +258,22 @@ sram_settings read_all_settings(void)
 	settings.voltageMultiply = read_sram_float(voltageMultiply_ADDR);
 	settings.proximitySpeed = read_sram_float(proximitySpeed_ADDR);
 	settings.movement = read_sram_float(MOVEMENT_ADDR);
-
+	settings.pitch_comp = read_sram_float(PITCH_COMP_ADDR);
+	settings.roll_comp = read_sram_float(ROLL_COMP_ADDR);
 
 	return settings;
+}
+void write_error_log(sram_error errors) {
+
+	uint16_t index = 0;
+	for (int line = 0; line < 20; line++) {
+		for (int ch = 0; ch < 50; ch++) {
+			write_sram_errorlog(errors.elog[line][ch], (ERRORLOG_ADDR + (index + 1)));
+			index++;
+		}
+	}
+	write_sram_errorlog(errors.index, ERRORLOG_INDEX_ADDR);
+
 }
 void write_all_settings(sram_settings settings)
 {
@@ -170,7 +283,7 @@ void write_all_settings(sram_settings settings)
 	//uint32_t = 4 byte
 	//float = 4 byte
 
-	// uint8_t
+	// uint8_t & int8_t
 	settings.Config_Set = 42;
 	write_sram_uint8(settings.Config_Set, CONFIG_SET_ADDR);
 	write_sram_uint8(settings.Go_Home_Direction, GO_GOME_DIRECTION_ADDR);
@@ -209,6 +322,8 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.voltageMultiply, voltageMultiply_ADDR);
 	write_sram_float(settings.proximitySpeed, proximitySpeed_ADDR);
 	write_sram_float(settings.movement, MOVEMENT_ADDR);
+	write_sram_float(settings.pitch_comp, PITCH_COMP_ADDR);
+	write_sram_float(settings.roll_comp, ROLL_COMP_ADDR);
 
 }
 
@@ -231,9 +346,9 @@ void save_default_settings(void) {
 	settings.Signal_Integrity_OUT = -0.80;
 	settings.WorkingHourStart = 10;
 	settings.WorkingHourEnd = 20;
-	settings.kp = 0.12;
+	settings.kp = 0.20;
 	settings.ki = 0.0;
-	settings.kd = 0.03;
+	settings.kd = 0.4;
 	settings.Motor_Max_Limit = 0.3;
 	settings.Motor_Min_Limit = 0.1;
 	settings.magValue = 400;
@@ -244,9 +359,11 @@ void save_default_settings(void) {
 	settings.motorMaxSpeed = 3360 -1;
 	settings.motorMinSpeed = 2000;
 	settings.cutterSpeed = 3000;
-	settings.adcLevel = 1267;
+	settings.adcLevel = 2050;
 	settings.move_count_limit = 5;
 	settings.bumber_count_limit = 10;
+	settings.pitch_comp = 0.0;
+	settings.roll_comp = 0.0;
 
 	write_all_settings(settings);
 

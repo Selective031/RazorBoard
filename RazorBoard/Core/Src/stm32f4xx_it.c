@@ -278,7 +278,7 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 
   if(__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE)) {
-	  HAL_UART_RxCpltCallback_UART1(&huart1);
+	  HAL_UART_RxCpltCallback(&huart1);
   }
 
   /* USER CODE END USART1_IRQn 1 */
@@ -296,7 +296,7 @@ void USART2_IRQHandler(void)
   /* USER CODE BEGIN USART2_IRQn 1 */
 
   if(__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE)) {
-	  HAL_UART_RxCpltCallback_UART2(&huart2);
+	  HAL_UART_RxCpltCallback(&huart2);
   }
 
   /* USER CODE END USART2_IRQn 1 */

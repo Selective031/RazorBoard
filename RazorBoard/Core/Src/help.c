@@ -11,6 +11,19 @@
 #include "stdio.h"
 #include <stdlib.h>
 
+void show_error() {
+
+	sram_error errors;
+	errors = read_error_log();
+
+	for (int i = 0; i < 20; i++) {
+
+		sprintf(msg, "[%d] %s\r\n", i, errors.elog[i]);
+		Serial_Console(msg);
+
+	}
+}
+
 void show_config(sram_settings settings) {
 
 	sprintf(msg, "Go Home Direction: %d\r\n", settings.Go_Home_Direction);
@@ -73,9 +86,12 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Bumber limit: %d\r\n", settings.bumber_count_limit);
 	Serial_Console(msg);
+	sprintf(msg, "Roll Compensation: %.2f\r\n", settings.roll_comp);
+	Serial_Console(msg);
+	sprintf(msg, "Pitch Compensation: %.2f\r\n", settings.pitch_comp);
+	Serial_Console(msg);
 
 }
-
 
 void help(void) {
 	sprintf(msg, "Available commands:\r\n\r\n");
@@ -154,13 +170,17 @@ void help(void) {
 	Serial_Console(msg);
 	sprintf(msg, "SET BUMBER COUNT LIMIT  - Set limit for bumber detection before HALT\r\n");
 	Serial_Console(msg);
+	sprintf(msg, "SET PITCH COMP          - Compensate pitch if not perfectly leveled\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET ROLL COMP           - Compensate roll if not perfectly leveled\r\n");
+	Serial_Console(msg);
 	sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET DATE		- Set current date for RTC\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "			Date must be set in a special order:\r\n");
 	Serial_Console(msg);
-	sprintf(msg, "			Year Month Day Weekday -> 21 3 31 2 (2 = Wednesday)\r\n");
+	sprintf(msg, "			Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "TRACK PERIMETER 	- Track perimeter next time it crosses\r\n");
 	Serial_Console(msg);

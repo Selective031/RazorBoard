@@ -14,7 +14,7 @@
 
 #define M_PI 3.14159265358979323846
 
-extern I2C_HandleTypeDef hi2c2;
+extern I2C_HandleTypeDef hi2c1;
 extern mpu6050 mpu;
 extern uint8_t Initial_Start;
 
@@ -31,24 +31,24 @@ void Init6050() {
 	uint8_t check;
 	uint8_t Data;
 
-	HAL_I2C_Mem_Read(&hi2c2, MPU6050_ADDR, WHO_AM_I_REG, 1, &check, 1, 50);
+	HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, WHO_AM_I_REG, 1, &check, 1, 50);
 	HAL_Delay(20);
 
 	Data = 0;
-	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, PWR_MGMT_1_REG, 1,&Data, 1, 50);
+	HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, PWR_MGMT_1_REG, 1,&Data, 1, 50);
 	HAL_Delay(20);
 
 	Data = 0x07;
-	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, SMPLRT_DIV_REG, 1, &Data, 1, 50);
+	HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, SMPLRT_DIV_REG, 1, &Data, 1, 50);
 	HAL_Delay(20);
 
 	Data = 0;
-	HAL_I2C_Mem_Write(&hi2c2, MPU6050_ADDR, GYRO_CONFIG_REG, 1, &Data, 1, 50);
+	HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, GYRO_CONFIG_REG, 1, &Data, 1, 50);
 	HAL_Delay(20);
 
 }
 
-void ProcessIMUData() {
+void ProcessIMUData(sram_settings settings) {
 
 	pitch_limit[pitch_limit_idx] = raw_pitch;
 	roll_limit[roll_limit_idx] = raw_roll;
@@ -78,8 +78,8 @@ void ProcessIMUData() {
 	}
 	mpu.movement = sum / 20;
 
-	mpu.roll = r / 20;
-	mpu.pitch = p / 20;
+	mpu.roll = (r / 20) + settings.roll_comp;
+	mpu.pitch = (p / 20) + settings.pitch_comp;
 
 	if (mpu.yaw > 359.9) mpu.yaw = 0;
 	if (mpu.yaw < 0) mpu.yaw = 359.9;
@@ -97,7 +97,7 @@ void MPU6050_Read_Accel(void) {
 
 	// Read 6 BYTES of data starting from ACCEL_XOUT_H register
 
-	if (HAL_I2C_Mem_Read (&hi2c2, MPU6050_ADDR, ACCEL_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
+	if (HAL_I2C_Mem_Read (&hi2c1, MPU6050_ADDR, ACCEL_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
 		reInitIMU();		// if the MPU-6050 does not respond within 50ms, re-init
 		return;
 	}
@@ -113,8 +113,11 @@ void MPU6050_Read_Accel(void) {
 	b = (fabs(Ax) + fabs(Ay) + fabs(Az))* 0.02;
 
 	float r, p;
-	p = atan2(Ay , Az) * 57.3;										// Ay, Az
-	r = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
+	p = atan2(Ax , Ay) * 57.3;										// Ay, Az
+	r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
+
+	p -= 90;
+//	r -= 8.0;
 
 	raw_roll = r + mpu.roll_error;
 	raw_pitch = p + mpu.pitch_error;
@@ -130,7 +133,7 @@ void MPU6050_Read_Gyro(void) {
 
 	// Read 6 BYTES of data starting from GYRO_XOUT_H register
 
-	if (HAL_I2C_Mem_Read (&hi2c2, MPU6050_ADDR, GYRO_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
+	if (HAL_I2C_Mem_Read (&hi2c1, MPU6050_ADDR, GYRO_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
 		reInitIMU();	// if the MPU-6050 does not respond within 50ms, re-init
 		return;
 	}
@@ -146,14 +149,14 @@ void MPU6050_Read_Gyro(void) {
 	a = (fabs(Gx) + fabs(Gy) + fabs(Gz))* 0.02;
 
 	if (Initial_Start == 0) {
-		if (fabs(Gz) < 1.0) {
-			mpu.yaw_error = fabs(Gz);		// Auto calibrate the Gyro error at startup
+		if (fabs(Gx) < 5.0) {
+			mpu.yaw_error = fabs(Gx);		// Auto calibrate the Gyro error at startup
 		}
 	}
-	Gz += mpu.yaw_error;					//Cancel out error
+	Gx += mpu.yaw_error;					//Cancel out error
 
-	if (Gz < -1.00 || Gz > 1.00) {		//if not moving, do not change
-		mpu.yaw = mpu.yaw - (Gz * 0.02);
+	if (Gx < -5.00 || Gx > 5.00) {		//if not moving, do not change
+		mpu.yaw = mpu.yaw - (Gx * 0.02);
 	}
 
 }

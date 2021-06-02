@@ -12,5 +12,6 @@
 
 void help(void);
 void show_config(sram_settings settings);
+void show_error();
 
 #endif /* INC_HELP_H_ */
