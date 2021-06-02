@@ -86,14 +86,14 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64				// Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64			// Buffer size for Serial Console
 
-uint32_t Tick1 = 0;
-uint32_t Tick2 = 0;
-uint32_t error = 0;
-uint32_t lastError = 0;
-uint32_t cumError = 0;
-uint32_t elapsedTime = 0;
-uint32_t rateError = 0;
-uint32_t previousTime = 0;
+double Tick1 = 0;
+double Tick2 = 0;
+double error = 0;
+double lastError = 0;
+double cumError = 0;
+double elapsedTime = 0;
+double rateError = 0;
+double previousTime = 0;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
@@ -804,7 +804,6 @@ void unDock(void) {
 	if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1) {
 
 		add_error_event("Switch Main Battery");
-		add_error_event("Test UNDOCK");
 		Serial_Console("Switching to Main Battery\r\n");
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 		HAL_Delay(5000);
@@ -915,7 +914,7 @@ void perimeterTracker(void) {
     cumError += error * elapsedTime;               // compute integral
     rateError = (error - lastError)/elapsedTime;   // compute derivative
 
-    float out = settings.kp*error + settings.ki*cumError + settings.kd*rateError;                //PID output
+    double out = settings.kp*error + settings.ki*cumError + settings.kd*rateError;                //PID output
 
     lastError = error;                             //remember current error
     previousTime = HAL_GetTick();                  //remember current time
@@ -932,8 +931,8 @@ void perimeterTracker(void) {
     if (BWF2_Status == OUTSIDE) {
 
 		  if (BWF1_Status == OUTSIDE) {
-			  TIM4->CCR1 = settings.motorMaxSpeed;			// if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
-			  HAL_Delay(300);
+			  TIM4->CCR1 = settings.motorMaxSpeed * 0.90;			// if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
+			  HAL_Delay(200);
 			  TIM4->CCR2 = 0;
 		  }
 		  else if (BWF1_Status == INSIDE) {
@@ -2039,44 +2038,36 @@ void CheckState(void) {
 		if (perimeterTracking == 1) {
 			cutterOFF();
 			perimeterTrackingActive = 1;
+			HAL_Delay(500);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
-			HAL_Delay(500);
-/*
-			while (BWF2_Status != OUTSIDE) {
 
-				MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-				ProcessIMUData(settings);			// Compute Pitch/Roll
+			if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
+				return;
+			}
+			if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
+				return;
+			}
+			if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 
-				uint16_t leftTilt = 0;
-				uint16_t rightTilt = 0;
+				while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
 
-				if (mpu.roll > 0) {
-					leftTilt = fabs(mpu.roll * 50);
+					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600);
+					CheckSecurity();
+					if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
+						perimeterTracking = 0;
+						perimeterTrackingActive = 0;
+						MasterSwitch = 0;
+						add_error_event("Stuck at turning on perimeter wire");
+						break;
+					}
 
 				}
-				if (mpu.roll < 0) {
-					rightTilt = fabs(mpu.roll * 50);
-
-				}
-
-				TIM4->CCR1 = 0;
-				TIM4->CCR2 = settings.motorMaxSpeed - round(leftTilt);
-
-				TIM4->CCR3 = settings.motorMaxSpeed - round(rightTilt);
-				TIM4->CCR4 = 0;
-				CheckSecurity();
-
+				GoHome_timer_IN = HAL_GetTick();
+				GoHome_timer_OUT = HAL_GetTick();
+				return;
 			}
 
-			MotorStop();
-			while (BWF2_Status != INSIDE) {
-
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900);
-				CheckSecurity();
-
-			}
-*/
 			return;
 		}
 		HAL_Delay(500);
