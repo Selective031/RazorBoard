@@ -1992,10 +1992,6 @@ void CheckState(void) {
 		cutterOFF();
 		return;
 	}
-	if (Docked == 1) {
-		unDock();
-		return;
-		}
 	if (bumber_count >= settings.bumber_count_limit) {
 
 		add_error_event("Bumber detection HALT");
@@ -2294,6 +2290,10 @@ int main(void)
     if (SendInfoStatus == 1) SendInfo();
 
   	ChargerConnected();
+
+	if (Docked == 1) {
+		unDock();
+		}
 
   	HAL_UART_Receive_DMA(&huart1, ConsoleBuffer, CONSOLE_BFR_SIZE);
     HAL_UART_Receive_DMA(&huart2, PIBuffer, PI_BFR_SIZE);
