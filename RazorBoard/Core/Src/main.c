@@ -345,7 +345,7 @@ void CalcMagnitude(uint8_t Sensor) {
 	  }
 	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
 		  if (mag_near_bwf == 1) {
-			  if (HAL_GetTick() - mag_timer >= 4000) {
+			  if (HAL_GetTick() - mag_timer >= 2000) {
 
 				  if (mag_near_bwf == 1) {
 					  if (TIM4->CCR2 >= settings.motorMinSpeed || TIM4->CCR3 >= settings.motorMinSpeed) {
