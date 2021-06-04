@@ -39,6 +39,7 @@
 #include <mpu6050.h>
 #include <adc.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 
 /* USER CODE END Includes */
@@ -244,6 +245,7 @@ static void MotorBrake(void);
 static void MotorHardBrake(void);
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
 static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void CheckState(void);
@@ -813,8 +815,7 @@ void unDock(void) {
 		mpu.roll = 0;
 		mpu.pitch = 0;
 
-		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 3000);
-
+        MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);			// This needs to be changed if your docking is on the right side
 
 		Docked = 0;
@@ -825,9 +826,7 @@ void unDock(void) {
 		perimeterTracking = 0;
 		perimeterTrackingActive = 0;
 		write_all_settings(settings);
-
 	}
-
 }
 
 void ChargerConnected(void) {
@@ -1225,12 +1224,18 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
 				settings.move_count_limit = limit;
 			}
-			if (strncmp(Command, "SET BUMBER COUNT LIMIT", 22) == 0) {
-				int limit;
-				char cmd1[3], cmd2[6], cmd3[5], cmd4[5];
-				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
-				settings.bumber_count_limit = limit;
-			}
+            if (strncmp(Command, "SET BUMBER COUNT LIMIT", 22) == 0) {
+                int limit;
+                char cmd1[3], cmd2[6], cmd3[5], cmd4[5];
+                sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
+                settings.bumber_count_limit = limit;
+            }
+            if (strncmp(Command, "SET UNDOCK BACKING SECONDS", 26) == 0) {
+                int seconds;
+                char cmd1[3], cmd2[6], cmd3[5], cmd4[5];
+                sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &seconds);
+                settings.undock_backing_seconds = seconds;
+            }
 			if (strncmp(Command, "SET DATE", 8) == 0) {
 				int year = 0, month = 0, day = 0, weekday = 0;
 				char cmd1[3], cmd2[4];
@@ -1781,66 +1786,72 @@ for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) 
 
  }
 }
+
 void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-
-	add_error_event("MotorBackward");
-	uint32_t motor_timer;
-	State = BACKWARD;
-	motor_timer = HAL_GetTick();
-	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-	ProcessIMUData(settings);			// Compute Pitch/Roll
-
-for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
-	  currentSpeed += 3;
-	  if (currentSpeed >= maxSpeed) {
-		  break;
-	  }
-
-	  uint16_t leftTilt = 0;
-	  uint16_t rightTilt = 0;
-
-	  if (mpu.roll < 0) {
-		  leftTilt = fabs(mpu.roll * 50);
-	  }
-	  if (mpu.roll > 0) {
-		  rightTilt = fabs(mpu.roll * 50);
-	  }
-
-	  TIM4->CCR1 = currentSpeed - round(rightTilt);
-	  TIM4->CCR2 = 0;
-
-	  TIM4->CCR3 = 0;
-	  TIM4->CCR4 = currentSpeed - round(leftTilt);
-
-	  HAL_Delay(1);
-
-	  if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
-		  MotorHardBrake();
-		  HAL_Delay(1000);
-		  MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-		  HAL_Delay(500);
-		  MotorStop();
-		  HAL_Delay(500);
-		  return;
-	  }
-
-	  if (HAL_GetTick() - motor_timer >= time_ms) {
-		  break;
-	  }
- }
-while (HAL_GetTick() - motor_timer < time_ms) {
-	if (CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
-		MotorHardBrake();
-		HAL_Delay(1000);
-		MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-		HAL_Delay(500);
-		MotorStop();
-		HAL_Delay(500);
-		return;
-	}
+    MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
 }
-	MotorStop();
+
+void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced) {
+    add_error_event("MotorBackward");
+    uint32_t motor_timer;
+    State = BACKWARD;
+    motor_timer = HAL_GetTick();
+    MPU6050_Read_Accel();        // Get fresh data for Pitch/Roll
+    ProcessIMUData(settings);            // Compute Pitch/Roll
+
+    for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+
+        currentSpeed += 3;
+        if (currentSpeed >= maxSpeed) {
+            break;
+        }
+
+        uint16_t leftTilt = 0;
+        uint16_t rightTilt = 0;
+
+        if (mpu.roll < 0) {
+            leftTilt = fabs(mpu.roll * 50);
+        }
+        if (mpu.roll > 0) {
+            rightTilt = fabs(mpu.roll * 50);
+        }
+
+        TIM4->CCR1 = currentSpeed - round(rightTilt);
+        TIM4->CCR2 = 0;
+
+        TIM4->CCR3 = 0;
+        TIM4->CCR4 = currentSpeed - round(leftTilt);
+
+        HAL_Delay(1);
+
+        if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+            MotorHardBrake();
+            HAL_Delay(1000);
+            MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+            HAL_Delay(500);
+            MotorStop();
+            HAL_Delay(500);
+            return;
+        }
+
+        if (HAL_GetTick() - motor_timer >= time_ms) {
+            break;
+        }
+    }
+    while (HAL_GetTick() - motor_timer < time_ms) {
+        if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+            MotorHardBrake();
+            HAL_Delay(1000);
+            MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+            HAL_Delay(500);
+            MotorStop();
+            HAL_Delay(500);
+            return;
+        }
+
+        HAL_Delay(100);
+    }
+    MotorStop();
 }
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
