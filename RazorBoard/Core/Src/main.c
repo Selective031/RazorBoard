@@ -815,7 +815,7 @@ void unDock(void) {
 		mpu.roll = 0;
 		mpu.pitch = 0;
 
-        MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds, true);
+        MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);			// This needs to be changed if your docking is on the right side
 
 		Docked = 0;
