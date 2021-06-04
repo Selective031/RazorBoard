@@ -177,7 +177,7 @@ void add_error_event(char *errormsg) {
 
 	if (errors.index < 0 || errors.index > 20) errors.index = 0;
 
-	if (errors.index >= 20) {
+	if (errors.index == 20) {
 
 		scroll_error_list();
 		errors = read_error_log();
