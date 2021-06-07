@@ -282,6 +282,7 @@ static void setTime(uint8_t hour, uint8_t minute, uint8_t second);
 static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
 static void TimeToGoHome(void);
 static void CalcMagnitude(uint8_t Sensor);
+static void delay(uint32_t time_ms);
 
 
 /* USER CODE END PFP */
@@ -289,9 +290,22 @@ static void CalcMagnitude(uint8_t Sensor);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void delay(uint32_t time_ms) {
+
+	uint32_t timer;
+	timer = HAL_GetTick();
+
+	while (HAL_GetTick() - timer < time_ms) {
+		CheckSecurity();
+	}
+}
+
 void reInitIMU(void) {
 
 	// If the I2C bus hangs, this will clear the deadlock and re-init the MPU
+
+	MotorStop();
+	cutterOFF();
 
 	add_error_event("reInit IMU");
 	Serial_Console("reInit IMU\r\n");
@@ -335,7 +349,7 @@ void CalcMagnitude(uint8_t Sensor) {
 	  if (Sensor == 1) magBWF1 = round(magValue);
 	  else if (Sensor == 2) magBWF2 = round(magValue);
 
-	  if (magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) {
+	  if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) && (TIM4->CCR2 == settings.motorMaxSpeed || TIM4->CCR3 == settings.motorMaxSpeed)) {
 		  if (mag_near_bwf == 0) {
 			  mag_near_bwf = 1;
 			  highgrass_slowdown = 0;
@@ -345,33 +359,23 @@ void CalcMagnitude(uint8_t Sensor) {
 		  }
 		  mag_timer = HAL_GetTick();
 	  }
-	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue) {
-		  if (mag_near_bwf == 1) {
-			  if (HAL_GetTick() - mag_timer >= 2000) {
-
-				  if (mag_near_bwf == 1) {
-					  if (TIM4->CCR2 >= settings.motorMinSpeed || TIM4->CCR3 >= settings.motorMinSpeed) {
-
-						  for (uint32_t x = (round(TIM4->CCR2 + TIM4->CCR3) / 2); x < settings.motorMaxSpeed; x++) {
-							  if (x < settings.motorMinSpeed || x > settings.motorMaxSpeed) break;
-
-							  TIM4->CCR2 = x;
-							  TIM4->CCR3 = x;
-							  HAL_Delay(1);
-							  if (CheckSecurity() == SECURITY_FAIL) {
-								  MotorStop();
-								  break;
-							  }
-						  }
-					  }
-				  }
+	  else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue && mag_near_bwf == 1) {
+			  if (HAL_GetTick() - mag_timer >= 3000) {
 				  mag_near_bwf = 0;
-				  sprintf(emsg, "proximity cleared BWF1: %d BWF2: %d", magBWF1, magBWF2);
-				  add_error_event(emsg);
-				  Serial_Console("PROXIMITY CLEARED!\r\n");
-			  }
+				  	  for (uint32_t x = (settings.motorMaxSpeed * settings.proximitySpeed); x < settings.motorMaxSpeed; x++) {
+						  TIM4->CCR2 = x;
+						  TIM4->CCR3 = x;
+						  HAL_Delay(1);
+						  if (CheckSecurity() != SECURITY_OK) {
+							  add_error_event("Security fail while in proximity loop");
+							  break;
+						  }
+				  	  }
+				  }
+			  sprintf(emsg, "proximity cleared BWF1: %d BWF2: %d", magBWF1, magBWF2);
+			  add_error_event(emsg);
+			  Serial_Console("PROXIMITY CLEARED!\r\n");
 		  }
-	  }
 }
 
 void TimeToGoHome(void) {
@@ -384,7 +388,7 @@ void TimeToGoHome(void) {
 	HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-	if (currTime.Hours >= settings.WorkingHourEnd) {
+	if (currTime.Hours >= settings.WorkingHourEnd || Voltage <= settings.Battery_Low_Limit) {
 		sprintf(emsg, "tracking enabled %d", currTime.Hours);
 		add_error_event(emsg);
 		perimeterTracking = 1;
@@ -562,9 +566,9 @@ void CheckMotorCurrent(int RAW) {
 	            		return;
 	            	}
 	            	MotorBrake();
-	            	HAL_Delay(500);
+	            	delay(500);
 	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-	            	HAL_Delay(500);
+	            	delay(500);
 	            	MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
 	            	bumber_count++;
@@ -596,9 +600,9 @@ void CheckMotorCurrent(int RAW) {
 	            		return;
 	            	}
 	            	MotorBrake();
-	            	HAL_Delay(500);
+	            	delay(500);
 	            	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-	            	HAL_Delay(500);
+	            	delay(500);
 	            	MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 	            	Force_Active = 0;
 	            	bumber_count++;
@@ -611,15 +615,13 @@ void CheckVoltage() {
 
 	//Simple Voltage check
 
-	if ( Voltage < settings.Battery_Low_Limit) {
+	if ( Voltage <= settings.Battery_Low_Limit) {
 		if (perimeterTracking == 1) return;
 		sprintf(emsg, "low voltage: %.2f", Voltage);
 		add_error_event(emsg);
 		sprintf(msg, "Low Voltage - Searching for perimeter wire...\r\n");
 		Serial_RPi(msg);
 		Serial_Console(msg);
-		perimeterTracking = 1;
-		cutterOFF();
 	}
 
 }
@@ -731,31 +733,26 @@ void CollectADC() {
             if (Initial_Start == 0) C1_error = C1;
             C1_amp = fabs(C1 - C1_error);
 
-            if (C1_amp >= 1.5) {
+            if (C1_amp >= 1.5 && mag_near_bwf == 0) {
             	highgrass_slowdown = 1;
             	MotorStop();
             	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-            	HAL_Delay(2000);
+            	delay(2500);
             	MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed * 0.78);
             	highgrass_timer = HAL_GetTick();
             }
             else {
-            	if (HAL_GetTick() - highgrass_timer >= 10000) {
-            		if (highgrass_slowdown == 1) {
-            			if (TIM4->CCR2 >= settings.motorMinSpeed || TIM4->CCR3 >= settings.motorMinSpeed) {
-
-            				for (uint32_t x = (round(TIM4->CCR2 + TIM4->CCR3) / 2); x < settings.motorMaxSpeed; x++) {
-            					TIM4->CCR2 = x;
-            					TIM4->CCR3 = x;
-            					HAL_Delay(1);
-            					if (CheckSecurity() == SECURITY_FAIL) {
-            						MotorStop();
-            						break;
-            					}
-            				}
-            			}
-            		}
-            		highgrass_slowdown = 0;
+            	if (HAL_GetTick() - highgrass_timer >= 5000 && highgrass_slowdown == 1) {
+            			highgrass_slowdown = 0;
+           				for (uint32_t x = (settings.motorMaxSpeed * 0.78); x < settings.motorMaxSpeed; x++) {
+           					TIM4->CCR2 = x;
+           					TIM4->CCR3 = x;
+           					delay(1);
+           					if (CheckSecurity() != SECURITY_OK) {
+           						add_error_event("Security fail while in high grass loop");
+           						break;
+           					}
+           				}
             	}
             }
             if (C1_amp >= settings.Cutter_Limit) {
@@ -888,7 +885,7 @@ void perimeterTracker(void) {
     		perimeterTrackingActive = 0;
     		perimeterTracking = 0;
     		MasterSwitch = 0;
-    		add_error_event("Stuck during perimeterTracking - HALT");
+    		add_error_event("Stuck perimeterTracking BWF2 OUT - HALT");
     		return;
 
     	}
@@ -903,7 +900,7 @@ void perimeterTracker(void) {
     		perimeterTrackingActive = 0;
     		perimeterTracking = 0;
     		MasterSwitch = 0;
-    		add_error_event("Stuck during perimeterTracking - HALT");
+    		add_error_event("Stuck perimeterTracking BWF2 IN - HALT");
     		return;
 
     	}
@@ -1448,7 +1445,7 @@ void cutterON(void) {
 			Boundary_Timer = HAL_GetTick();
 			TIM3->CCR1 = cutterSpeed;
 			TIM3->CCR2 = 0;
-			HAL_Delay(2);
+			delay(2);
 
 		}
 	}
@@ -1458,7 +1455,7 @@ void cutterON(void) {
 			Boundary_Timer = HAL_GetTick();
 			TIM3->CCR1 = 0;
 			TIM3->CCR2 = cutterSpeed;
-			HAL_Delay(2);
+			delay(2);
 
 		}
 	}
@@ -1826,11 +1823,11 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 
         if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
             MotorHardBrake();
-            HAL_Delay(1000);
+            delay(1000);
             MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-            HAL_Delay(500);
+            delay(500);
             MotorStop();
-            HAL_Delay(500);
+            delay(500);
             return;
         }
 
@@ -1841,15 +1838,15 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
     while (HAL_GetTick() - motor_timer < time_ms) {
         if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
             MotorHardBrake();
-            HAL_Delay(1000);
+            delay(1000);
             MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-            HAL_Delay(500);
+            delay(500);
             MotorStop();
-            HAL_Delay(500);
+            delay(500);
             return;
         }
 
-        HAL_Delay(100);
+        delay(100);
     }
     MotorStop();
 }
@@ -2020,7 +2017,7 @@ void CheckState(void) {
 			Serial_Console("Movement detection - HALT\r\n");
 			return;
 		}
-		HAL_Delay(500);
+		delay(500);
 		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 		return;
@@ -2041,11 +2038,13 @@ void CheckState(void) {
 		MotorStop();
 		move_count = 0;
 		bumber_count = 0;
+		mag_near_bwf = 0;
+		highgrass_slowdown = 0;
 		TimeToGoHome();			// Check if within working hours, if not, go home
 		if (perimeterTracking == 1) {
 			cutterOFF();
 			perimeterTrackingActive = 1;
-			HAL_Delay(500);
+			delay(500);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
 
@@ -2077,27 +2076,27 @@ void CheckState(void) {
 
 			return;
 		}
-		HAL_Delay(500);
+		delay(500);
 
 		CheckSecurity();				// Double check status of the sensors when we are standing still
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			add_error_event("BWF1 OUT BWF2 IN");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			HAL_Delay(500);
+			delay(500);
 			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 IN BWF2 OUT");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			HAL_Delay(500);
+			delay(500);
 			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 OUT BWF2 OUT");
 			Serial_Console("Going Backward\r\n");
 			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			HAL_Delay(500);
+			delay(500);
 			if (rnd(1000) < 500 ) {
 				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
 			}
@@ -2106,7 +2105,7 @@ void CheckState(void) {
 				}
 		}
 
-		HAL_Delay(500);
+		delay(500);
 	}
 	else if (State == FORWARD) {
 
@@ -2115,7 +2114,7 @@ void CheckState(void) {
 		}
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_OK) {
-		HAL_Delay(500);
+		delay(500);
 		add_error_event("STOP+SECURITY_OK");
 		mpu.hold_heading = mpu.heading;
 		if (cutterStatus == 0 && perimeterTracking == 0) {
@@ -2123,11 +2122,12 @@ void CheckState(void) {
 		}
 		Serial_Console("Going Forward\r\n");
 		mag_near_bwf = 0;
+		highgrass_slowdown = 0;
 		MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
 
 	}
 	else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
-		HAL_Delay(500);
+		delay(500);
 		add_error_event("STOP+SECURITY_FAIL");
 		Serial_Console("STOP + Security Fail\r\n");
 

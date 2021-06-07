@@ -117,7 +117,6 @@ void MPU6050_Read_Accel(void) {
 	r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
 
 	p -= 90;
-//	r -= 8.0;
 
 	raw_roll = r + mpu.roll_error;
 	raw_pitch = p + mpu.pitch_error;
