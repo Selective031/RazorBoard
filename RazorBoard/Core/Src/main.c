@@ -892,7 +892,7 @@ void perimeterTracker(void) {
     }
 
     if (BWF2_Status == INSIDE) {
-    	Tick2 -= elapsedTime;
+    	Tick2 -= (elapsedTime * 4);
     	Tick1 = 0;
     	GoHome_timer_OUT = HAL_GetTick();
 
@@ -2996,6 +2996,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+
 
 }
 
