@@ -1414,10 +1414,12 @@ uint8_t CheckSecurity(void) {
     else {
     	move_timer = HAL_GetTick();
     }
+    if (BWF1_Status == INSIDE || BWF2_Status == INSIDE) {
+    	OUTSIDE_timer = HAL_GetTick();		// We are inside with at least one sensor, reset OUTSIDE_timer
+    }
 
     if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
     	Security = INSIDE;
-    	OUTSIDE_timer = HAL_GetTick();		// We are inside, reset OUTSIDE_timer
 		return SECURITY_OK;
 	}
 	else if (BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) {
