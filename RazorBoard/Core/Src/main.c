@@ -283,12 +283,23 @@ static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
 static void TimeToGoHome(void);
 static void CalcMagnitude(uint8_t Sensor);
 static void delay(uint32_t time_ms);
+static void getIMUOrientation(void);
 
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void getIMUOrientation(void) {
+
+	for (uint8_t x = 0; x < 20; x++) {
+	  MPU6050_Read_Accel();
+	  MPU6050_Read_Gyro();
+	  ProcessIMUData(settings);
+	}
+
+}
 
 void delay(uint32_t time_ms) {
 
@@ -1434,30 +1445,26 @@ void cutterHardBreak() {
 void cutterON(void) {
 
 	cutterStatus = 1;
+	uint8_t direction = 0;
+	if (rnd(100000) < 50000) direction = 1;
 
 	Serial_Console("Cutter Motor ON\r\n");
 	add_error_event("Cutter Motor ON");
 
-	if (rnd(10000) < 5000 ) {			// Randomly select CW or CCW
+	for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
 
-		for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
+		Boundary_Timer = HAL_GetTick();
 
-			Boundary_Timer = HAL_GetTick();
+		if (direction == 0) {
 			TIM3->CCR1 = cutterSpeed;
 			TIM3->CCR2 = 0;
-			delay(2);
-
 		}
-	}
-	else {
-		for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
-
-			Boundary_Timer = HAL_GetTick();
+		else {
 			TIM3->CCR1 = 0;
 			TIM3->CCR2 = cutterSpeed;
-			delay(2);
-
 		}
+		delay(2);
+
 	}
 
 }
@@ -1747,8 +1754,8 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 	State = FORWARD;
 
-	MPU6050_Read_Accel();		// Get fresh data for Pitch/Roll
-	ProcessIMUData(settings);			// Compute Pitch/Roll
+	getIMUOrientation();
+
 	move_timer = HAL_GetTick();
 
 for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
@@ -1793,8 +1800,8 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
     uint32_t motor_timer;
     State = BACKWARD;
     motor_timer = HAL_GetTick();
-    MPU6050_Read_Accel();        // Get fresh data for Pitch/Roll
-    ProcessIMUData(settings);            // Compute Pitch/Roll
+
+    getIMUOrientation();
 
     for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
 
@@ -2036,6 +2043,7 @@ void CheckState(void) {
 	else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL) {
 		add_error_event("FORWARD+SECURITY_FAIL");
 		MotorStop();
+		getIMUOrientation();
 		move_count = 0;
 		bumber_count = 0;
 		mag_near_bwf = 0;
@@ -2082,26 +2090,26 @@ void CheckState(void) {
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			add_error_event("BWF1 OUT BWF2 IN");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
 			delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 		}
 		else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 IN BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
 			delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 OUT BWF2 OUT");
 			Serial_Console("Going Backward\r\n");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
 			delay(500);
-			if (rnd(1000) < 500 ) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
+			if (rnd(100000) < 50000 ) {
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 			}
 			else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 900 + rnd(500) );
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 				}
 		}
 
@@ -2134,14 +2142,14 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 		}
 		else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 		}
 		else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 600 + rnd(500) );
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700) );
 		}
 	}
 
