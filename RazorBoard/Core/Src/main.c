@@ -628,8 +628,6 @@ void CheckVoltage() {
 
 	if ( Voltage <= settings.Battery_Low_Limit) {
 		if (perimeterTracking == 1) return;
-		sprintf(emsg, "low voltage: %.2f", Voltage);
-		add_error_event(emsg);
 		sprintf(msg, "Low Voltage - Searching for perimeter wire...\r\n");
 		Serial_RPi(msg);
 		Serial_Console(msg);
