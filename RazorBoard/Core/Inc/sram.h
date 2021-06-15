@@ -8,7 +8,7 @@
 #ifndef INC_SRAM_H_
 #define INC_SRAM_H_
 
-static const char VERSION[] = "Version 1.0.3";
+static const char VERSION[] = "Version 1.0.4";
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t
@@ -47,6 +47,7 @@ static const char VERSION[] = "Version 1.0.3";
 #define Motor_Min_Limit_ADDR			0x9C	//uint32_t
 #define ROLL_COMP_ADDR					0xA0
 #define PITCH_COMP_ADDR					0xA4
+#define HIGHGRASS_LIMIT_ADDR			0xA8
 
 #define ERRORLOG_INDEX_ADDR				0x1FF
 #define ERRORLOG_ADDR					0x200
@@ -94,6 +95,7 @@ typedef struct SRAM {
 	float movement;
 	float roll_comp;
 	float pitch_comp;
+	float highgrass_Limit;
 
 } sram_settings;
 

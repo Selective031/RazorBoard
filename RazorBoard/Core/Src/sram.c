@@ -261,6 +261,7 @@ sram_settings read_all_settings(void)
 	settings.movement = read_sram_float(MOVEMENT_ADDR);
 	settings.pitch_comp = read_sram_float(PITCH_COMP_ADDR);
 	settings.roll_comp = read_sram_float(ROLL_COMP_ADDR);
+	settings.highgrass_Limit = read_sram_float(HIGHGRASS_LIMIT_ADDR);
 
 	return settings;
 }
@@ -326,6 +327,7 @@ void write_all_settings(sram_settings settings)
 	write_sram_float(settings.movement, MOVEMENT_ADDR);
 	write_sram_float(settings.pitch_comp, PITCH_COMP_ADDR);
 	write_sram_float(settings.roll_comp, ROLL_COMP_ADDR);
+	write_sram_float(settings.highgrass_Limit, HIGHGRASS_LIMIT_ADDR);
 
 }
 
@@ -367,6 +369,7 @@ void save_default_settings(void) {
 	settings.undock_backing_seconds = 3;
 	settings.pitch_comp = 0.0;
 	settings.roll_comp = 0.0;
+	settings.highgrass_Limit = 1.5;
 
 	write_all_settings(settings);
 

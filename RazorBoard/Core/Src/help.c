@@ -92,6 +92,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Pitch Compensation: %.2f\r\n", settings.pitch_comp);
 	Serial_Console(msg);
+	sprintf(msg, "HighGrass limit: %.1f\r\n", settings.highgrass_Limit);
+	Serial_Console(msg);
 
 }
 
@@ -177,6 +179,8 @@ void help(void) {
 	sprintf(msg, "SET PITCH COMP          - Compensate pitch if not perfectly leveled\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET ROLL COMP           - Compensate roll if not perfectly leveled\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET HIGHGRASS LIMIT     - When to trigger High Grass, in Amps\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
 	Serial_Console(msg);

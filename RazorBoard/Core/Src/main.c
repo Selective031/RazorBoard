@@ -628,9 +628,9 @@ void CheckVoltage() {
 
 	if ( Voltage <= settings.Battery_Low_Limit) {
 		if (perimeterTracking == 1) return;
-		sprintf(msg, "Low Voltage - Searching for perimeter wire...\r\n");
-		Serial_RPi(msg);
-		Serial_Console(msg);
+//		sprintf(msg, "Low Voltage - Searching for perimeter wire...\r\n");
+//		Serial_RPi(msg);
+//		Serial_Console(msg);
 	}
 
 }
@@ -742,7 +742,7 @@ void CollectADC() {
             if (Initial_Start == 0) C1_error = C1;
             C1_amp = fabs(C1 - C1_error);
 
-            if (C1_amp >= 1.5 && mag_near_bwf == 0) {
+            if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0) {
             	highgrass_slowdown = 1;
             	MotorStop();
             	MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
@@ -1296,12 +1296,17 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &magMinValue);
 				settings.magMinValue = magMinValue;
 			}
+			if (strncmp(Command, "SET HIGHGRASS LIMIT", 19) == 0) {
+				float highgrass;
+				char cmd1[3], cmd2[9], cmd3[5];
+				sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &highgrass);
+				settings.highgrass_Limit = highgrass;
+			}
 			if (strcmp(Command, "DISABLE") == 0) {
 				MasterSwitch = 0;
 				add_error_event("User typed disable");
 				Serial_Console("RazorBoard DISABLED.\r\n");
 				Serial_Console("Please type <help> to see available commands\r\n");
-
 			}
 
 			if (strcmp(Command, "ENABLE") == 0) {
