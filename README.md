@@ -113,6 +113,9 @@ Explaination of connectors:
 Software needed to upload .bin file: "Flash Loader Demonstrator" from ST Micro
 https://www.st.com/en/development-tools/flasher-stm32.html#overview
 
+For the computer to recognize the USB driver, you might need to download and install the USB driver:
+http://www.wch-ic.com/downloads/CH341SER_ZIP.html?fbclid=IwAR3x0DqTek31MVq-KcTly2oQ5i7NXucDYAAR7vPIh3WTRa3BLMw4Js4IX9A
+
 1. First change the jumper from RUN to UPGRADE
 2. Power the board
 3. Start "Flash Loader Demonstrator"
