@@ -128,8 +128,8 @@ http://www.wch-ic.com/downloads/CH341SER_ZIP.html?fbclid=IwAR3x0DqTek31MVq-KcTly
 10. Change the jumper back to RUN.
 11. Power the board.
 
-After this inital upload, you can use the ST-Link interface for upgrading without changing jumper.
-Also, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper.
+After this inital upload, you can use the ST-Link interface for upgrading without changing jumper (advanced).
+or, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper, even for normal USB upgrade.
 
 Software needed to compile firmware: CubeIDE
 https://www.st.com/en/development-tools/stm32cubeide.html
