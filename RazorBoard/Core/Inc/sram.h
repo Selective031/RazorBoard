@@ -117,7 +117,7 @@ extern void write_sram_float(float l_data, uint8_t);
 extern float read_sram_float(uint8_t);
 extern sram_settings read_all_settings(void);
 extern void write_all_settings(sram_settings w_settings);
-extern void save_default_settings(void);
+extern void save_default_settings(uint8_t revision);
 
 
 #endif /* INC_SRAM_H_ */
