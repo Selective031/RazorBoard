@@ -2331,7 +2331,7 @@ int main(void) {
     delay_us(100);
 
     settings = read_all_settings();
-    if (settings.Config_Set != 42) {
+    if (settings.Config_Set != 44) {
         save_default_settings(board_revision);
         add_error_event("No config found");
         Serial_Console("No config found - Saving factory defaults\r\n");

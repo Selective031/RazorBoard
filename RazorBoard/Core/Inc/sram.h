@@ -8,7 +8,7 @@
 #ifndef INC_SRAM_H_
 #define INC_SRAM_H_
 
-static const char VERSION[] = "Version 1.0.4";
+static const char VERSION[] = "Version 1.0.6";
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t

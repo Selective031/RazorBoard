@@ -323,7 +323,7 @@ void save_default_settings(uint8_t revision) {
 
     sram_settings settings;
 
-    settings.Config_Set = 42;
+    settings.Config_Set = 44;
     settings.Go_Home_Direction = 0;
     settings.Battery_Low_Limit = 22.00;
     settings.Battery_High_Limit = 25.00;
