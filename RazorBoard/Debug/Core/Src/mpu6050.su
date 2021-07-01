@@ -1,4 +1,0 @@
-mpu6050.c:29:6:Init6050	32	static
-mpu6050.c:51:6:ProcessIMUData	40	static
-mpu6050.c:91:6:MPU6050_Read_Accel	56	static
-mpu6050.c:127:6:MPU6050_Read_Gyro	48	static
