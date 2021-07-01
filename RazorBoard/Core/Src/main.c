@@ -1242,6 +1242,12 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
                 settings.Battery_Low_Limit = limit;
             }
+    		if (strncmp(Command, "SET BAT CHARGER TIME", 20) == 0) {
+    				int minutes;
+    				char cmd1[3], cmd2[3], cmd3[7], cmd4[4];
+    				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &minutes);
+    				settings.BatteryChargeTime = minutes;
+    		}
             if (strncmp(Command, "SET BWF OUT", 11) == 0) {
                 float limit;
                 char cmd1[3], cmd2[3], cmd3[3];
