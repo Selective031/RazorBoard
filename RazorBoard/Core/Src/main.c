@@ -227,129 +227,71 @@ DMA_HandleTypeDef hdma_usart2_rx;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-
 static void MX_GPIO_Init(void);
-
 static void MX_DMA_Init(void);
-
 static void MX_ADC1_Init(void);
-
 static void MX_IWDG_Init(void);
-
 static void MX_RNG_Init(void);
-
 static void MX_USART1_UART_Init(void);
-
 static void MX_USART2_UART_Init(void);
-
 static void MX_TIM3_Init(void);
-
 static void MX_TIM4_Init(void);
-
 static void MX_RTC_Init(void);
-
 static void MX_TIM2_Init(void);
-
 static void MX_TIM5_Init(void);
-
 static void MX_I2C1_Init(void);
-
 static void MX_ADC2_Init(void);
-
+static void MX_I2C2_Init(void);
+static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 
 /* USER CODE BEGIN PFP */
 
 static void MotorStop(void);
-
 static void MotorBrake(void);
-
 static void MotorHardBrake(void);
-
 static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
-
 static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-
 static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
-
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-
 static void CheckState(void);
-
 static uint8_t CheckSecurity(void);
-
 static void CheckBWF(void);
-
 static void CheckBWF_Rear(void);
-
 static void cutterON(void);
-
 static void cutterOFF(void);
-
 static void cutterHardBreak(void);
-
 static void parseCommand_RPI(void);
-
 static void parseCommand_Console(void);
-
 static void perimeterTracker(void);
-
 static void ChargerConnected(void);
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
-
 static void delay_us(uint16_t us);
-
 static void ADC_Send(uint8_t channel);
-
 static int ADC_Receive();
-
 static void CollectADC(void);
-
 static void SendInfo(void);
-
 static void CheckVoltage(void);
-
 static void CheckMotorCurrent(int RAW);
-
 static void UpdateMotorSpeed();
-
 static void unDock(void);
-
 static uint32_t rnd(uint32_t maxValue);
-
 static void InitFIR(void);
-
 static void FIR_LEFT(void);
-
 static void FIR_RIGHT(void);
-
 static void FIR_REAR(void);
-
 static void WatchdogRefresh(void);
-
 static void WatchdogInit(void);
-
 static void (*SysMemBootJump)(void);
-
 static void BootLoaderInit(unsigned long BootLoaderStatus);
-
 static void setTime(uint8_t hour, uint8_t minute, uint8_t second);
-
 static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
-
 static void TimeToGoHome(void);
-
 static void CalcMagnitude(uint8_t Sensor);
-
 static void delay(uint32_t time_ms);
-
 static void getIMUOrientation(void);
-
 static void i2c_scanner(void);
-
 
 /* USER CODE END PFP */
 
@@ -358,17 +300,17 @@ static void i2c_scanner(void);
 
 
 void i2c_scanner(void) {
-    MX_I2C1_Init();
 
+	MX_I2C1_Init();
     if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(72<<1), 3, 5) == HAL_OK &&
         HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(104<<1), 3, 5) == HAL_OK) {
         Serial_Console("Scanner OK 1.2\r\n");
         board_revision = 12;
         razor_hi2c = &hi2c1;
     } else {
+    	MX_I2C2_Init();
         Serial_Console("Scanner OK 1.0\r\n");
         board_revision = 10;
-        MX_I2C2_Init();
         razor_hi2c = &hi2c2;
     }
 }
@@ -926,9 +868,6 @@ void ChargerConnected(void) {
             add_error_event("Charger disconnect");
             Serial_Console("Charger disconnected.\r\n");
             ChargerConnect = 0;
-            HAL_Delay(5000);
-            Serial_Console("Switching to Main Battery\r\n");
-            HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
             HAL_Delay(5000);
             unDock();
         }

@@ -161,7 +161,7 @@ void MPU6050_Read_Gyro(void) {
 	        : 1;
 
 	if (Initial_Start == 0) {
-		if (fabs(yaw) < 5.0) {
+		if (fabs(yaw) < minLimit) {
 			mpu.yaw_error = fabs(yaw);		// Auto calibrate the Gyro error at startup
 		}
 	}

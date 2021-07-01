@@ -274,7 +274,7 @@ void write_all_settings(sram_settings settings) {
     //float = 4 byte
 
     // uint8_t & int8_t
-    settings.Config_Set = 42;
+    settings.Config_Set = 44;
     write_sram_uint8(settings.Config_Set, CONFIG_SET_ADDR);
     write_sram_uint8(settings.Go_Home_Direction, GO_GOME_DIRECTION_ADDR);
     write_sram_uint8(settings.Boundary_Timeout, BOUNDARY_TIMEOUT_ADDR);
