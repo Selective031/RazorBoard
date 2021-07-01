@@ -225,6 +225,7 @@ sram_settings read_all_settings(void) {
     settings.magMinValue = read_sram_uint16(MAGMINVALUE_ADDR);
     settings.motorMaxSpeed = read_sram_uint16(MOTORMAXSPEED_ADDR);
     settings.motorMinSpeed = read_sram_uint16(MOTORMINSPEED_ADDR);
+	settings.perimeterTrackerSpeed = read_sram_uint16(PERIMETERTRACKERSPEED_ADDR);
     settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
     settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
 
@@ -295,6 +296,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.magMinValue, MAGMINVALUE_ADDR);
     write_sram_uint16(settings.motorMaxSpeed, MOTORMAXSPEED_ADDR);
     write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
+    write_sram_uint16(settings.perimeterTrackerSpeed, PERIMETERTRACKERSPEED_ADDR);
     write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
     write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
     write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
@@ -360,6 +362,7 @@ void save_default_settings(uint8_t revision) {
     settings.roll_comp = 0.0;
     settings.highgrass_Limit = 1.5;
 	settings.BatteryChargeTime = 60;
+	settings.perimeterTrackerSpeed = 3360 - 1;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
