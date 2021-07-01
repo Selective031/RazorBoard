@@ -968,7 +968,7 @@ void perimeterTracker(void) {
         }
     }
 
-    error = settings.motorMaxSpeed - (Tick1 + Tick2);                // determine error
+    error = settings.perimeterTrackerSpeed - (Tick1 + Tick2);                // determine error
     cumError += error * elapsedTime;               // compute integral
     rateError = (error - lastError) / elapsedTime;   // compute derivative
 
@@ -977,11 +977,11 @@ void perimeterTracker(void) {
     lastError = error;                             //remember current error
     previousTime = HAL_GetTick();                  //remember current time
 
-    int speedA = (settings.motorMaxSpeed + round(out));
-    int speedB = (settings.motorMaxSpeed - round(out));
+    int speedA = (settings.perimeterTrackerSpeed + round(out));
+    int speedB = (settings.perimeterTrackerSpeed - round(out));
 
-    if (speedA > settings.motorMaxSpeed) speedA = settings.motorMaxSpeed;                // limit upper and lower speed
-    if (speedB > settings.motorMaxSpeed) speedB = settings.motorMaxSpeed;
+    if (speedA > settings.perimeterTrackerSpeed) speedA = settings.perimeterTrackerSpeed;                // limit upper and lower speed
+    if (speedB > settings.perimeterTrackerSpeed) speedB = settings.perimeterTrackerSpeed;
 
     if (speedA < 1000) speedA = 1000;
     if (speedB < 1000) speedB = 1000;
@@ -989,7 +989,7 @@ void perimeterTracker(void) {
     if (BWF2_Status == OUTSIDE) {
 
         if (BWF1_Status == OUTSIDE) {
-            TIM4->CCR1 = settings.motorMaxSpeed *
+            TIM4->CCR1 = settings.perimeterTrackerSpeed *
                          0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
             HAL_Delay(200);
             TIM4->CCR2 = 0;
@@ -1200,6 +1200,12 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
                 settings.motorMinSpeed = speed;
             }
+            if (strncmp(Command, "SET PERIMETER SPEED", 19) == 0) {
+				int speed;
+				char cmd1[3], cmd2[9], cmd3[5];
+				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
+				settings.perimeterTrackerSpeed = speed;
+			}
             if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
                 int adc;
                 char cmd1[3], cmd2[3], cmd3[5];

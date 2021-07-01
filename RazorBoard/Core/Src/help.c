@@ -82,6 +82,8 @@ void show_config(sram_settings settings) {
 	Serial_Console(msg);
 	sprintf(msg, "Motor Min Speed: %d\r\n", settings.motorMinSpeed);
 	Serial_Console(msg);
+	sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
+	Serial_Console(msg);
 	sprintf(msg, "Cutter Speed: %d\r\n", settings.cutterSpeed);
     Serial_Console(msg);
     sprintf(msg, "Movement limit: %d\r\n", settings.move_count_limit);
@@ -195,6 +197,8 @@ void help(void) {
 	sprintf(msg, "			Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "TRACK PERIMETER 	- Track perimeter next time it crosses\r\n");
+	Serial_Console(msg);
+	sprintf(msg, "SET PERIMETER SPEED   - Set track perimeter speed\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET KP			- PID Controller KP for Perimeter Tracking\r\n");
 	Serial_Console(msg);
