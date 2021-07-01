@@ -230,6 +230,7 @@ sram_settings read_all_settings(void) {
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
+	settings.BatteryChargeTime =  read_sram_uint16(BATTERYCHARGETIME_ADDR);
 
     settings.Signal_Integrity_IN = read_sram_float(SIGNAL_INTEGRITY_IN_ADDR);
     settings.Signal_Integrity_OUT = read_sram_float(SIGNAL_INTEGRITY_OUT_ADDR);
@@ -296,6 +297,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.motorMinSpeed, MOTORMINSPEED_ADDR);
     write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
     write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
+    write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
 
 
     // uint32_t & float
@@ -357,6 +359,7 @@ void save_default_settings(uint8_t revision) {
     settings.pitch_comp = 0.0;
     settings.roll_comp = 0.0;
     settings.highgrass_Limit = 1.5;
+	settings.BatteryChargeTime = 60;
 
     if (revision == 12) {
         settings.adcLevel = 2050;

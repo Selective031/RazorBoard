@@ -163,11 +163,11 @@ uint8_t Signature_Record = FALSE;
 
 uint16_t magBWF1, magBWF2, magBWF3;
 
-uint32_t MotorSpeedUpdateFreq_timer = 0;    // Timer for MotorSpeed Update
-uint8_t MotorSpeedUpdateFreq = 100;            // Freq to update motor speed, in milliseconds
+uint32_t MotorSpeedUpdateFreq_timer = 0;    	// Timer for MotorSpeed Update
+uint8_t MotorSpeedUpdateFreq = 100;            	// Freq to update motor speed, in milliseconds
 
-uint8_t ChargerConnect = 0;                    // Are we connected to the charger?
-uint8_t DEBUG_RAZORBOARD = 0;                // Used by "debug on/debug off"
+uint8_t ChargerConnect = 0;                    	// Are we connected to the charger?
+uint8_t DEBUG_RAZORBOARD = 0;                	// Used by "debug on/debug off"
 uint8_t mag_near_bwf = 0;
 
 uint32_t mag_timer = 0;
@@ -176,7 +176,8 @@ uint32_t highgrass_timer = 0;
 uint32_t tracking_timeout_timer = 0;
 uint32_t GoHome_timer_IN = 0;
 uint32_t GoHome_timer_OUT = 0;
-
+uint32_t Charger_start_Timer = 0;				// start of charging time
+uint16_t Charger_elapsed_Timer = 0;				// how long charge time
 uint8_t highgrass_slowdown = 0;
 
 uint8_t bumber_count = 0;
@@ -677,34 +678,56 @@ void SendInfo() {
     HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-    sprintf(msg, "M1: %.2f\r\n", M1_amp);
-    Serial_Console(msg);
-    sprintf(msg, "M2: %.2f\r\n", M2_amp);
-    Serial_Console(msg);
-    sprintf(msg, "C1: %.2f\r\n", C1_amp);
-    Serial_Console(msg);
-    sprintf(msg, "V1: %.2f\r\n", Voltage);
-    Serial_Console(msg);
-    sprintf(msg, "Charger Connected: %d\r\n", ChargerConnect);
-    Serial_Console(msg);
-    sprintf(msg, "IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside,
-            bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
-    Serial_Console(msg);
-    sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
-    Serial_Console(msg);
-    sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
-    Serial_Console(msg);
-    sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
-    Serial_Console(msg);
-    sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
-    Serial_Console(msg);
-    sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
-    Serial_Console(msg);
-    sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
-    Serial_Console(msg);
-    if (mpu.movement < settings.movement) { sprintf(msg, "Movement Verdict: Standing\r\n"); }
-    else { sprintf(msg, "Movement Verdict: Moving\r\n"); }
-    Serial_Console(msg);
+	sprintf(msg, "M1: %.2f\r\n", M1_amp);
+	Serial_Console(msg);
+	sprintf(msg, "M2: %.2f\r\n", M2_amp);
+	Serial_Console(msg);
+	sprintf(msg, "C1: %.2f\r\n", C1_amp);
+	Serial_Console(msg);
+	sprintf(msg, "V1: %.2f\r\n", Voltage);
+	Serial_Console(msg);
+	sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
+	Serial_Console(msg);
+	if (ChargerConnect == 1){
+		sprintf(msg,"Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
+		Serial_Console(msg);
+	}
+	sprintf(msg,"IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside, bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
+	Serial_Console(msg);
+	sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
+	Serial_Console(msg);
+	sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
+	Serial_Console(msg);
+	sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
+	Serial_Console(msg);
+	sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
+	Serial_Console(msg);
+	sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
+	Serial_Console(msg);
+	sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
+	Serial_Console(msg);
+	if (mpu.movement < settings.movement) sprintf(msg, "Movement Verdict: Standing\r\n");
+	else sprintf(msg, "Movement Verdict: Moving\r\n");
+	Serial_Console(msg);
+	if (Security == 0) Serial_Console("SECURITY_FAIL ");
+	if (Security == 1) Serial_Console("SECURITY_OK ");
+	if (Security == 2) Serial_Console("SECURITY_NOSIGNAL ");
+	if (Security == 3) Serial_Console("SECURITY_LEFT ");
+	if (Security == 4) Serial_Console("SECURITY_RIGHT ");
+	if (Security == 5) Serial_Console("SECURITY_BUMPER ");
+	if (Security == 6) Serial_Console("SECURITY_IMU_FAIL ");
+	if (Security == 7) Serial_Console("SECURITY_OUSIDE ");
+	if (Security == 8) Serial_Console("SECURITY_MOVEMENT ");
+	if (Security == 9) Serial_Console("SECURITY_BACKWARD_OUTSIDE ");
+	if (State == 0) Serial_Console(", STATE_STOP \r\n");
+	if (State == 1) Serial_Console(", STATE_FORWARD \r\n");
+	if (State == 2) Serial_Console(", STATE_BACKWARD \r\n");
+	if (State == 3) Serial_Console(", STATE_LEFT \r\n");
+	if (State == 4) Serial_Console(", STATE_RIGHT \r\n");
+	if (State == 5) Serial_Console(", STATE_AVOID_OBSTACLE \r\n");
+	if (State == 6) Serial_Console(", STATE_FAIL \r\n");
+	if (State == 7) Serial_Console(", STATE_BRAKE \r\n");
+	if (State == 8) Serial_Console(", STATE_HARDBRAKE \r\n");
 
     sprintf(msg, "Board_Revision: %d\r\n", board_revision);
     Serial_Console(msg);
@@ -861,8 +884,18 @@ void ChargerConnected(void) {
 
     // Is the charger connected?
 
+	if (ChargerConnect == 0) { 					// We are not charging, reset charger start timer
+		Charger_start_Timer = HAL_GetTick();
+		Charger_elapsed_Timer = 0;
+	}
+
+	if (ChargerConnect == 1) { 					// We are charging, calculate duration in minutes
+		Charger_elapsed_Timer = (HAL_GetTick() - Charger_start_Timer) / 60000;
+
+	}
     if (ChargerConnect == 1 || Docked == 1) {
-        if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0) {
+       
+        if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0 && Charger_elapsed_Timer >= settings.BatteryChargeTime) {
             Battery_Ready = 1;
             HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
             add_error_event("Charger disconnect");
