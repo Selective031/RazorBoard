@@ -366,7 +366,8 @@ void save_default_settings(uint8_t revision) {
 
     if (revision == 12) {
         settings.adcLevel = 2050;
-    } else if (revision == 10) {
+    }
+    else if (revision == 10) {
         settings.adcLevel = 1267;
     }
 
