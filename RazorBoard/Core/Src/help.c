@@ -187,6 +187,8 @@ void help(void) {
 	sprintf(msg, "SET PITCH COMP          - Compensate pitch if not perfectly leveled\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET ROLL COMP           - Compensate roll if not perfectly leveled\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "SET ROLL TILT COMP      - Compensate wheel power ratio when turning based on roll\r\n");
 	Serial_Console(msg);
 	sprintf(msg, "SET HIGHGRASS LIMIT     - When to trigger High Grass, in Amps\r\n");
 	Serial_Console(msg);
