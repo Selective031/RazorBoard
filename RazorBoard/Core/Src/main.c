@@ -894,7 +894,7 @@ void ChargerConnected(void) {
 
 	}
     if (ChargerConnect == 1 || Docked == 1) {
-       
+
         if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0 && Charger_elapsed_Timer >= settings.BatteryChargeTime) {
             Battery_Ready = 1;
             HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -1199,6 +1199,12 @@ void parseCommand_Console(void) {
                 char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
                 sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
                 settings.motorMinSpeed = speed;
+            }
+            if (strncmp(Command, "SET ROLL TILT COMP", 18) == 0) {
+                int comp;
+                char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+                sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &comp);
+                settings.roll_tilt_comp = comp;
             }
             if (strncmp(Command, "SET PERIMETER SPEED", 19) == 0) {
 				int speed;
@@ -1833,10 +1839,10 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
         uint16_t rightTilt = 0;
 
         if (mpu.roll < 0) {
-            leftTilt = fabs(mpu.roll * 50);
+            leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
         if (mpu.roll > 0) {
-            rightTilt = fabs(mpu.roll * 50);
+            rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
 
         TIM4->CCR1 = 0;
@@ -1878,10 +1884,10 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
         uint16_t rightTilt = 0;
 
         if (mpu.roll < 0) {
-            leftTilt = fabs(mpu.roll * 50);
+            leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
         if (mpu.roll > 0) {
-            rightTilt = fabs(mpu.roll * 50);
+            rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
 
         TIM4->CCR1 = currentSpeed - round(rightTilt);

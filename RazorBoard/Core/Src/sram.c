@@ -228,6 +228,7 @@ sram_settings read_all_settings(void) {
 	settings.perimeterTrackerSpeed = read_sram_uint16(PERIMETERTRACKERSPEED_ADDR);
     settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
     settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
+    settings.roll_tilt_comp = read_sram_uint16(ROLL_TILT_COMP_ADDR);
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -300,6 +301,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.cutterSpeed, CUTTERSPEED_ADDR);
     write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
     write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
+    write_sram_uint16(settings.roll_tilt_comp, ROLL_TILT_COMP_ADDR);
 
 
     // uint32_t & float
@@ -360,6 +362,7 @@ void save_default_settings(uint8_t revision) {
     settings.undock_backing_seconds = 3;
     settings.pitch_comp = 0.0;
     settings.roll_comp = 0.0;
+    settings.roll_tilt_comp = 50;
     settings.highgrass_Limit = 1.5;
 	settings.BatteryChargeTime = 60;
 	settings.perimeterTrackerSpeed = 3360 - 1;

@@ -61,6 +61,8 @@ void show_config(sram_settings settings) {
 	sprintf(msg, "Motor Min Limit: %.2f\r\n", settings.Motor_Min_Limit);
 	Serial_Console(msg);
 	sprintf(msg, "ADC Level: %d\r\n", settings.adcLevel);
+    Serial_Console(msg);
+    sprintf(msg, "Roll/tilt comp: %d\r\n", settings.roll_tilt_comp);
 	Serial_Console(msg);
 	sprintf(msg, "KP: %.4f\r\n", settings.kp);
 	Serial_Console(msg);
