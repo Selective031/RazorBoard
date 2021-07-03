@@ -31,6 +31,7 @@ static const char VERSION[] = "Version 1.0.6";
 #define ADC_LEVEL_ADDR					0x3E	//uint16_t
 #define BATTERYCHARGETIME_ADDR			0x40	//uint16_t
 #define PERIMETERTRACKERSPEED_ADDR		0x42	//uint16_t
+#define ROLL_TILT_COMP_ADDR				0x44	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -83,6 +84,7 @@ typedef struct SRAM {
 	uint16_t adcLevel;
 	uint16_t BatteryChargeTime;
 	uint16_t perimeterTrackerSpeed;
+    uint16_t roll_tilt_comp;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
