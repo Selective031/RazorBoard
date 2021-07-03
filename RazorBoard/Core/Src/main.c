@@ -87,10 +87,10 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64                // Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64            // Buffer size for Serial Console
 
-#define MOTOR_LEFT_BACKWARD TIM4->CCR3
-#define MOTOR_LEFT_FORWARD TIM4->CCR4
-#define MOTOR_RIGHT_FORWARD TIM4->CCR1
-#define MOTOR_RIGHT_BACKWARD TIM4->CCR2
+#define MOTOR_LEFT_FORWARD TIM4->CCR2
+#define MOTOR_LEFT_BACKWARD TIM4->CCR1
+#define MOTOR_RIGHT_FORWARD TIM4->CCR3
+#define MOTOR_RIGHT_BACKWARD TIM4->CCR4
 
 double Tick1 = 0;
 double Tick2 = 0;
