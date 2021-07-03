@@ -128,6 +128,9 @@ http://www.wch-ic.com/downloads/CH341SER_ZIP.html?fbclid=IwAR3x0DqTek31MVq-KcTly
 10. Change the jumper back to RUN.
 11. Power the board.
 
+When sending commands to Razorboard make sure you send the whole command, and finish with CRLF. Just sending character by character will not work.
+One working example is the Arduino IDE Serial Monitor, this one sends the whole line and you can choose CRLF as line termination.
+
 After this inital upload, you can use the ST-Link interface for upgrading without changing jumper (advanced).
 or, in the debug menu you can find the "upgrade" command, this will force the board into bootloader mode, and no need to change jumper, even for normal USB upgrade.
 
