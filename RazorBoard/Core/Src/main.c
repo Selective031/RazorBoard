@@ -87,6 +87,11 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64                // Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64            // Buffer size for Serial Console
 
+#define MOTOR_LEFT_FORWARD TIM4->CCR2
+#define MOTOR_LEFT_BACKWARD TIM4->CCR1
+#define MOTOR_RIGHT_FORWARD TIM4->CCR3
+#define MOTOR_RIGHT_BACKWARD TIM4->CCR4
+
 double Tick1 = 0;
 double Tick2 = 0;
 double error = 0;
@@ -390,7 +395,7 @@ void CalcMagnitude(uint8_t Sensor) {
     else if (Sensor == 2) magBWF2 = round(magValue);
 
     if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) &&
-        (TIM4->CCR2 == settings.motorMaxSpeed || TIM4->CCR3 == settings.motorMaxSpeed)) {
+        (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed)) {
         if (mag_near_bwf == 0) {
             mag_near_bwf = 1;
             highgrass_slowdown = 0;
@@ -403,8 +408,8 @@ void CalcMagnitude(uint8_t Sensor) {
         if (HAL_GetTick() - mag_timer >= 3000) {
             mag_near_bwf = 0;
             for (uint32_t x = (settings.motorMaxSpeed * settings.proximitySpeed); x < settings.motorMaxSpeed; x++) {
-                TIM4->CCR2 = x;
-                TIM4->CCR3 = x;
+                MOTOR_LEFT_FORWARD = x;
+                MOTOR_RIGHT_FORWARD = x;
                 HAL_Delay(1);
                 if (CheckSecurity() != SECURITY_OK) {
                     add_error_event("Security fail while in proximity loop");
@@ -794,8 +799,8 @@ void CollectADC() {
                 if (HAL_GetTick() - highgrass_timer >= 5000 && highgrass_slowdown == 1) {
                     highgrass_slowdown = 0;
                     for (uint32_t x = (settings.motorMaxSpeed * 0.78); x < settings.motorMaxSpeed; x++) {
-                        TIM4->CCR2 = x;
-                        TIM4->CCR3 = x;
+                        MOTOR_LEFT_FORWARD = x;
+                        MOTOR_RIGHT_FORWARD = x;
                         delay(1);
                         if (CheckSecurity() != SECURITY_OK) {
                             add_error_event("Security fail while in high grass loop");
@@ -984,26 +989,26 @@ void perimeterTracker(void) {
     if (BWF2_Status == OUTSIDE) {
 
         if (BWF1_Status == OUTSIDE) {
-            TIM4->CCR1 = settings.perimeterTrackerSpeed *
+            MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed *
                          0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
             HAL_Delay(200);
-            TIM4->CCR2 = 0;
+            MOTOR_LEFT_FORWARD = 0;
         } else if (BWF1_Status == INSIDE) {
-            TIM4->CCR1 = 0;
-            TIM4->CCR2 = speedB;
+            MOTOR_LEFT_BACKWARD = 0;
+            MOTOR_LEFT_FORWARD = speedB;
         }
 
-        TIM4->CCR3 = speedA;
-        TIM4->CCR4 = 0;
+        MOTOR_RIGHT_FORWARD = speedA;
+        MOTOR_RIGHT_BACKWARD = 0;
 
     }
 
     if (BWF2_Status == INSIDE) {
-        TIM4->CCR1 = 0;
-        TIM4->CCR2 = speedA;
+        MOTOR_LEFT_BACKWARD = 0;
+        MOTOR_LEFT_FORWARD = speedA;
 
-        TIM4->CCR3 = speedB;
-        TIM4->CCR4 = 0;
+        MOTOR_RIGHT_FORWARD = speedB;
+        MOTOR_RIGHT_BACKWARD = 0;
     }
 
 }
@@ -1072,15 +1077,15 @@ void parseCommand_Console(void) {
                 Serial_Console("Done!\r\n");
             }
             if (strcmp(Command, "TEST LEFT MOTOR") == 0) {
-                TIM4->CCR1 = 0;
-                TIM4->CCR2 = 2000;
+                MOTOR_LEFT_BACKWARD = 0;
+                MOTOR_LEFT_FORWARD = 2000;
                 HAL_Delay(3000);
                 MotorStop();
                 Serial_Console("Done.\r\n");
             }
             if (strcmp(Command, "TEST RIGHT MOTOR") == 0) {
-                TIM4->CCR3 = 2000;
-                TIM4->CCR4 = 0;
+                MOTOR_RIGHT_FORWARD = 2000;
+                MOTOR_RIGHT_BACKWARD = 0;
                 HAL_Delay(3000);
                 MotorStop();
                 Serial_Console("Done.\r\n");
@@ -1135,17 +1140,17 @@ void parseCommand_Console(void) {
             }
             if (strcmp(Command, "RUN MOTORS FORWARD") == 0) {
                 State = FORWARD;
-                TIM4->CCR1 = 0;
-                TIM4->CCR2 = 2000;
-                TIM4->CCR3 = 2000;
-                TIM4->CCR4 = 0;
+                MOTOR_LEFT_BACKWARD = 0;
+                MOTOR_LEFT_FORWARD = settings.motorMinSpeed;
+                MOTOR_RIGHT_FORWARD = settings.motorMinSpeed;
+                MOTOR_RIGHT_BACKWARD = 0;
             }
             if (strcmp(Command, "RUN MOTORS REVERSE") == 0) {
                 State = BACKWARD;
-                TIM4->CCR1 = 2000;
-                TIM4->CCR2 = 0;
-                TIM4->CCR3 = 0;
-                TIM4->CCR4 = 2000;
+                MOTOR_LEFT_BACKWARD = settings.motorMinSpeed;
+                MOTOR_LEFT_FORWARD = 0;
+                MOTOR_RIGHT_FORWARD = 0;
+                MOTOR_RIGHT_BACKWARD = settings.motorMinSpeed;
             }
             if (strncmp(Command, "SET PITCH COMP", 14) == 0) {
                 float pitch;
@@ -1485,7 +1490,7 @@ uint8_t CheckSecurity(void) {
         move_timer = HAL_GetTick();
     }
 
-    if ((TIM4->CCR2 >= (settings.motorMaxSpeed * 0.5) || TIM4->CCR3 >= (settings.motorMaxSpeed * 0.5)) &&
+    if ((MOTOR_LEFT_FORWARD >= (settings.motorMaxSpeed * 0.5) || MOTOR_RIGHT_FORWARD >= (settings.motorMaxSpeed * 0.5)) &&
         mpu.movement < settings.movement) {
         if (HAL_GetTick() - move_timer >= 5000) {
             move_count++;
@@ -1803,19 +1808,19 @@ void UpdateMotorSpeed() {
     // Target is on the Left side
     if (dir > 0) {
         int CorrectedSpeed = Speed - abs(diff);
-        TIM4->CCR2 = CorrectedSpeed;
-        TIM4->CCR3 = Speed;
+        MOTOR_LEFT_FORWARD = CorrectedSpeed;
+        MOTOR_RIGHT_FORWARD = Speed;
     }
         // Target is on the Right side
     else if (dir < 0) {
         int CorrectedSpeed = Speed - abs(diff);
-        TIM4->CCR2 = Speed;
-        TIM4->CCR3 = CorrectedSpeed;
+        MOTOR_LEFT_FORWARD = Speed;
+        MOTOR_RIGHT_FORWARD = CorrectedSpeed;
     }
         // Spot on! Full speed ahead Captain!
     else if (dir == 0) {
-        TIM4->CCR2 = Speed;
-        TIM4->CCR3 = Speed;
+        MOTOR_LEFT_FORWARD = Speed;
+        MOTOR_RIGHT_FORWARD = Speed;
     }
 
 }
@@ -1845,11 +1850,11 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
             rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
 
-        TIM4->CCR1 = 0;
-        TIM4->CCR2 = currentSpeed - round(leftTilt);
+        MOTOR_LEFT_BACKWARD = 0;
+        MOTOR_LEFT_FORWARD = currentSpeed - round(leftTilt);
 
-        TIM4->CCR3 = currentSpeed - round(rightTilt);
-        TIM4->CCR4 = 0;
+        MOTOR_RIGHT_FORWARD = currentSpeed - round(rightTilt);
+        MOTOR_RIGHT_BACKWARD = 0;
 
         HAL_Delay(1);
 
@@ -1890,11 +1895,11 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
             rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
         }
 
-        TIM4->CCR1 = currentSpeed - round(rightTilt);
-        TIM4->CCR2 = 0;
+        MOTOR_LEFT_BACKWARD = currentSpeed - round(rightTilt);
+        MOTOR_LEFT_FORWARD = 0;
 
-        TIM4->CCR3 = 0;
-        TIM4->CCR4 = currentSpeed - round(leftTilt);
+        MOTOR_RIGHT_FORWARD = 0;
+        MOTOR_RIGHT_BACKWARD = currentSpeed - round(leftTilt);
 
         HAL_Delay(1);
 
@@ -1941,11 +1946,11 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
         if (currentSpeed >= maxSpeed) {
             break;
         }
-        TIM4->CCR1 = 0;
-        TIM4->CCR2 = currentSpeed;
+        MOTOR_LEFT_BACKWARD = 0;
+        MOTOR_LEFT_FORWARD = currentSpeed;
 
-        TIM4->CCR3 = 0;
-        TIM4->CCR4 = currentSpeed;
+        MOTOR_RIGHT_FORWARD = 0;
+        MOTOR_RIGHT_BACKWARD = currentSpeed;
 
         HAL_Delay(1);
 
@@ -1974,11 +1979,11 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
         if (currentSpeed >= maxSpeed) {
             break;
         }
-        TIM4->CCR1 = currentSpeed;
-        TIM4->CCR2 = 0;
+        MOTOR_LEFT_BACKWARD = currentSpeed;
+        MOTOR_LEFT_FORWARD = 0;
 
-        TIM4->CCR3 = currentSpeed;
-        TIM4->CCR4 = 0;
+        MOTOR_RIGHT_FORWARD = currentSpeed;
+        MOTOR_RIGHT_BACKWARD = 0;
 
         HAL_Delay(1);
 
@@ -1999,7 +2004,7 @@ void MotorStop(void) {
     State = STOP;
     int speed = 0;
 
-    speed = (TIM4->CCR1 + TIM4->CCR2 + TIM4->CCR3 + TIM4->CCR4) / 2;
+    speed = (MOTOR_LEFT_BACKWARD + MOTOR_LEFT_FORWARD + MOTOR_RIGHT_FORWARD + MOTOR_RIGHT_BACKWARD) / 2;
     speed *= 0.90;
 
     if (speed == 0) return;
@@ -2010,18 +2015,18 @@ void MotorStop(void) {
 
         if (x < 1000) break;
 
-        if (TIM4->CCR1 != 0) TIM4->CCR1 = x;
-        if (TIM4->CCR2 != 0) TIM4->CCR2 = x;
-        if (TIM4->CCR3 != 0) TIM4->CCR3 = x;
-        if (TIM4->CCR4 != 0) TIM4->CCR4 = x;
+        if (MOTOR_LEFT_BACKWARD != 0) MOTOR_LEFT_BACKWARD = x;
+        if (MOTOR_LEFT_FORWARD != 0) MOTOR_LEFT_FORWARD = x;
+        if (MOTOR_RIGHT_FORWARD != 0) MOTOR_RIGHT_FORWARD = x;
+        if (MOTOR_RIGHT_BACKWARD != 0) MOTOR_RIGHT_BACKWARD = x;
 
         HAL_Delay(1);
     }
 
-    TIM4->CCR1 = 0;
-    TIM4->CCR2 = 0;
-    TIM4->CCR3 = 0;
-    TIM4->CCR4 = 0;
+    MOTOR_LEFT_BACKWARD = 0;
+    MOTOR_LEFT_FORWARD = 0;
+    MOTOR_RIGHT_FORWARD = 0;
+    MOTOR_RIGHT_BACKWARD = 0;
 
 }
 
@@ -2030,10 +2035,10 @@ void MotorBrake(void) {
     State = BRAKE;
 
     // Brake - free wheeling
-    TIM4->CCR1 = 0;
-    TIM4->CCR2 = 0;
-    TIM4->CCR3 = 0;
-    TIM4->CCR4 = 0;
+    MOTOR_LEFT_BACKWARD = 0;
+    MOTOR_LEFT_FORWARD = 0;
+    MOTOR_RIGHT_FORWARD = 0;
+    MOTOR_RIGHT_BACKWARD = 0;
 
 }
 
@@ -2042,10 +2047,10 @@ void MotorHardBrake(void) {
     State = HARDBRAKE;
 
     // Wheels will do a hard brake when both pins go HIGH.
-    TIM4->CCR1 = settings.motorMaxSpeed;
-    TIM4->CCR2 = settings.motorMaxSpeed;
-    TIM4->CCR3 = settings.motorMaxSpeed;
-    TIM4->CCR4 = settings.motorMaxSpeed;
+    MOTOR_LEFT_BACKWARD = settings.motorMaxSpeed;
+    MOTOR_LEFT_FORWARD = settings.motorMaxSpeed;
+    MOTOR_RIGHT_FORWARD = settings.motorMaxSpeed;
+    MOTOR_RIGHT_BACKWARD = settings.motorMaxSpeed;
 
     HAL_Delay(250);
 
@@ -2182,7 +2187,7 @@ void CheckState(void) {
         delay(500);
     } else if (State == FORWARD) {
 
-        if (TIM4->CCR2 == 0 && TIM4->CCR3 == 0) {
+        if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
             State = STOP;
         }
     } else if (State == STOP && CheckSecurity() == SECURITY_OK) {
@@ -2278,10 +2283,10 @@ int main(void)
 
     HAL_TIM_Base_Start(&htim5);                    //Start Timer5 for MicroSeconds delay
 
-    TIM4->CCR1 = 0;                                //M1 Motor - Make sure PWM is 0
-    TIM4->CCR2 = 0;                                //M1 Motor - Make sure PWM is 0
-    TIM4->CCR3 = 0;                                //M2 Motor - Make sure PWM is 0
-    TIM4->CCR4 = 0;                                //M2 Motor - Make sure PWM is 0
+    MOTOR_LEFT_BACKWARD = 0;                                //M1 Motor - Make sure PWM is 0
+    MOTOR_LEFT_FORWARD = 0;                                //M1 Motor - Make sure PWM is 0
+    MOTOR_RIGHT_FORWARD = 0;                                //M2 Motor - Make sure PWM is 0
+    MOTOR_RIGHT_BACKWARD = 0;                                //M2 Motor - Make sure PWM is 0
     TIM3->CCR1 = 0;                                //C1 Motor - Make sure PWM is 0
     TIM3->CCR2 = 0;                                //C1 Motor - Make sure PWM is 0
 
