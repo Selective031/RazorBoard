@@ -307,10 +307,9 @@ void Serial_DATA(char *msg) {
 
 
 void i2c_scanner(void) {
-    if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t) (72 << 1), 3, 5) == HAL_OK && HAL_I2C_IsDeviceReady(&hi2c1,
-                                                                                                     (uint16_t) (104
-                                                                                                             << 1), 3,
-                                                                                                     5) == HAL_OK) {
+
+    if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(72<<1), 3, 5) == HAL_OK &&
+        HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(104<<1), 3, 5) == HAL_OK) {
         Serial_Console("Scanner OK 1.2\r\n");
         board_revision = 12;
         razor_hi2c = &hi2c1;
