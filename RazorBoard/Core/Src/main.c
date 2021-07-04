@@ -133,7 +133,6 @@ uint8_t cutterStatus = 0;
 uint32_t ADC_timer = 0;
 uint32_t IMU_timer = 0;
 uint32_t OUTSIDE_timer = 0;
-uint8_t SendInfoStatus = 0;
 
 uint8_t Docked = 0;
 uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
@@ -350,14 +349,11 @@ void reInitIMU(void) {
     cutterOFF();
 
     add_error_event("reInit IMU");
-    Serial_Console("reInit IMU\r\n");
 
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     HAL_I2C_DeInit(&hi2c1);
     HAL_I2C_DeInit(&hi2c2);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_PULLDOWN;
@@ -368,11 +364,14 @@ void reInitIMU(void) {
     GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
     HAL_Delay(1);
     HAL_I2C_Init(&hi2c1);
     HAL_I2C_Init(&hi2c2);
     i2c_scanner();
     Init6050();
+
 }
 
 void CalcMagnitude(uint8_t Sensor) {
@@ -395,16 +394,15 @@ void CalcMagnitude(uint8_t Sensor) {
     else if (Sensor == 2) magBWF2 = round(magValue);
 
     if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) &&
-        (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed)) {
+        (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
         if (mag_near_bwf == 0) {
             mag_near_bwf = 1;
             highgrass_slowdown = 0;
             sprintf(emsg, "proximity alert BWF1: %d BWF2: %d", magBWF1, magBWF2);
             add_error_event(emsg);
-            Serial_Console("PROXIMITY ALERT!\r\n");
         }
         mag_timer = HAL_GetTick();
-    } else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue && mag_near_bwf == 1) {
+    } else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue && mag_near_bwf == 1 && Docked == 0) {
         if (HAL_GetTick() - mag_timer >= 3000) {
             mag_near_bwf = 0;
             for (uint32_t x = (settings.motorMaxSpeed * settings.proximitySpeed); x < settings.motorMaxSpeed; x++) {
@@ -419,7 +417,6 @@ void CalcMagnitude(uint8_t Sensor) {
         }
         sprintf(emsg, "proximity cleared BWF1: %d BWF2: %d", magBWF1, magBWF2);
         add_error_event(emsg);
-        Serial_Console("PROXIMITY CLEARED!\r\n");
     }
 }
 
@@ -656,8 +653,6 @@ void CheckMotorCurrent(int RAW) {
 }
 
 void SendInfo() {
-
-    SendInfoStatus = 0;
 
     if (DEBUG_RAZORBOARD == 0) {
         bwf1_inside = 0;
@@ -1784,7 +1779,7 @@ void UpdateMotorSpeed() {
 
     // Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
     diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
-    diff *= 120.0;
+    diff *= 60.0;
 
     if (diff < 0) { dir = -1; }
     else if (diff > 0) { dir = 1; }
@@ -2174,7 +2169,6 @@ void CheckState(void) {
             MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
         } else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
             add_error_event("BWF1 OUT BWF2 OUT");
-            Serial_Console("Going Backward\r\n");
             MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
             delay(500);
             if (rnd(100000) < 50000) {
@@ -2197,7 +2191,6 @@ void CheckState(void) {
         if (cutterStatus == 0 && perimeterTracking == 0) {
             cutterON();
         }
-        Serial_Console("Going Forward\r\n");
         mag_near_bwf = 0;
         highgrass_slowdown = 0;
         MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
@@ -2205,7 +2198,6 @@ void CheckState(void) {
     } else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
         delay(500);
         add_error_event("STOP+SECURITY_FAIL");
-        Serial_Console("STOP + Security Fail\r\n");
 
         CheckSecurity();
 
@@ -2264,8 +2256,6 @@ int main(void)
   MX_TIM5_Init();
   MX_I2C1_Init();
   MX_ADC2_Init();
-  MX_I2C2_Init();
-  MX_I2C1_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
@@ -2330,7 +2320,7 @@ int main(void)
         save_default_settings(board_revision);
         add_error_event("No config found");
         Serial_Console("No config found - Saving factory defaults\r\n");
-        Serial_Console("Masterswitch set to OFF - please configure settings and reboot\r\n");
+        Serial_Console("Masterswitch set to OFF - please configure and save settings, then reboot\r\n");
         MasterSwitch = 0;
         settings = read_all_settings();
     }
@@ -2354,7 +2344,6 @@ int main(void)
             IMU_timer = HAL_GetTick();
         }
 
-
         if (perimeterTrackingActive == 0) {
 
             CheckSecurity();
@@ -2374,8 +2363,6 @@ int main(void)
         } else {
             perimeterTracker();
         }
-
-//        if (SendInfoStatus == 1) SendInfo();
 
         ChargerConnected();
 
@@ -2585,7 +2572,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -3100,10 +3087,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
     WatchdogRefresh();        // STM32 Watchdog - NEVER DISABLE THIS (for safety!)
-//    SendInfoStatus = 1;        // Ready to send Serial Console info
     SendInfo();
-
-
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
