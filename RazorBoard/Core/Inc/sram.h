@@ -8,7 +8,7 @@
 #ifndef INC_SRAM_H_
 #define INC_SRAM_H_
 
-static const char VERSION[] = "Version 1.0.6";
+static const char VERSION[] = "Version 1.0.7";
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t
@@ -73,7 +73,7 @@ typedef struct SRAM {
 	uint8_t MotorSpeedUpdateFreq;
 	uint8_t Outside_Threshold;
 	uint8_t move_count_limit;
-	uint8_t bumber_count_limit;
+	uint8_t bumper_count_limit;
 	uint8_t undock_backing_seconds;
 	uint16_t HoldChargeDetection;
 	uint16_t magValue;

@@ -217,7 +217,7 @@ sram_settings read_all_settings(void) {
     settings.MotorSpeedUpdateFreq = read_sram_uint8(MOTORSPEEDUPDATEFREQ_ADDR);
     settings.Outside_Threshold = read_sram_uint8(OUTSIDE_THRESHOLD_ADDR);
     settings.move_count_limit = read_sram_uint8(MOVE_COUNT_ADDR);
-    settings.bumber_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
+    settings.bumper_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
     settings.undock_backing_seconds = read_sram_uint8(UNDOCK_BACKING_SECONDS_ADDR);
 
     settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
@@ -287,7 +287,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint8(settings.MotorSpeedUpdateFreq, MOTORSPEEDUPDATEFREQ_ADDR);
     write_sram_uint8(settings.Outside_Threshold, OUTSIDE_THRESHOLD_ADDR);
     write_sram_uint8(settings.move_count_limit, MOVE_COUNT_ADDR);
-    write_sram_uint8(settings.bumber_count_limit, BUMPER_COUNT_ADDR);
+    write_sram_uint8(settings.bumper_count_limit, BUMPER_COUNT_ADDR);
     write_sram_uint8(settings.undock_backing_seconds, UNDOCK_BACKING_SECONDS_ADDR);
 
 
@@ -358,7 +358,7 @@ void save_default_settings(uint8_t revision) {
     settings.motorMinSpeed = 2000;
     settings.cutterSpeed = 3000;
     settings.move_count_limit = 5;
-    settings.bumber_count_limit = 10;
+    settings.bumper_count_limit = 10;
     settings.undock_backing_seconds = 3;
     settings.pitch_comp = 0.0;
     settings.roll_comp = 0.0;

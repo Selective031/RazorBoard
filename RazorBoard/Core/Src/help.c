@@ -89,7 +89,7 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Movement limit: %d\r\n", settings.move_count_limit);
     Serial_Console(msg);
-    sprintf(msg, "Bumber limit: %d\r\n", settings.bumber_count_limit);
+    sprintf(msg, "Bumper limit: %d\r\n", settings.bumper_count_limit);
     Serial_Console(msg);
     sprintf(msg, "Undock backing seconds: %d\r\n", settings.undock_backing_seconds);
     Serial_Console(msg);
@@ -178,7 +178,7 @@ void help(void) {
     Serial_Console(msg);
     sprintf(msg, "SET MOVEMENT COUNT LIMIT    - Set limit for movement detection before HALT\r\n");
     Serial_Console(msg);
-    sprintf(msg, "SET BUMBER COUNT LIMIT  - Set limit for bumber detection before HALT\r\n");
+    sprintf(msg, "SET BUMPER COUNT LIMIT  - Set limit for bumper detection before HALT\r\n");
     Serial_Console(msg);
     sprintf(msg, "SET UNDOCK BACKING SECONDS  - Set number of seconds to move backwards when undocking\r\n");
     Serial_Console(msg);
@@ -187,6 +187,10 @@ void help(void) {
     sprintf(msg, "SET ROLL COMP           - Compensate roll if not perfectly leveled\r\n");
     Serial_Console(msg);
     sprintf(msg, "SET ROLL TILT COMP      - Compensate wheel power ratio when turning based on roll\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "SHOW ERRORS             - Show error log\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "CLEAR ERRORS            - Clear error log\r\n");
     Serial_Console(msg);
     sprintf(msg, "SET HIGHGRASS LIMIT     - When to trigger High Grass, in Amps\r\n");
     Serial_Console(msg);

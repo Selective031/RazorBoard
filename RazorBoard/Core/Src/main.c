@@ -76,7 +76,7 @@ IWDG_HandleTypeDef hiwdg;
 #define SECURITY_NOSIGNAL 2
 #define SECURITY_LEFT 3
 #define SECURITY_RIGHT 4
-#define SECURITY_BUMBER 5
+#define SECURITY_BUMPER 5
 #define SECURITY_IMU_FAIL 6
 #define SECURITY_OUTSIDE 7
 #define SECURITY_MOVEMENT 8
@@ -183,7 +183,7 @@ uint32_t Charger_start_Timer = 0;                // start of charging time
 uint16_t Charger_elapsed_Timer = 0;                // how long charge time
 uint8_t highgrass_slowdown = 0;
 
-uint8_t bumber_count = 0;
+uint8_t bumper_count = 0;
 uint8_t move_count = 0;
 uint8_t board_revision = 12;
 
@@ -598,7 +598,7 @@ void CheckMotorCurrent(int RAW) {
             delay(500);
             MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
             Force_Active = 0;
-            bumber_count++;
+            bumper_count++;
             M1_amp = 0;
         }
     } else if (Channel == M2_addr) {
@@ -636,7 +636,7 @@ void CheckMotorCurrent(int RAW) {
             delay(500);
             MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
             Force_Active = 0;
-            bumber_count++;
+            bumper_count++;
             M2_amp = 0;
         }
     }
@@ -1317,11 +1317,11 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
                 settings.move_count_limit = limit;
             }
-            if (strncmp(Command, "SET BUMBER COUNT LIMIT", 22) == 0) {
+            if (strncmp(Command, "SET BUMPER COUNT LIMIT", 22) == 0) {
                 int limit;
                 char cmd1[3], cmd2[6], cmd3[5], cmd4[5];
                 sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &limit);
-                settings.bumber_count_limit = limit;
+                settings.bumper_count_limit = limit;
             }
             if (strncmp(Command, "SET UNDOCK BACKING SECONDS", 26) == 0) {
                 int seconds;
@@ -2081,11 +2081,11 @@ void CheckState(void) {
         cutterOFF();
         return;
     }
-    if (bumber_count >= settings.bumber_count_limit) {
-        add_error_event("Bumber detection HALT");
+    if (bumper_count >= settings.bumper_count_limit) {
+        add_error_event("Bumper detection HALT");
         MotorStop();
         MasterSwitch = 0;
-        Serial_Console("Bumber detection - HALT\r\n");
+        Serial_Console("Bumper detection - HALT\r\n");
         return;
     }
 
@@ -2116,7 +2116,7 @@ void CheckState(void) {
         MotorStop();
         getIMUOrientation();
         move_count = 0;
-        bumber_count = 0;
+        bumper_count = 0;
         mag_near_bwf = 0;
         highgrass_slowdown = 0;
         TimeToGoHome();            // Check if within working hours, if not, go home
