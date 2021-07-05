@@ -166,11 +166,11 @@ uint8_t Signature_Record = FALSE;
 
 uint16_t magBWF1, magBWF2, magBWF3;
 
-uint32_t MotorSpeedUpdateFreq_timer = 0;    	// Timer for MotorSpeed Update
-uint8_t MotorSpeedUpdateFreq = 100;            	// Freq to update motor speed, in milliseconds
+uint32_t MotorSpeedUpdateFreq_timer = 0;        // Timer for MotorSpeed Update
+uint8_t MotorSpeedUpdateFreq = 100;                // Freq to update motor speed, in milliseconds
 
-uint8_t ChargerConnect = 0;                    	// Are we connected to the charger?
-uint8_t DEBUG_RAZORBOARD = 0;                	// Used by "debug on/debug off"
+uint8_t ChargerConnect = 0;                        // Are we connected to the charger?
+uint8_t DEBUG_RAZORBOARD = 0;                    // Used by "debug on/debug off"
 uint8_t mag_near_bwf = 0;
 
 uint32_t mag_timer = 0;
@@ -179,8 +179,8 @@ uint32_t highgrass_timer = 0;
 uint32_t tracking_timeout_timer = 0;
 uint32_t GoHome_timer_IN = 0;
 uint32_t GoHome_timer_OUT = 0;
-uint32_t Charger_start_Timer = 0;				// start of charging time
-uint16_t Charger_elapsed_Timer = 0;				// how long charge time
+uint32_t Charger_start_Timer = 0;                // start of charging time
+uint16_t Charger_elapsed_Timer = 0;                // how long charge time
 uint8_t highgrass_slowdown = 0;
 
 uint8_t bumber_count = 0;
@@ -294,16 +294,15 @@ static void CalcMagnitude(uint8_t Sensor);
 static void delay(uint32_t time_ms);
 static void getIMUOrientation(void);
 static void i2c_scanner(void);
-static void Serial_DATA(char * msg);
+static void Serial_DATA(char *msg);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void Serial_DATA(char * msg) {
-
-	HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), 100);
+void Serial_DATA(char *msg) {
+    HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
 }
 
 
@@ -322,17 +321,14 @@ void i2c_scanner(void) {
 }
 
 void getIMUOrientation(void) {
-
     for (uint8_t x = 0; x < 20; x++) {
         MPU6050_Read_Accel();
         MPU6050_Read_Gyro();
         ProcessIMUData(settings);
     }
-
 }
 
 void delay(uint32_t time_ms) {
-
     uint32_t timer;
     timer = HAL_GetTick();
 
@@ -342,7 +338,6 @@ void delay(uint32_t time_ms) {
 }
 
 void reInitIMU(void) {
-
     // If the I2C bus hangs, this will clear the deadlock and re-init the MPU
 
     MotorStop();
@@ -371,7 +366,6 @@ void reInitIMU(void) {
     HAL_I2C_Init(&hi2c2);
     i2c_scanner();
     Init6050();
-
 }
 
 void CalcMagnitude(uint8_t Sensor) {
@@ -390,11 +384,13 @@ void CalcMagnitude(uint8_t Sensor) {
     }
     arm_sqrt_f32(sum, &magValue);
 
-    if (Sensor == 1) { magBWF1 = round(magValue); }
-    else if (Sensor == 2) magBWF2 = round(magValue);
+    if (Sensor == 1) {
+        magBWF1 = round(magValue);
+    } else if (Sensor == 2) {
+        magBWF2 = round(magValue);
+    }
 
-    if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) &&
-        (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
+    if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) && (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
         if (mag_near_bwf == 0) {
             mag_near_bwf = 1;
             highgrass_slowdown = 0;
@@ -421,7 +417,6 @@ void CalcMagnitude(uint8_t Sensor) {
 }
 
 void TimeToGoHome(void) {
-
     // Get Time and check if we should go home
 
     RTC_TimeTypeDef currTime = {0};
@@ -435,11 +430,9 @@ void TimeToGoHome(void) {
         add_error_event(emsg);
         perimeterTracking = 1;
     }
-
 }
 
 void setTime(uint8_t hour, uint8_t minute, uint8_t second) {
-
     RTC_TimeTypeDef sTime = {0};
 
     sTime.Hours = RTC_ByteToBcd2(hour);
@@ -448,11 +441,9 @@ void setTime(uint8_t hour, uint8_t minute, uint8_t second) {
     sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
     sTime.StoreOperation = RTC_STOREOPERATION_SET;
     HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
-
 }
 
 void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday) {
-
     RTC_DateTypeDef sDate = {0};
 
     sDate.WeekDay = RTC_ByteToBcd2(weekday);
@@ -460,7 +451,6 @@ void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday) {
     sDate.Date = RTC_ByteToBcd2(day);
     sDate.Year = RTC_ByteToBcd2(year);
     HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
-
 }
 
 void BootLoaderInit(unsigned long BootLoaderStatus)
@@ -469,7 +459,6 @@ void BootLoaderInit(unsigned long BootLoaderStatus)
 {
     SysMemBootJump = (void (*)(void)) (*((unsigned long *) 0x1fff0004));
     if (BootLoaderStatus == 1) {
-
         HAL_DeInit();
         SysTick->CTRL = 0;
         SysTick->LOAD = 0;
@@ -482,7 +471,6 @@ void BootLoaderInit(unsigned long BootLoaderStatus)
 }
 
 void WatchdogInit(void) {
-
     /*
         Watchdog freq: 32.768 kHz
         Prescaler: 16
@@ -499,18 +487,15 @@ void WatchdogInit(void) {
     hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
     hiwdg.Init.Reload = 4095;
     HAL_IWDG_Init(&hiwdg);
-
 }
 
 void WatchdogRefresh(void) {
-
     // refresh the watchdog
 
     HAL_IWDG_Refresh(&hiwdg);
 }
 
 void InitFIR(void) {
-
     // Initiate the FIR functions
 
     uint32_t blocksize = BLOCK_SIZE;
@@ -530,7 +515,6 @@ void FIR_LEFT(void) {
     for (int x = 0; x < 256; x++) {
         BWF1[x] = (float) outputF32[x];
     }
-
 }
 
 void FIR_RIGHT(void) {
@@ -561,11 +545,9 @@ void FIR_REAR(void) {
     for (int x = 0; x < 256; x++) {
         BWF3[x] = (float) outputF32[x];
     }
-
 }
 
 uint32_t rnd(uint32_t maxValue) {
-
     // Our random number generator
 
     uint32_t rndnum;
@@ -574,29 +556,34 @@ uint32_t rnd(uint32_t maxValue) {
 }
 
 void CheckMotorCurrent(int RAW) {
-
     // Check if any motor is experiencing a spike in power, then we probably hit something.
 
     float M1, M2;
-    if (M1_idx == 10 || M2_idx == 10 || C1_idx == 10) Force_Active = 1;
+    if (M1_idx == 10 || M2_idx == 10 || C1_idx == 10) {
+        Force_Active = 1;
+    }
 
     if (Channel == M1_addr) {
         M1_Value = RAW;
         M1 = fabs(((M1_Value * 0.1875) - 2500) / 100);
-        if (Initial_Start == 0) M1_error = M1;
+        if (Initial_Start == 0) {
+            M1_error = M1;
+        }
         M1_amp = fabs(M1 - M1_error);
         M1_force[M1_idx] = M1_amp;
         M1_idx++;
-        if (M1_idx == 20) M1_idx = 0;
+        if (M1_idx == 20) {
+            M1_idx = 0;
+        }
         float ForceM1 = 0;
         for (int x = 0; x < 20; x++) {
             ForceM1 += M1_force[x];
         }
         M1_F = ForceM1 / 20;
-        if (M1_F < settings.Motor_Min_Limit) M1_F = settings.Motor_Min_Limit;
-        if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) &&
-            State == (FORWARD || RIGHT) && Force_Active == 1) {
-
+        if (M1_F < settings.Motor_Min_Limit) {
+            M1_F = settings.Motor_Min_Limit;
+        }
+        if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
             sprintf(emsg, "M1 current: %.2f", M1_amp);
             add_error_event(emsg);
             sprintf(msg, "Motor Current Limit reached for M1: %.2f", M1_amp);
@@ -613,25 +600,28 @@ void CheckMotorCurrent(int RAW) {
             Force_Active = 0;
             bumber_count++;
             M1_amp = 0;
-
         }
     } else if (Channel == M2_addr) {
         M2_Value = RAW;
         M2 = fabs(((M2_Value * 0.1875) - 2500) / 100);
-        if (Initial_Start == 0) M2_error = M2;
+        if (Initial_Start == 0) {
+            M2_error = M2;
+        }
         M2_amp = fabs(M2 - M2_error);
         M2_force[M2_idx] = M2_amp;
         M2_idx++;
-        if (M2_idx == 20) M2_idx = 0;
+        if (M2_idx == 20) {
+            M2_idx = 0;
+        }
         float ForceM2 = 0;
         for (int x = 0; x < 20; x++) {
             ForceM2 += M2_force[x];
         }
         M2_F = ForceM2 / 20;
-        if (M2_F < settings.Motor_Min_Limit) M2_F = settings.Motor_Min_Limit;
-        if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) &&
-            State == (FORWARD || LEFT) && Force_Active == 1) {
-
+        if (M2_F < settings.Motor_Min_Limit) {
+            M2_F = settings.Motor_Min_Limit;
+        }
+        if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
             sprintf(emsg, "M2 current: %.2f", M2_amp);
             add_error_event(emsg);
             sprintf(msg, "Motor Current Limit reached for M2: %.2f", M2_amp);
@@ -653,7 +643,6 @@ void CheckMotorCurrent(int RAW) {
 }
 
 void SendInfo() {
-
     if (DEBUG_RAZORBOARD == 0) {
         bwf1_inside = 0;
         bwf1_outside = 0;
@@ -671,56 +660,98 @@ void SendInfo() {
     HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-	sprintf(msg, "M1: %.2f\r\n", M1_amp);
-	Serial_DATA(msg);
-	sprintf(msg, "M2: %.2f\r\n", M2_amp);
-	Serial_DATA(msg);
-	sprintf(msg, "C1: %.2f\r\n", C1_amp);
-	Serial_DATA(msg);
-	sprintf(msg, "V1: %.2f\r\n", Voltage);
-	Serial_DATA(msg);
-	sprintf(msg,"Charger Connected: %d\r\n", ChargerConnect);
-	Serial_DATA(msg);
-	if (ChargerConnect == 1){
-		sprintf(msg,"Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
-		Serial_DATA(msg);
-	}
-	sprintf(msg,"IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside, bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
-	Serial_DATA(msg);
-	sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
-	Serial_DATA(msg);
-	sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
-	Serial_DATA(msg);
-	sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
-	Serial_DATA(msg);
-	sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
-	Serial_DATA(msg);
-	sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
-	Serial_DATA(msg);
-	sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
-	Serial_DATA(msg);
-	if (mpu.movement < settings.movement) sprintf(msg, "Movement Verdict: Standing\r\n");
-	else sprintf(msg, "Movement Verdict: Moving\r\n");
-	Serial_DATA(msg);
-	if (Security == 0) Serial_DATA("Security FAIL\r\n");
-	if (Security == 1) Serial_DATA("Security OK\r\n");
-	if (Security == 2) Serial_DATA("Security OUTSIDE\r\n");
-	if (Security == 3) Serial_DATA("Security LEFT\r\n");
-	if (Security == 4) Serial_DATA("Security RIGHT\r\n");
-	if (Security == 5) Serial_DATA("Security BUMPER\r\n");
-	if (Security == 6) Serial_DATA("Security IMU_FAIL\r\n");
-	if (Security == 7) Serial_DATA("Security OUSIDE\r\n");
-	if (Security == 8) Serial_DATA("Security MOVEMENT\r\n");
-	if (Security == 9) Serial_DATA("Security BACKWARD_OUTSIDE\r\n");
-	if (State == 0) Serial_DATA("State STOP\r\n");
-	if (State == 1) Serial_DATA("State FORWARD\r\n");
-	if (State == 2) Serial_DATA("State BACKWARD\r\n");
-	if (State == 3) Serial_DATA("State LEFT\r\n");
-	if (State == 4) Serial_DATA("State RIGHT\r\n");
-	if (State == 5) Serial_DATA("State AVOID_OBSTACLE\r\n");
-	if (State == 6) Serial_DATA("State FAIL\r\n");
-	if (State == 7) Serial_DATA("State BRAKE\r\n");
-	if (State == 8) Serial_DATA("State HARDBRAKE\r\n");
+    sprintf(msg, "M1: %.2f\r\n", M1_amp);
+    Serial_DATA(msg);
+    sprintf(msg, "M2: %.2f\r\n", M2_amp);
+    Serial_DATA(msg);
+    sprintf(msg, "C1: %.2f\r\n", C1_amp);
+    Serial_DATA(msg);
+    sprintf(msg, "V1: %.2f\r\n", Voltage);
+    Serial_DATA(msg);
+    sprintf(msg, "Charger Connected: %d\r\n", ChargerConnect);
+    Serial_DATA(msg);
+    if (ChargerConnect == 1) {
+        sprintf(msg, "Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
+        Serial_DATA(msg);
+    }
+    sprintf(msg, "IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside,
+            bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
+    Serial_DATA(msg);
+    sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
+    Serial_DATA(msg);
+    sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
+    Serial_DATA(msg);
+    sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
+    Serial_DATA(msg);
+    sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
+    Serial_DATA(msg);
+    sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
+    Serial_DATA(msg);
+    sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
+    Serial_DATA(msg);
+    if (mpu.movement < settings.movement) {
+        sprintf(msg, "Movement Verdict: Standing\r\n");
+    } else {
+        sprintf(msg, "Movement Verdict: Moving\r\n");
+    }
+    Serial_DATA(msg);
+    if (Security == 0) {
+        Serial_DATA("Security FAIL\r\n");
+    }
+    if (Security == 1) {
+        Serial_DATA("Security OK\r\n");
+    }
+    if (Security == 2) {
+        Serial_DATA("Security OUTSIDE\r\n");
+    }
+    if (Security == 3) {
+        Serial_DATA("Security LEFT\r\n");
+    }
+    if (Security == 4) {
+        Serial_DATA("Security RIGHT\r\n");
+    }
+    if (Security == 5) {
+        Serial_DATA("Security BUMPER\r\n");
+    }
+    if (Security == 6) {
+        Serial_DATA("Security IMU_FAIL\r\n");
+    }
+    if (Security == 7) {
+        Serial_DATA("Security OUSIDE\r\n");
+    }
+    if (Security == 8) {
+        Serial_DATA("Security MOVEMENT\r\n");
+    }
+    if (Security == 9) {
+        Serial_DATA("Security BACKWARD_OUTSIDE\r\n");
+    }
+    if (State == 0) {
+        Serial_DATA("State STOP\r\n");
+    }
+    if (State == 1) {
+        Serial_DATA("State FORWARD\r\n");
+    }
+    if (State == 2) {
+        Serial_DATA("State BACKWARD\r\n");
+    }
+    if (State == 3) {
+        Serial_DATA("State LEFT\r\n");
+    }
+    if (State == 4) {
+        Serial_DATA("State RIGHT\r\n");
+    }
+    if (State == 5) {
+        Serial_DATA("State AVOID_OBSTACLE\r\n");
+    }
+    if (State == 6) {
+        Serial_DATA("State FAIL\r\n");
+    }
+    if (State == 7) {
+        Serial_DATA("State BRAKE\r\n");
+    }
+    if (State == 8) {
+        Serial_DATA("State HARDBRAKE\r\n");
+    }
 
     sprintf(msg, "Board_Revision: %d\r\n", board_revision);
     Serial_DATA(msg);
@@ -748,7 +779,6 @@ void SendInfo() {
 }
 
 void CollectADC() {
-
     // Collect IC2 data from the external ADC, in a non-blocking way.
 
     if (Channel == M1_addr && Channel_Status == 0) {
@@ -779,11 +809,13 @@ void CollectADC() {
             C1_Value = RAW;
             float C1;
             C1 = fabs(((C1_Value * 0.1875) - 2500) / 100);
-            if (Initial_Start == 0) C1_error = C1;
+            if (Initial_Start == 0) {
+                C1_error = C1;
+            }
             C1_amp = fabs(C1 - C1_error);
 
             if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0) {
-            	C1_amp = 0.0;
+                C1_amp = 0.0;
                 highgrass_slowdown = 1;
                 MotorStop();
                 MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
@@ -810,12 +842,13 @@ void CollectADC() {
                 MasterSwitch = 0;
                 return;
             }
-
         } else if (Channel == V1_addr) {
             V1_Value = RAW;
             V1_array[V1_index] = (V1_Value * 0.1875) * settings.voltageMultiply / 1000;
             V1_index++;
-            if (V1_index >= 60) V1_index = 0;
+            if (V1_index >= 60) {
+                V1_index = 0;
+            }
             float volt_sum = 0.0;
             for (uint8_t x = 0; x < 60; x++) {
                 volt_sum += V1_array[x];
@@ -823,12 +856,16 @@ void CollectADC() {
             Voltage = volt_sum / 60;
         }
 
-        if (Channel == M1_addr) { Channel = M2_addr; }
-        else if (Channel == M2_addr) { Channel = C1_addr; }
-        else if (Channel == C1_addr) { Channel = V1_addr; }
-        else if (Channel == V1_addr) Channel = M1_addr;
+        if (Channel == M1_addr) {
+            Channel = M2_addr;
+        } else if (Channel == M2_addr) {
+            Channel = C1_addr;
+        } else if (Channel == C1_addr) {
+            Channel = V1_addr;
+        } else if (Channel == V1_addr) {
+            Channel = M1_addr;
+        }
         Channel_Status = 0;
-
     }
 }
 
@@ -838,7 +875,6 @@ void delay_us(uint16_t us) {
 }
 
 void unDock(void) {
-
     // Simple undock sequence,  check if Battery is ready (fully charged) and if we are within working hours.
 
     RTC_TimeTypeDef currTime = {0};
@@ -847,9 +883,7 @@ void unDock(void) {
     HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-    if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 &&
-        Docked == 1) {
-
+    if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1) {
         add_error_event("Switch Main Battery");
         Serial_Console("Switching to Main Battery\r\n");
         HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
@@ -876,20 +910,17 @@ void unDock(void) {
 }
 
 void ChargerConnected(void) {
-
     // Is the charger connected?
 
-	if (ChargerConnect == 0) { 					// We are not charging, reset charger start timer
-		Charger_start_Timer = HAL_GetTick();
-		Charger_elapsed_Timer = 0;
-	}
+    if (ChargerConnect == 0) {                    // We are not charging, reset charger start timer
+        Charger_start_Timer = HAL_GetTick();
+        Charger_elapsed_Timer = 0;
+    }
 
-	if (ChargerConnect == 1) { 					// We are charging, calculate duration in minutes
-		Charger_elapsed_Timer = (HAL_GetTick() - Charger_start_Timer) / 60000;
-
-	}
+    if (ChargerConnect == 1) {                    // We are charging, calculate duration in minutes
+        Charger_elapsed_Timer = (HAL_GetTick() - Charger_start_Timer) / 60000;
+    }
     if (ChargerConnect == 1 || Docked == 1) {
-
         if (Voltage >= settings.Battery_High_Limit && Battery_Ready == 0 && Charger_elapsed_Timer >= settings.BatteryChargeTime) {
             Battery_Ready = 1;
             HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -903,8 +934,7 @@ void ChargerConnected(void) {
     }
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {            // Read Volt sense pin
-        HAL_Delay(
-                settings.HoldChargeDetection);                                    // Wait for a while so a proper connection is made
+        HAL_Delay(settings.HoldChargeDetection);                                    // Wait for a while so a proper connection is made
         Force_Active = 0;
         MotorBrake();
         cutterHardBreak();
@@ -925,7 +955,6 @@ void ChargerConnected(void) {
 }
 
 void perimeterTracker(void) {
-
     CheckSecurity();
 
     mag_near_bwf = 0;
@@ -944,7 +973,6 @@ void perimeterTracker(void) {
             MasterSwitch = 0;
             add_error_event("Stuck perimeterTracking BWF2 OUT - HALT");
             return;
-
         }
     }
 
@@ -959,7 +987,6 @@ void perimeterTracker(void) {
             MasterSwitch = 0;
             add_error_event("Stuck perimeterTracking BWF2 IN - HALT");
             return;
-
         }
     }
 
@@ -975,17 +1002,20 @@ void perimeterTracker(void) {
     int speedA = (settings.perimeterTrackerSpeed + round(out));
     int speedB = (settings.perimeterTrackerSpeed - round(out));
 
-    if (speedA > settings.perimeterTrackerSpeed) speedA = settings.perimeterTrackerSpeed;                // limit upper and lower speed
-    if (speedB > settings.perimeterTrackerSpeed) speedB = settings.perimeterTrackerSpeed;
+    if (speedA > settings.perimeterTrackerSpeed) {
+        speedA = settings.perimeterTrackerSpeed;
+    }                // limit upper and lower speed
+    if (speedB > settings.perimeterTrackerSpeed)
+        speedB = settings.perimeterTrackerSpeed;
 
-    if (speedA < 1000) speedA = 1000;
-    if (speedB < 1000) speedB = 1000;
+    if (speedA < 1000)
+        speedA = 1000;
+    if (speedB < 1000)
+        speedB = 1000;
 
     if (BWF2_Status == OUTSIDE) {
-
         if (BWF1_Status == OUTSIDE) {
-            MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed *
-                         0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
+            MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
             HAL_Delay(200);
             MOTOR_LEFT_FORWARD = 0;
         } else if (BWF1_Status == INSIDE) {
@@ -995,7 +1025,6 @@ void perimeterTracker(void) {
 
         MOTOR_RIGHT_FORWARD = speedA;
         MOTOR_RIGHT_BACKWARD = 0;
-
     }
 
     if (BWF2_Status == INSIDE) {
@@ -1005,19 +1034,18 @@ void perimeterTracker(void) {
         MOTOR_RIGHT_FORWARD = speedB;
         MOTOR_RIGHT_BACKWARD = 0;
     }
-
 }
 
 void parseCommand_Console(void) {
-
     // Parse commands from the Console
 
     char Command[64] = {"\0"};
 
     for (uint8_t x = 0; x < sizeof(ConsoleBuffer); x++) {
         if (ConsoleBuffer[x] == 13) {
-            if (ConsoleBuffer[0] == 13) { memcpy(Command, "DISABLE", 7); }
-            else {
+            if (ConsoleBuffer[0] == 13) {
+                memcpy(Command, "DISABLE", 7);
+            } else {
                 memcpy(Command, ConsoleBuffer, x);
             }
             sprintf(msg, "%s\r\n", Command);
@@ -1089,30 +1117,23 @@ void parseCommand_Console(void) {
                 Serial_Console("Rebooting...\r\n");
                 HAL_Delay(500);
                 NVIC_SystemReset();
-
             }
             if (strcmp(Command, "LOAD CONFIG") == 0) {
                 settings = read_all_settings();
                 Serial_Console("Config loaded.\r\n");
             }
             if (strcmp(Command, "SHOW CONFIG") == 0) {
-
                 show_config(settings);
-
             }
             if (strcmp(Command, "SHOW ERRORS") == 0) {
-
                 show_error();
-
             }
             if (strcmp(Command, "ADD ERROR") == 0) {
                 add_error_event("This is a test error!");
-
             }
 
             if (strcmp(Command, "CLEAR ERRORS") == 0) {
                 clear_errors();
-
             }
 
             if (strcmp(Command, "SAVE CONFIG") == 0) {
@@ -1124,7 +1145,6 @@ void parseCommand_Console(void) {
                 save_default_settings(board_revision);
                 settings = read_all_settings();
                 Serial_Console("Default settings saved.\r\n");
-
             }
             if (strcmp(Command, "SHOW CURRENT") == 0) {
                 sprintf(msg, "M1: %.2f\r\nM2: %.2f\r\nC1: %.2f\r\n", M1_amp, M2_amp, C1_amp);
@@ -1202,11 +1222,11 @@ void parseCommand_Console(void) {
                 settings.roll_tilt_comp = comp;
             }
             if (strncmp(Command, "SET PERIMETER SPEED", 19) == 0) {
-				int speed;
-				char cmd1[3], cmd2[9], cmd3[5];
-				sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
-				settings.perimeterTrackerSpeed = speed;
-			}
+                int speed;
+                char cmd1[3], cmd2[9], cmd3[5];
+                sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
+                settings.perimeterTrackerSpeed = speed;
+            }
             if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
                 int adc;
                 char cmd1[3], cmd2[3], cmd3[5];
@@ -1249,12 +1269,12 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
                 settings.Battery_Low_Limit = limit;
             }
-    		if (strncmp(Command, "SET BAT CHARGER TIME", 20) == 0) {
-    				int minutes;
-    				char cmd1[3], cmd2[3], cmd3[7], cmd4[4];
-    				sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &minutes);
-    				settings.BatteryChargeTime = minutes;
-    		}
+            if (strncmp(Command, "SET BAT CHARGER TIME", 20) == 0) {
+                int minutes;
+                char cmd1[3], cmd2[3], cmd3[7], cmd4[4];
+                sscanf(Command, "%s %s %s %s %d ", cmd1, cmd2, cmd3, cmd4, &minutes);
+                settings.BatteryChargeTime = minutes;
+            }
             if (strncmp(Command, "SET BWF OUT", 11) == 0) {
                 float limit;
                 char cmd1[3], cmd2[3], cmd3[3];
@@ -1402,7 +1422,6 @@ void parseCommand_Console(void) {
 }
 
 void parseCommand_RPI() {
-
     // Parse commands from the Raspberry PI
 
     char Command[64] = {"\0"};
@@ -1434,22 +1453,18 @@ void parseCommand_RPI() {
 }
 
 void Serial_Console(char *msg) {
-
     // Write to USB/Serial
 
     HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
-
 }
 
 void Serial_RPi(char *msg) {
-
     // Write to Raspberry PI
 
     HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), 100);
 }
 
 uint8_t CheckSecurity(void) {
-
     // Check security, what is our status with the boundary signals
 
     CheckBWF();
@@ -1462,15 +1477,15 @@ uint8_t CheckSecurity(void) {
     }
 
     if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-    	getIMUOrientation();	// Double check pitch and roll
-    	delay(100);
-    	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-    		sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
-    		add_error_event(emsg);
-    		MotorHardBrake();
-    		cutterHardBreak();
-    		return SECURITY_IMU_FAIL;
-    	}
+        getIMUOrientation();    // Double check pitch and roll
+        delay(100);
+        if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
+            sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
+            add_error_event(emsg);
+            MotorHardBrake();
+            cutterHardBreak();
+            return SECURITY_IMU_FAIL;
+        }
     }
 
     if (HAL_GetTick() - Boundary_Timer >= (settings.Boundary_Timeout * 1000)) {
@@ -1485,8 +1500,7 @@ uint8_t CheckSecurity(void) {
         move_timer = HAL_GetTick();
     }
 
-    if ((MOTOR_LEFT_FORWARD >= (settings.motorMaxSpeed * 0.5) || MOTOR_RIGHT_FORWARD >= (settings.motorMaxSpeed * 0.5)) &&
-        mpu.movement < settings.movement) {
+    if ((MOTOR_LEFT_FORWARD >= (settings.motorMaxSpeed * 0.5) || MOTOR_RIGHT_FORWARD >= (settings.motorMaxSpeed * 0.5)) && mpu.movement < settings.movement) {
         if (HAL_GetTick() - move_timer >= 5000) {
             move_count++;
             return SECURITY_MOVEMENT;
@@ -1507,31 +1521,28 @@ uint8_t CheckSecurity(void) {
     }
 
     return SECURITY_FAIL;
-
 }
 
 void cutterHardBreak() {
-
     // Cutter disc hard brake
 
     TIM3->CCR1 = settings.motorMaxSpeed;        // Motor will hard brake when both "pins" go HIGH
     TIM3->CCR2 = settings.motorMaxSpeed;
     HAL_Delay(3000);
     cutterOFF();
-
 }
 
 void cutterON(void) {
-
     cutterStatus = 1;
     uint8_t direction = 0;
-    if (rnd(100000) < 50000) direction = 1;
+    if (rnd(100000) < 50000) {
+        direction = 1;
+    }
 
     Serial_Console("Cutter Motor ON\r\n");
     add_error_event("Cutter Motor ON");
 
     for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
-
         Boundary_Timer = HAL_GetTick();
 
         if (direction == 0) {
@@ -1542,22 +1553,17 @@ void cutterON(void) {
             TIM3->CCR2 = cutterSpeed;
         }
         delay(2);
-
     }
-
 }
 
 void cutterOFF(void) {
-
     cutterStatus = 0;
 
     TIM3->CCR1 = 0;
     TIM3->CCR2 = 0;
-
 }
 
 void CheckBWF_Rear() {
-
     float BWF3_Mixed_Signal = 0;
     float BWF3_Received_Signal = 0;
     uint16_t myID = 0;
@@ -1588,7 +1594,6 @@ void CheckBWF_Rear() {
 
 
         for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
-
             BWF3_Mixed_Signal += (BWF3[x] * validSignature[myID]);
             BWF3_Received_Signal += BWF3[x] * BWF3[x];
 
@@ -1614,7 +1619,6 @@ void CheckBWF_Rear() {
 }
 
 void CheckBWF() {
-
     /*
      * From the 512 samples, break out 256 for each sensor
      * Run FIR filter
@@ -1670,7 +1674,6 @@ void CheckBWF() {
 
 
         for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
-
             BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
             BWF1_Received_Signal += BWF1[x] * BWF1[x];
 
@@ -1699,12 +1702,13 @@ void CheckBWF() {
             }
             bwf1_inside++;
             CalcMagnitude(1);
-
         } else if (BWF1_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF1_reply == 0) {
             BWF1_Status = OUTSIDE;
             Boundary_Timer = HAL_GetTick();
             BWF1_reply = 1;
-            if (Initial_Start == 0) Start_Threshold = 0;
+            if (Initial_Start == 0) {
+                Start_Threshold = 0;
+            }
             bwf1_outside++;
             CalcMagnitude(1);
         }
@@ -1721,12 +1725,13 @@ void CheckBWF() {
             }
             bwf2_inside++;
             CalcMagnitude(2);
-
         } else if (BWF2_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF2_reply == 0) {
             BWF2_Status = OUTSIDE;
             Boundary_Timer = HAL_GetTick();
             BWF2_reply = 1;
-            if (Initial_Start == 0) Start_Threshold = 0;
+            if (Initial_Start == 0) {
+                Start_Threshold = 0;
+            }
             bwf2_outside++;
             CalcMagnitude(2);
         }
@@ -1734,7 +1739,6 @@ void CheckBWF() {
 }
 
 void ADC_Send(uint8_t Channel) {
-
     // Send ADC data
 
     unsigned char ADSwrite[6];
@@ -1745,11 +1749,9 @@ void ADC_Send(uint8_t Channel) {
     HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100);
     ADSwrite[0] = 0x00;
     HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100);
-
 }
 
 int ADC_Receive() {
-
     // Receive ADC data
 
     unsigned char ADSwrite[6];
@@ -1764,11 +1766,9 @@ int ADC_Receive() {
     }
 
     return reading;
-
 }
 
 void UpdateMotorSpeed() {
-
     /* With the use of the MPU6050, we calculate the angle we are traveling in by using the gyro
      * A simple motor speed controller, for each degree off, we simply decrease the speed with 120.
      * TODO - a proper PID controller
@@ -1781,13 +1781,21 @@ void UpdateMotorSpeed() {
     diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
     diff *= 60.0;
 
-    if (diff < 0) { dir = -1; }
-    else if (diff > 0) { dir = 1; }
-    else if (diff == 0) dir = 0;
+    if (diff < 0) {
+        dir = -1;
+    } else if (diff > 0) {
+        dir = 1;
+    } else if (diff == 0) {
+        dir = 0;
+    }
 
     // Do not change speed more than 1000
-    if (diff > 1000) diff = 1000;
-    if (diff < -1000) diff = -1000;
+    if (diff > 1000) {
+        diff = 1000;
+    }
+    if (diff < -1000) {
+        diff = -1000;
+    }
 
     uint16_t Speed;
     if (mag_near_bwf == 1 || highgrass_slowdown == 1) {
@@ -1796,9 +1804,10 @@ void UpdateMotorSpeed() {
             Speed = round(Speed * settings.proximitySpeed);
         } else if (highgrass_slowdown == 1) {
             Speed = round(Speed * 0.78);
-
         }
-    } else { Speed = settings.motorMaxSpeed; }
+    } else {
+        Speed = settings.motorMaxSpeed;
+    }
 
     // Target is on the Left side
     if (dir > 0) {
@@ -1817,11 +1826,9 @@ void UpdateMotorSpeed() {
         MOTOR_LEFT_FORWARD = Speed;
         MOTOR_RIGHT_FORWARD = Speed;
     }
-
 }
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
-
     State = FORWARD;
 
     getIMUOrientation();
@@ -1829,7 +1836,6 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
     move_timer = HAL_GetTick();
 
     for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
         currentSpeed += 3;
         if (currentSpeed >= maxSpeed) {
             break;
@@ -1857,7 +1863,6 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
             MotorStop();
             break;
         }
-
     }
 }
 
@@ -1874,7 +1879,6 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
     getIMUOrientation();
 
     for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
         currentSpeed += 3;
         if (currentSpeed >= maxSpeed) {
             break;
@@ -1929,14 +1933,12 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 }
 
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-
     add_error_event("MotorRight");
     State = RIGHT;
     uint32_t motor_timer;
     motor_timer = HAL_GetTick();
 
     for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
         currentSpeed += 3;
         if (currentSpeed >= maxSpeed) {
             break;
@@ -1962,14 +1964,12 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 }
 
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-
     add_error_event("MotorLeft");
     State = LEFT;
     uint32_t motor_timer;
     motor_timer = HAL_GetTick();
 
     for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-
         currentSpeed += 3;
         if (currentSpeed >= maxSpeed) {
             break;
@@ -1995,25 +1995,31 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 }
 
 void MotorStop(void) {
-
     State = STOP;
     int speed = 0;
 
     speed = (MOTOR_LEFT_BACKWARD + MOTOR_LEFT_FORWARD + MOTOR_RIGHT_FORWARD + MOTOR_RIGHT_BACKWARD) / 2;
     speed *= 0.90;
 
-    if (speed == 0) return;
+    if (speed == 0) {
+        return;
+    }
 
     for (int x = speed; x > 1000; x--) {
-
         x -= 4;
 
-        if (x < 1000) break;
+        if (x < 1000) {
+            break;
+        }
 
-        if (MOTOR_LEFT_BACKWARD != 0) MOTOR_LEFT_BACKWARD = x;
-        if (MOTOR_LEFT_FORWARD != 0) MOTOR_LEFT_FORWARD = x;
-        if (MOTOR_RIGHT_FORWARD != 0) MOTOR_RIGHT_FORWARD = x;
-        if (MOTOR_RIGHT_BACKWARD != 0) MOTOR_RIGHT_BACKWARD = x;
+        if (MOTOR_LEFT_BACKWARD != 0)
+            MOTOR_LEFT_BACKWARD = x;
+        if (MOTOR_LEFT_FORWARD != 0)
+            MOTOR_LEFT_FORWARD = x;
+        if (MOTOR_RIGHT_FORWARD != 0)
+            MOTOR_RIGHT_FORWARD = x;
+        if (MOTOR_RIGHT_BACKWARD != 0)
+            MOTOR_RIGHT_BACKWARD = x;
 
         HAL_Delay(1);
     }
@@ -2022,11 +2028,9 @@ void MotorStop(void) {
     MOTOR_LEFT_FORWARD = 0;
     MOTOR_RIGHT_FORWARD = 0;
     MOTOR_RIGHT_BACKWARD = 0;
-
 }
 
 void MotorBrake(void) {
-
     State = BRAKE;
 
     // Brake - free wheeling
@@ -2034,11 +2038,9 @@ void MotorBrake(void) {
     MOTOR_LEFT_FORWARD = 0;
     MOTOR_RIGHT_FORWARD = 0;
     MOTOR_RIGHT_BACKWARD = 0;
-
 }
 
 void MotorHardBrake(void) {
-
     State = HARDBRAKE;
 
     // Wheels will do a hard brake when both pins go HIGH.
@@ -2054,11 +2056,12 @@ void MotorHardBrake(void) {
 }
 
 void CheckState(void) {
-
     /* This is our main loop function, this is where all the states are
      * What state is the mower in? and what to do next.
      */
-    if (Initial_Start == 0) return;
+    if (Initial_Start == 0) {
+        return;
+    }
 
     if (MasterSwitch == 0) {
         cutterOFF();
@@ -2079,7 +2082,6 @@ void CheckState(void) {
         return;
     }
     if (bumber_count >= settings.bumber_count_limit) {
-
         add_error_event("Bumber detection HALT");
         MotorStop();
         MasterSwitch = 0;
@@ -2132,9 +2134,7 @@ void CheckState(void) {
                 return;
             }
             if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
-
                 while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
-
                     MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600);
                     CheckSecurity();
                     if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
@@ -2144,7 +2144,6 @@ void CheckState(void) {
                         add_error_event("Stuck at turning on perimeter wire");
                         break;
                     }
-
                 }
                 GoHome_timer_IN = HAL_GetTick();
                 GoHome_timer_OUT = HAL_GetTick();
@@ -2180,7 +2179,6 @@ void CheckState(void) {
 
         delay(500);
     } else if (State == FORWARD) {
-
         if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
             State = STOP;
         }
@@ -2194,7 +2192,6 @@ void CheckState(void) {
         mag_near_bwf = 0;
         highgrass_slowdown = 0;
         MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-
     } else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
         delay(500);
         add_error_event("STOP+SECURITY_FAIL");
@@ -2210,7 +2207,6 @@ void CheckState(void) {
             MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
         }
     }
-
 }
 
 /* USER CODE END 0 */
@@ -2219,45 +2215,44 @@ void CheckState(void) {
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+int main(void) {
+    /* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
+    /* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+    /* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    HAL_Init();
 
-  /* USER CODE BEGIN Init */
+    /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+    /* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+    /* Configure the system clock */
+    SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+    /* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+    /* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_ADC1_Init();
-  MX_IWDG_Init();
-  MX_RNG_Init();
-  MX_USART1_UART_Init();
-  MX_USART2_UART_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
-  MX_RTC_Init();
-  MX_TIM2_Init();
-  MX_TIM5_Init();
-  MX_I2C1_Init();
-  MX_ADC2_Init();
-  MX_I2C2_Init();
-  /* USER CODE BEGIN 2 */
+    /* Initialize all configured peripherals */
+    MX_GPIO_Init();
+    MX_DMA_Init();
+    MX_ADC1_Init();
+    MX_IWDG_Init();
+    MX_RNG_Init();
+    MX_USART1_UART_Init();
+    MX_USART2_UART_Init();
+    MX_TIM3_Init();
+    MX_TIM4_Init();
+    MX_RTC_Init();
+    MX_TIM2_Init();
+    MX_TIM5_Init();
+    MX_I2C1_Init();
+    MX_ADC2_Init();
+    MX_I2C2_Init();
+    /* USER CODE BEGIN 2 */
 
     i2c_scanner();
 
@@ -2280,10 +2275,10 @@ int main(void)
     TIM3->CCR1 = 0;                                //C1 Motor - Make sure PWM is 0
     TIM3->CCR2 = 0;                                //C1 Motor - Make sure PWM is 0
 
-  /* USER CODE END 2 */
+    /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+    /* Infinite loop */
+    /* USER CODE BEGIN WHILE */
 
     enable_backup_sram();
 
@@ -2335,7 +2330,6 @@ int main(void)
     add_error_event("RazorBoard booted");
 
     while (1) {
-
         // Collect IMU data every 20 ms, non-blocking.
         if (HAL_GetTick() - IMU_timer >= 20) {
             MPU6050_Read_Accel();
@@ -2345,21 +2339,16 @@ int main(void)
         }
 
         if (perimeterTrackingActive == 0) {
-
             CheckSecurity();
-
             CheckState();
 
             if (State == FORWARD && Force_Active == 1) {
                 if (HAL_GetTick() - MotorSpeedUpdateFreq_timer >= MotorSpeedUpdateFreq) {
-
                     UpdateMotorSpeed();
                     MotorSpeedUpdateFreq_timer = HAL_GetTick();
-
                 }
             }
             CollectADC();
-
         } else {
             perimeterTracker();
         }
@@ -2379,65 +2368,56 @@ int main(void)
         if (UART2_ready == 1) {
             parseCommand_RPI();
         }
+    }
 
     /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-    }
-  /* USER CODE END 3 */
 }
 
 /**
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+void SystemClock_Config(void) {
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE
-                              |RCC_OSCILLATORTYPE_LSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 168;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 7;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+    /** Configure the main internal regulator output voltage
+    */
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+    /** Initializes the RCC Oscillators according to the specified parameters
+    * in the RCC_OscInitTypeDef structure.
+    */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_LSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+    RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = 8;
+    RCC_OscInitStruct.PLL.PLLN = 168;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ = 7;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Initializes the CPU, AHB and APB buses clocks
+    */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-  PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+        Error_Handler();
+    }
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK) {
+        Error_Handler();
+    }
 }
 
 /**
@@ -2445,56 +2425,51 @@ void SystemClock_Config(void)
   * @param None
   * @retval None
   */
-static void MX_ADC1_Init(void)
-{
+static void MX_ADC1_Init(void) {
+    /* USER CODE BEGIN ADC1_Init 0 */
 
-  /* USER CODE BEGIN ADC1_Init 0 */
+    /* USER CODE END ADC1_Init 0 */
 
-  /* USER CODE END ADC1_Init 0 */
+    ADC_ChannelConfTypeDef sConfig = {0};
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+    /* USER CODE BEGIN ADC1_Init 1 */
 
-  /* USER CODE BEGIN ADC1_Init 1 */
+    /* USER CODE END ADC1_Init 1 */
+    /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    */
+    hadc1.Instance = ADC1;
+    hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+    hadc1.Init.ScanConvMode = ENABLE;
+    hadc1.Init.ContinuousConvMode = ENABLE;
+    hadc1.Init.DiscontinuousConvMode = DISABLE;
+    hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+    hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+    hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc1.Init.NbrOfConversion = 2;
+    hadc1.Init.DMAContinuousRequests = ENABLE;
+    hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+    if (HAL_ADC_Init(&hadc1) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_13;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_12;
+    sConfig.Rank = 2;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN ADC1_Init 2 */
 
-  /* USER CODE END ADC1_Init 1 */
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
-  hadc1.Init.DMAContinuousRequests = ENABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_13;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_12;
-  sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC1_Init 2 */
-
-  /* USER CODE END ADC1_Init 2 */
+    /* USER CODE END ADC1_Init 2 */
 
 }
 
@@ -2503,56 +2478,51 @@ static void MX_ADC1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_ADC2_Init(void)
-{
+static void MX_ADC2_Init(void) {
+    /* USER CODE BEGIN ADC2_Init 0 */
 
-  /* USER CODE BEGIN ADC2_Init 0 */
+    /* USER CODE END ADC2_Init 0 */
 
-  /* USER CODE END ADC2_Init 0 */
+    ADC_ChannelConfTypeDef sConfig = {0};
 
-  ADC_ChannelConfTypeDef sConfig = {0};
+    /* USER CODE BEGIN ADC2_Init 1 */
 
-  /* USER CODE BEGIN ADC2_Init 1 */
+    /* USER CODE END ADC2_Init 1 */
+    /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    */
+    hadc2.Instance = ADC2;
+    hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+    hadc2.Init.ScanConvMode = ENABLE;
+    hadc2.Init.ContinuousConvMode = ENABLE;
+    hadc2.Init.DiscontinuousConvMode = DISABLE;
+    hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+    hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+    hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc2.Init.NbrOfConversion = 2;
+    hadc2.Init.DMAContinuousRequests = ENABLE;
+    hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+    if (HAL_ADC_Init(&hadc2) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_11;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_10;
+    sConfig.Rank = 2;
+    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN ADC2_Init 2 */
 
-  /* USER CODE END ADC2_Init 1 */
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = ENABLE;
-  hadc2.Init.ContinuousConvMode = ENABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 2;
-  hadc2.Init.DMAContinuousRequests = ENABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_11;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_10;
-  sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC2_Init 2 */
-
-  /* USER CODE END ADC2_Init 2 */
+    /* USER CODE END ADC2_Init 2 */
 
 }
 
@@ -2561,32 +2531,29 @@ static void MX_ADC2_Init(void)
   * @param None
   * @retval None
   */
-static void MX_I2C1_Init(void)
-{
+static void MX_I2C1_Init(void) {
+    /* USER CODE BEGIN I2C1_Init 0 */
 
-  /* USER CODE BEGIN I2C1_Init 0 */
+    /* USER CODE END I2C1_Init 0 */
 
-  /* USER CODE END I2C1_Init 0 */
+    /* USER CODE BEGIN I2C1_Init 1 */
 
-  /* USER CODE BEGIN I2C1_Init 1 */
+    /* USER CODE END I2C1_Init 1 */
+    hi2c1.Instance = I2C1;
+    hi2c1.Init.ClockSpeed = 400000;
+    hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+    hi2c1.Init.OwnAddress1 = 0;
+    hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    hi2c1.Init.OwnAddress2 = 0;
+    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+    if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN I2C1_Init 2 */
 
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
+    /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -2595,32 +2562,29 @@ static void MX_I2C1_Init(void)
   * @param None
   * @retval None
   */
-static void MX_I2C2_Init(void)
-{
+static void MX_I2C2_Init(void) {
+    /* USER CODE BEGIN I2C2_Init 0 */
 
-  /* USER CODE BEGIN I2C2_Init 0 */
+    /* USER CODE END I2C2_Init 0 */
 
-  /* USER CODE END I2C2_Init 0 */
+    /* USER CODE BEGIN I2C2_Init 1 */
 
-  /* USER CODE BEGIN I2C2_Init 1 */
+    /* USER CODE END I2C2_Init 1 */
+    hi2c2.Instance = I2C2;
+    hi2c2.Init.ClockSpeed = 100000;
+    hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+    hi2c2.Init.OwnAddress1 = 0;
+    hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    hi2c2.Init.OwnAddress2 = 0;
+    hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+    if (HAL_I2C_Init(&hi2c2) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN I2C2_Init 2 */
 
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.ClockSpeed = 100000;
-  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
+    /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -2629,26 +2593,23 @@ static void MX_I2C2_Init(void)
   * @param None
   * @retval None
   */
-static void MX_IWDG_Init(void)
-{
+static void MX_IWDG_Init(void) {
+    /* USER CODE BEGIN IWDG_Init 0 */
 
-  /* USER CODE BEGIN IWDG_Init 0 */
+    /* USER CODE END IWDG_Init 0 */
 
-  /* USER CODE END IWDG_Init 0 */
+    /* USER CODE BEGIN IWDG_Init 1 */
 
-  /* USER CODE BEGIN IWDG_Init 1 */
+    /* USER CODE END IWDG_Init 1 */
+    hiwdg.Instance = IWDG;
+    hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
+    hiwdg.Init.Reload = 4095;
+    if (HAL_IWDG_Init(&hiwdg) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN IWDG_Init 2 */
 
-  /* USER CODE END IWDG_Init 1 */
-  hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
-  hiwdg.Init.Reload = 4095;
-  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN IWDG_Init 2 */
-
-  /* USER CODE END IWDG_Init 2 */
+    /* USER CODE END IWDG_Init 2 */
 
 }
 
@@ -2657,24 +2618,21 @@ static void MX_IWDG_Init(void)
   * @param None
   * @retval None
   */
-static void MX_RNG_Init(void)
-{
+static void MX_RNG_Init(void) {
+    /* USER CODE BEGIN RNG_Init 0 */
 
-  /* USER CODE BEGIN RNG_Init 0 */
+    /* USER CODE END RNG_Init 0 */
 
-  /* USER CODE END RNG_Init 0 */
+    /* USER CODE BEGIN RNG_Init 1 */
 
-  /* USER CODE BEGIN RNG_Init 1 */
+    /* USER CODE END RNG_Init 1 */
+    hrng.Instance = RNG;
+    if (HAL_RNG_Init(&hrng) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN RNG_Init 2 */
 
-  /* USER CODE END RNG_Init 1 */
-  hrng.Instance = RNG;
-  if (HAL_RNG_Init(&hrng) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN RNG_Init 2 */
-
-  /* USER CODE END RNG_Init 2 */
+    /* USER CODE END RNG_Init 2 */
 
 }
 
@@ -2683,32 +2641,29 @@ static void MX_RNG_Init(void)
   * @param None
   * @retval None
   */
-static void MX_RTC_Init(void)
-{
+static void MX_RTC_Init(void) {
+    /* USER CODE BEGIN RTC_Init 0 */
 
-  /* USER CODE BEGIN RTC_Init 0 */
+    /* USER CODE END RTC_Init 0 */
 
-  /* USER CODE END RTC_Init 0 */
+    /* USER CODE BEGIN RTC_Init 1 */
 
-  /* USER CODE BEGIN RTC_Init 1 */
+    /* USER CODE END RTC_Init 1 */
+    /** Initialize RTC Only
+    */
+    hrtc.Instance = RTC;
+    hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+    hrtc.Init.AsynchPrediv = 127;
+    hrtc.Init.SynchPrediv = 255;
+    hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+    hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+    hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+    if (HAL_RTC_Init(&hrtc) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN RTC_Init 2 */
 
-  /* USER CODE END RTC_Init 1 */
-  /** Initialize RTC Only
-  */
-  hrtc.Instance = RTC;
-  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
-  hrtc.Init.AsynchPrediv = 127;
-  hrtc.Init.SynchPrediv = 255;
-  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
-  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
-  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
-  if (HAL_RTC_Init(&hrtc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN RTC_Init 2 */
-
-  /* USER CODE END RTC_Init 2 */
+    /* USER CODE END RTC_Init 2 */
 
 }
 
@@ -2717,43 +2672,38 @@ static void MX_RTC_Init(void)
   * @param None
   * @retval None
   */
-static void MX_TIM2_Init(void)
-{
+static void MX_TIM2_Init(void) {
+    /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE BEGIN TIM2_Init 0 */
+    /* USER CODE END TIM2_Init 0 */
 
-  /* USER CODE END TIM2_Init 0 */
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+    /* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE BEGIN TIM2_Init 1 */
+    /* USER CODE END TIM2_Init 1 */
+    htim2.Instance = TIM2;
+    htim2.Init.Prescaler = 10000 - 1;
+    htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim2.Init.Period = 8400 - 1;
+    htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
+        Error_Handler();
+    }
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 10000-1;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 8400-1;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
+    /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -2762,62 +2712,53 @@ static void MX_TIM2_Init(void)
   * @param None
   * @retval None
   */
-static void MX_TIM3_Init(void)
-{
+static void MX_TIM3_Init(void) {
+    /* USER CODE BEGIN TIM3_Init 0 */
 
-  /* USER CODE BEGIN TIM3_Init 0 */
+    /* USER CODE END TIM3_Init 0 */
 
-  /* USER CODE END TIM3_Init 0 */
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+    TIM_OC_InitTypeDef sConfigOC = {0};
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
+    /* USER CODE BEGIN TIM3_Init 1 */
 
-  /* USER CODE BEGIN TIM3_Init 1 */
+    /* USER CODE END TIM3_Init 1 */
+    htim3.Instance = TIM3;
+    htim3.Init.Prescaler = 0;
+    htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim3.Init.Period = 3360 - 1;
+    htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
+        Error_Handler();
+    }
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_Init(&htim3) != HAL_OK) {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    sConfigOC.OCMode = TIM_OCMODE_PWM1;
+    sConfigOC.Pulse = 0;
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM3_Init 2 */
 
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 3360-1;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
-  HAL_TIM_MspPostInit(&htim3);
-
+    /* USER CODE END TIM3_Init 2 */
+    HAL_TIM_MspPostInit(&htim3);
 }
 
 /**
@@ -2825,70 +2766,59 @@ static void MX_TIM3_Init(void)
   * @param None
   * @retval None
   */
-static void MX_TIM4_Init(void)
-{
+static void MX_TIM4_Init(void) {
+    /* USER CODE BEGIN TIM4_Init 0 */
 
-  /* USER CODE BEGIN TIM4_Init 0 */
+    /* USER CODE END TIM4_Init 0 */
 
-  /* USER CODE END TIM4_Init 0 */
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+    TIM_OC_InitTypeDef sConfigOC = {0};
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
+    /* USER CODE BEGIN TIM4_Init 1 */
 
-  /* USER CODE BEGIN TIM4_Init 1 */
+    /* USER CODE END TIM4_Init 1 */
+    htim4.Instance = TIM4;
+    htim4.Init.Prescaler = 0;
+    htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim4.Init.Period = 3360 - 1;
+    htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim4) != HAL_OK) {
+        Error_Handler();
+    }
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_Init(&htim4) != HAL_OK) {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    sConfigOC.OCMode = TIM_OCMODE_PWM1;
+    sConfigOC.Pulse = 0;
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM4_Init 2 */
 
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 3360-1;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
-  HAL_TIM_MspPostInit(&htim4);
-
+    /* USER CODE END TIM4_Init 2 */
+    HAL_TIM_MspPostInit(&htim4);
 }
 
 /**
@@ -2896,43 +2826,38 @@ static void MX_TIM4_Init(void)
   * @param None
   * @retval None
   */
-static void MX_TIM5_Init(void)
-{
+static void MX_TIM5_Init(void) {
+    /* USER CODE BEGIN TIM5_Init 0 */
 
-  /* USER CODE BEGIN TIM5_Init 0 */
+    /* USER CODE END TIM5_Init 0 */
 
-  /* USER CODE END TIM5_Init 0 */
+    TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+    /* USER CODE BEGIN TIM5_Init 1 */
 
-  /* USER CODE BEGIN TIM5_Init 1 */
+    /* USER CODE END TIM5_Init 1 */
+    htim5.Instance = TIM5;
+    htim5.Init.Prescaler = 84 - 1;
+    htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim5.Init.Period = 65535;
+    htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim5) != HAL_OK) {
+        Error_Handler();
+    }
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM5_Init 2 */
 
-  /* USER CODE END TIM5_Init 1 */
-  htim5.Instance = TIM5;
-  htim5.Init.Prescaler = 84-1;
-  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim5.Init.Period = 65535;
-  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM5_Init 2 */
-
-  /* USER CODE END TIM5_Init 2 */
+    /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -2941,31 +2866,28 @@ static void MX_TIM5_Init(void)
   * @param None
   * @retval None
   */
-static void MX_USART1_UART_Init(void)
-{
+static void MX_USART1_UART_Init(void) {
+    /* USER CODE BEGIN USART1_Init 0 */
 
-  /* USER CODE BEGIN USART1_Init 0 */
+    /* USER CODE END USART1_Init 0 */
 
-  /* USER CODE END USART1_Init 0 */
+    /* USER CODE BEGIN USART1_Init 1 */
 
-  /* USER CODE BEGIN USART1_Init 1 */
+    /* USER CODE END USART1_Init 1 */
+    huart1.Instance = USART1;
+    huart1.Init.BaudRate = 115200;
+    huart1.Init.WordLength = UART_WORDLENGTH_8B;
+    huart1.Init.StopBits = UART_STOPBITS_1;
+    huart1.Init.Parity = UART_PARITY_NONE;
+    huart1.Init.Mode = UART_MODE_TX_RX;
+    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+    if (HAL_UART_Init(&huart1) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN USART1_Init 2 */
 
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
+    /* USER CODE END USART1_Init 2 */
 
 }
 
@@ -2974,58 +2896,52 @@ static void MX_USART1_UART_Init(void)
   * @param None
   * @retval None
   */
-static void MX_USART2_UART_Init(void)
-{
+static void MX_USART2_UART_Init(void) {
+    /* USER CODE BEGIN USART2_Init 0 */
 
-  /* USER CODE BEGIN USART2_Init 0 */
+    /* USER CODE END USART2_Init 0 */
 
-  /* USER CODE END USART2_Init 0 */
+    /* USER CODE BEGIN USART2_Init 1 */
 
-  /* USER CODE BEGIN USART2_Init 1 */
+    /* USER CODE END USART2_Init 1 */
+    huart2.Instance = USART2;
+    huart2.Init.BaudRate = 1000000;
+    huart2.Init.WordLength = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits = UART_STOPBITS_1;
+    huart2.Init.Parity = UART_PARITY_NONE;
+    huart2.Init.Mode = UART_MODE_TX_RX;
+    huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+    if (HAL_UART_Init(&huart2) != HAL_OK) {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN USART2_Init 2 */
 
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 1000000;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
+    /* USER CODE END USART2_Init 2 */
 
 }
 
 /**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void)
-{
+static void MX_DMA_Init(void) {
+    /* DMA controller clock enable */
+    __HAL_RCC_DMA2_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
 
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-  /* DMA2_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  /* DMA2_Stream3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
-
+    /* DMA interrupt init */
+    /* DMA1_Stream5_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+    /* DMA2_Stream0_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+    /* DMA2_Stream2_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+    /* DMA2_Stream3_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 }
 
 /**
@@ -3033,77 +2949,68 @@ static void MX_DMA_Init(void)
   * @param None
   * @retval None
   */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
+static void MX_GPIO_Init(void) {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
+    /* GPIO Ports Clock Enable */
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOH_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+    /*Configure GPIO pin Output Level */
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+    /*Configure GPIO pin Output Level */
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PA8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    /*Configure GPIO pin : PA8 */
+    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PC10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    /*Configure GPIO pin : PC10 */
+    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PD0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
+    /*Configure GPIO pin : PD0 */
+    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 }
 
 /* USER CODE BEGIN 4 */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) {
-
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
-
     }
-
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-
     WatchdogRefresh();        // STM32 Watchdog - NEVER DISABLE THIS (for safety!)
     SendInfo();
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
-
-
 }
+
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-
-
 }
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     // UART Tx Complete Callback;
 
 
     if (huart == &huart1) {
-
         if (__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {                    // Check if it is an "Idle Interrupt"
             __HAL_UART_CLEAR_IDLEFLAG(&huart1);                                // clear the interrupt
             HAL_UART_DMAStop(&huart1);
@@ -3112,7 +3019,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
         }
     }
     if (huart == &huart2) {
-
         if (__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {                    // Check if it is an "Idle Interrupt"
             __HAL_UART_CLEAR_IDLEFLAG(&huart2);                                // clear the interrupt
             HAL_UART_DMAStop(&huart2);
@@ -3120,8 +3026,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
         }
     }
-
-
 }
 
 /* USER CODE END 4 */
@@ -3130,14 +3034,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+void Error_Handler(void) {
+    /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
     while (1) {
     }
-  /* USER CODE END Error_Handler_Debug */
+    /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
