@@ -911,7 +911,8 @@ void unDock(void) {
 }
 
 void ChargerConnected(void) {
-    // Is the charger connected?
+
+	// Is the charger connected?
 
     if (ChargerConnect == 0) {                    // We are not charging, reset charger start timer
         Charger_start_Timer = HAL_GetTick();
@@ -935,19 +936,19 @@ void ChargerConnected(void) {
     }
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {            // Read Volt sense pin
-        HAL_Delay(settings.HoldChargeDetection);                                    // Wait for a while so a proper connection is made
+        HAL_Delay(settings.HoldChargeDetection);                          // Wait for a while so a proper connection is made
         Force_Active = 0;
         MotorBrake();
         cutterHardBreak();
         add_error_event("Charger connect");
         Serial_Console("Charger Connected\r\n");
-        HAL_Delay(10000);
-        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);                // Main Power switch
+        HAL_Delay(2000);
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
         Serial_Console("Changing Main Power\r\n");
         ChargerConnect = 1;
         Docked = 1;
-        HAL_Delay(5000);
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);            // Charger Switch
+        HAL_Delay(2000);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
         add_error_event("Charging active");
         Serial_Console("Charging activated\r\n");
 
