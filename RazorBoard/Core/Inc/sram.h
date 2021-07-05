@@ -9,6 +9,7 @@
 #define INC_SRAM_H_
 
 static const char VERSION[] = "Version 1.0.7";
+static const uint8_t global_settings_version = 45;
 
 #define CONFIG_SET_ADDR					0x01	//uint8_t
 #define GO_GOME_DIRECTION_ADDR			0x02	//uint8_t
@@ -21,6 +22,7 @@ static const char VERSION[] = "Version 1.0.7";
 #define MOVE_COUNT_ADDR					0x09	//uint8_t
 #define BUMPER_COUNT_ADDR				0x0A	//uint8_t
 #define UNDOCK_BACKING_SECONDS_ADDR		0x0B	//uint8_t
+#define CUT_PERIMETER_RATIO_ADDR		0x0C	//uint8_t
 
 #define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
 #define MAGVALUE_ADDR					0x34	//uint16_t
@@ -32,6 +34,7 @@ static const char VERSION[] = "Version 1.0.7";
 #define BATTERYCHARGETIME_ADDR			0x40	//uint16_t
 #define PERIMETERTRACKERSPEED_ADDR		0x42	//uint16_t
 #define ROLL_TILT_COMP_ADDR				0x44	//uint16_t
+#define STEERING_CORRECTION_ADDR        0x46	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -75,16 +78,18 @@ typedef struct SRAM {
 	uint8_t move_count_limit;
 	uint8_t bumper_count_limit;
 	uint8_t undock_backing_seconds;
+    uint8_t cut_perimeter_ratio;
 	uint16_t HoldChargeDetection;
 	uint16_t magValue;
 	uint16_t magMinValue;
 	uint16_t motorMaxSpeed;
-	uint16_t motorMinSpeed;
+    uint16_t motorMinSpeed;
 	uint16_t cutterSpeed;
 	uint16_t adcLevel;
 	uint16_t BatteryChargeTime;
 	uint16_t perimeterTrackerSpeed;
     uint16_t roll_tilt_comp;
+    uint16_t steering_correction;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
@@ -102,7 +107,6 @@ typedef struct SRAM {
 	float roll_comp;
 	float pitch_comp;
 	float highgrass_Limit;
-
 } sram_settings;
 
 extern void enable_backup_sram(void);
@@ -124,6 +128,10 @@ extern float read_sram_float(uint8_t);
 extern sram_settings read_all_settings(void);
 extern void write_all_settings(sram_settings w_settings);
 extern void save_default_settings(uint8_t revision);
+extern uint8_t validate_settings(uint8_t revision);
+
+#define CONFIG_NOT_FOUND 0
+#define CONFIG_FOUND 1
 
 
 #endif /* INC_SRAM_H_ */

@@ -553,7 +553,7 @@ uint32_t rnd(uint32_t maxValue) {
 
     uint32_t rndnum;
     rndnum = HAL_RNG_GetRandomNumber(&hrng) % maxValue;
-    return rndnum;
+    return rndnum + 1;
 }
 
 void CheckMotorCurrent(int RAW) {
@@ -1189,6 +1189,12 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &roll);
                 settings.roll_comp = roll;
             }
+            if (strncmp(Command, "SET STEERING CORRECTION", 23) == 0) {
+                uint16_t correction;
+                char cmd1[3], cmd2[8], cmd3[10];
+                sscanf(Command, "%s %s %s %hd", cmd1, cmd2, cmd3, &correction);
+                settings.steering_correction = correction;
+            }
             if (strncmp(Command, "SET PROXIMITY SPEED", 19) == 0) {
                 float speed;
                 char cmd1[3], cmd2[9], cmd3[5];
@@ -1227,7 +1233,7 @@ void parseCommand_Console(void) {
             }
             if (strncmp(Command, "SET ROLL TILT COMP", 18) == 0) {
                 int comp;
-                char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+                char cmd1[3], cmd2[4], cmd3[4], cmd4[4];
                 sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &comp);
                 settings.roll_tilt_comp = comp;
             }
@@ -1236,6 +1242,12 @@ void parseCommand_Console(void) {
                 char cmd1[3], cmd2[9], cmd3[5];
                 sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
                 settings.perimeterTrackerSpeed = speed;
+            }
+            if (strncmp(Command, "CUT PERIMETER RATIO", 19) == 0) {
+                int ratio;
+                char cmd1[3], cmd2[9], cmd3[5];
+                sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &ratio);
+                settings.cut_perimeter_ratio = ratio;
             }
             if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
                 int adc;
@@ -1536,8 +1548,8 @@ uint8_t CheckSecurity(void) {
 void cutterHardBreak() {
     // Cutter disc hard brake
 
-    TIM3->CCR1 = settings.motorMaxSpeed;        // Motor will hard brake when both "pins" go HIGH
-    TIM3->CCR2 = settings.motorMaxSpeed;
+    TIM3->CCR1 = 3359;        // Motor will hard brake when both "pins" go HIGH
+    TIM3->CCR2 = 3359;
     HAL_Delay(3000);
     cutterOFF();
 }
@@ -1789,7 +1801,7 @@ void UpdateMotorSpeed() {
 
     // Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
     diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
-    diff *= 60.0;
+    diff *= settings.steering_correction;
 
     if (diff < 0) {
         dir = -1;
@@ -2054,10 +2066,10 @@ void MotorHardBrake(void) {
     State = HARDBRAKE;
 
     // Wheels will do a hard brake when both pins go HIGH.
-    MOTOR_LEFT_BACKWARD = settings.motorMaxSpeed;
-    MOTOR_LEFT_FORWARD = settings.motorMaxSpeed;
-    MOTOR_RIGHT_FORWARD = settings.motorMaxSpeed;
-    MOTOR_RIGHT_BACKWARD = settings.motorMaxSpeed;
+    MOTOR_LEFT_BACKWARD = 3359;
+    MOTOR_LEFT_FORWARD = 3359;
+    MOTOR_RIGHT_FORWARD = 3359;
+    MOTOR_RIGHT_BACKWARD = 3359;
 
     HAL_Delay(250);
 
@@ -2131,7 +2143,9 @@ void CheckState(void) {
         highgrass_slowdown = 0;
         TimeToGoHome();            // Check if within working hours, if not, go home
         if (perimeterTracking == 1) {
-            cutterOFF();
+            if (rnd(100) > settings.cut_perimeter_ratio) {
+                cutterOFF();
+            }
             perimeterTrackingActive = 1;
             delay(500);
             GoHome_timer_IN = HAL_GetTick();
@@ -2320,15 +2334,15 @@ int main(void) {
 
     delay_us(100);
 
-    settings = read_all_settings();
-    if (settings.Config_Set != 44) {
-        save_default_settings(board_revision);
+
+    if (validate_settings(board_revision) == CONFIG_NOT_FOUND) {
         add_error_event("No config found");
         Serial_Console("No config found - Saving factory defaults\r\n");
         Serial_Console("Masterswitch set to OFF - please configure and save settings, then reboot\r\n");
         MasterSwitch = 0;
-        settings = read_all_settings();
     }
+
+    settings = read_all_settings();
     Serial_Console("Config loaded from SRAM\r\n");
 
     for (uint8_t x = 0; x < 60; x++) {
@@ -2366,6 +2380,7 @@ int main(void) {
         ChargerConnected();
 
         if (Docked == 1) {
+            cutterOFF();
             unDock();
         }
 
