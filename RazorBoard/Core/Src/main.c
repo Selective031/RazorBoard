@@ -135,6 +135,7 @@ uint32_t IMU_timer = 0;
 uint32_t OUTSIDE_timer = 0;
 
 uint8_t Docked = 0;
+uint8_t Docked_Locked = 0;
 uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
 
 uint8_t PIBuffer[PI_BFR_SIZE];
@@ -752,7 +753,8 @@ void SendInfo() {
     if (State == 8) {
         Serial_DATA("State HARDBRAKE\r\n");
     }
-
+    sprintf(msg, "Docking Station Locked: %u\r\n", Docked_Locked);
+    Serial_Console(msg);
     sprintf(msg, "Board_Revision: %d\r\n", board_revision);
     Serial_DATA(msg);
 
@@ -883,7 +885,7 @@ void unDock(void) {
     HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-    if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1) {
+    if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1 && Docked_Locked == 0) {
         add_error_event("Switch Main Battery");
         Serial_Console("Switching to Main Battery\r\n");
         HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
@@ -895,8 +897,7 @@ void unDock(void) {
         mpu.pitch = 0;
 
         MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed,
-                  800);            // This needs to be changed if your docking is on the right side
+        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
 
         Docked = 0;
         Initial_Start = 0;
@@ -1117,6 +1118,14 @@ void parseCommand_Console(void) {
                 Serial_Console("Rebooting...\r\n");
                 HAL_Delay(500);
                 NVIC_SystemReset();
+            }
+            if (strcmp(Command, "LOCK DOCKING") == 0) {
+                Serial_Console("Docking LOCKED.\r\n");
+                Docked_Locked = 1;
+            }
+            if (strcmp(Command, "UNLOCK DOCKING") == 0) {
+                Serial_Console("Docking UNLOCKED.\r\n");
+                Docked_Locked = 0;
             }
             if (strcmp(Command, "LOAD CONFIG") == 0) {
                 settings = read_all_settings();

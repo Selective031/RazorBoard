@@ -188,11 +188,11 @@ void help(void) {
     Serial_Console(msg);
     sprintf(msg, "SET ROLL TILT COMP      - Compensate wheel power ratio when turning based on roll\r\n");
     Serial_Console(msg);
-    sprintf(msg, "SHOW ERRORS             - Show error log\r\n");
-    Serial_Console(msg);
-    sprintf(msg, "CLEAR ERRORS            - Clear error log\r\n");
-    Serial_Console(msg);
     sprintf(msg, "SET HIGHGRASS LIMIT     - When to trigger High Grass, in Amps\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "LOCK DOCKING            - Do NOT allow mower to undock when ready\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "UNLOCK DOCKING          - Do allow mower to undock when ready\r\n");
     Serial_Console(msg);
     sprintf(msg, "SET TIME		- Set current time for RTC\r\n");
     Serial_Console(msg);
@@ -228,5 +228,9 @@ void help(void) {
     sprintf(msg, "SAVE DEFAULT CONFIG     - Save default config to SRAM\r\n");
     Serial_Console(msg);
     sprintf(msg, "SHOW CONFIG        - Show config from SRAM\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "SHOW ERRORS             - Show error log\r\n");
+    Serial_Console(msg);
+    sprintf(msg, "CLEAR ERRORS            - Clear error log\r\n");
     Serial_Console(msg);
 }
