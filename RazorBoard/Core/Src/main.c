@@ -1248,7 +1248,7 @@ void parseCommand_Console(void) {
             if (strncmp(Command, "SET PERIMETER CUT RATIO", 23) == 0) {
                 int ratio;
                 char cmd1[3], cmd2[9], cmd3[3], cmd4[5];
-                sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, cmd4, &ratio);
+                sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &ratio);
                 settings.cut_perimeter_ratio = ratio;
             }
             if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
