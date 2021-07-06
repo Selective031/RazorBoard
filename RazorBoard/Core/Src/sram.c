@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 extern RTC_HandleTypeDef hrtc;
+sram_settings get_default_settings(uint8_t revision);
 
 uint8_t read_sram_errorlog(uint16_t addr) {
     uint8_t i_retval;
@@ -219,6 +220,7 @@ sram_settings read_all_settings(void) {
     settings.move_count_limit = read_sram_uint8(MOVE_COUNT_ADDR);
     settings.bumper_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
     settings.undock_backing_seconds = read_sram_uint8(UNDOCK_BACKING_SECONDS_ADDR);
+    settings.cut_perimeter_ratio = read_sram_uint8(CUT_PERIMETER_RATIO_ADDR);
 
     settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
     settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
@@ -229,6 +231,7 @@ sram_settings read_all_settings(void) {
     settings.cutterSpeed = read_sram_uint16(CUTTERSPEED_ADDR);
     settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
     settings.roll_tilt_comp = read_sram_uint16(ROLL_TILT_COMP_ADDR);
+    settings.steering_correction = read_sram_uint16(STEERING_CORRECTION_ADDR);
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -277,7 +280,7 @@ void write_all_settings(sram_settings settings) {
     //float = 4 byte
 
     // uint8_t & int8_t
-    settings.Config_Set = 44;
+    settings.Config_Set = global_settings_version;
     write_sram_uint8(settings.Config_Set, CONFIG_SET_ADDR);
     write_sram_uint8(settings.Go_Home_Direction, GO_GOME_DIRECTION_ADDR);
     write_sram_uint8(settings.Boundary_Timeout, BOUNDARY_TIMEOUT_ADDR);
@@ -289,6 +292,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint8(settings.move_count_limit, MOVE_COUNT_ADDR);
     write_sram_uint8(settings.bumper_count_limit, BUMPER_COUNT_ADDR);
     write_sram_uint8(settings.undock_backing_seconds, UNDOCK_BACKING_SECONDS_ADDR);
+    write_sram_uint8(settings.cut_perimeter_ratio, CUT_PERIMETER_RATIO_ADDR);
 
 
     // uint16_t
@@ -302,6 +306,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.adcLevel, ADC_LEVEL_ADDR);
     write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
     write_sram_uint16(settings.roll_tilt_comp, ROLL_TILT_COMP_ADDR);
+    write_sram_uint16(settings.steering_correction, STEERING_CORRECTION_ADDR);
 
 
     // uint32_t & float
@@ -327,9 +332,15 @@ void write_all_settings(sram_settings settings) {
 
 void save_default_settings(uint8_t revision) {
 
+    sram_settings defaultSettings = get_default_settings(revision);
+    write_all_settings(defaultSettings);
+}
+
+sram_settings get_default_settings(uint8_t revision) {
+
     sram_settings settings;
 
-    settings.Config_Set = 44;
+    settings.Config_Set = global_settings_version;
     settings.Go_Home_Direction = 0;
     settings.Battery_Low_Limit = 22.00;
     settings.Battery_High_Limit = 25.00;
@@ -363,9 +374,11 @@ void save_default_settings(uint8_t revision) {
     settings.pitch_comp = 0.0;
     settings.roll_comp = 0.0;
     settings.roll_tilt_comp = 50;
+    settings.steering_correction = 120;
     settings.highgrass_Limit = 1.5;
-	settings.BatteryChargeTime = 60;
-	settings.perimeterTrackerSpeed = 3360 - 1;
+    settings.BatteryChargeTime = 60;
+    settings.perimeterTrackerSpeed = 3360 - 1;
+    settings.cut_perimeter_ratio = 0;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
@@ -374,6 +387,115 @@ void save_default_settings(uint8_t revision) {
         settings.adcLevel = 1267;
     }
 
-    write_all_settings(settings);
+    return settings;
+}
 
+uint8_t validate_settings(uint8_t revision) {
+    sram_settings settings = read_all_settings();
+    sram_settings defaultSettings = get_default_settings(revision);
+
+    // Validate new version settings
+    if (settings.Config_Set < 42 || settings.Config_Set > global_settings_version) {
+        write_all_settings(defaultSettings);
+        return CONFIG_NOT_FOUND;
+    }
+
+    if (settings.Config_Set < 43) {
+        settings.undock_backing_seconds = defaultSettings.undock_backing_seconds;
+    }
+
+    if (settings.Config_Set < 44) {
+        settings.BatteryChargeTime = defaultSettings.BatteryChargeTime;
+        settings.perimeterTrackerSpeed = defaultSettings.perimeterTrackerSpeed;
+        settings.roll_tilt_comp = defaultSettings.roll_tilt_comp;
+    }
+
+    if (settings.Config_Set < 45) {
+        settings.steering_correction = defaultSettings.steering_correction;
+        settings.cut_perimeter_ratio = defaultSettings.cut_perimeter_ratio;
+    }
+
+    // Validate allowed values
+    if (settings.perimeterTrackerSpeed < 1 || settings.perimeterTrackerSpeed > 3359) {
+        settings.perimeterTrackerSpeed = defaultSettings.perimeterTrackerSpeed;
+    }
+    if (settings.cut_perimeter_ratio < 0 || settings.cut_perimeter_ratio > 100) {
+        settings.cut_perimeter_ratio = defaultSettings.cut_perimeter_ratio;
+    }
+
+    if (settings.cutterSpeed < 1 || settings.cutterSpeed > 3359) {
+        settings.cutterSpeed = defaultSettings.cutterSpeed;
+    }
+
+    if (settings.motorMinSpeed < 1 || settings.motorMinSpeed > 3359) {
+        settings.motorMinSpeed = defaultSettings.motorMinSpeed;
+    }
+
+    if (settings.motorMaxSpeed < 1 || settings.motorMaxSpeed > 3359) {
+        settings.motorMaxSpeed = defaultSettings.motorMaxSpeed;
+    }
+
+    if (settings.steering_correction < 0 || settings.steering_correction > 3359) {
+        settings.steering_correction = defaultSettings.steering_correction;
+    }
+
+    if (settings.roll_tilt_comp < 0 || settings.roll_tilt_comp > 1000) {
+        settings.roll_tilt_comp = defaultSettings.roll_tilt_comp;
+    }
+
+    if (settings.BatteryChargeTime < 0 || settings.BatteryChargeTime > 4 * 60) {
+        settings.BatteryChargeTime = defaultSettings.BatteryChargeTime;
+    }
+
+    if (settings.undock_backing_seconds < 1 || settings.undock_backing_seconds > 30) {
+        settings.undock_backing_seconds = defaultSettings.undock_backing_seconds;
+    }
+
+    if (settings.Signal_Integrity_OUT < -1 || settings.Signal_Integrity_OUT > 1) {
+        settings.Signal_Integrity_OUT = defaultSettings.Signal_Integrity_OUT;
+    }
+
+    if (settings.Signal_Integrity_IN < -1 || settings.Signal_Integrity_IN > 1) {
+        settings.Signal_Integrity_IN = defaultSettings.Signal_Integrity_IN;
+    }
+
+    if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 30) {
+        settings.Battery_High_Limit = defaultSettings.Battery_High_Limit;
+    }
+
+    if (settings.Battery_Low_Limit < 7 || settings.Battery_Low_Limit > 30) {
+        settings.Battery_Low_Limit = defaultSettings.Battery_Low_Limit;
+    }
+
+    if (settings.voltageMultiply < 0 || settings.voltageMultiply > 7) {
+        settings.voltageMultiply = defaultSettings.voltageMultiply;
+    }
+
+    if (settings.roll_comp < -90 || settings.roll_comp > 90) {
+        settings.roll_comp = defaultSettings.roll_comp;
+    }
+
+    if (settings.pitch_comp < -90 || settings.pitch_comp > 90) {
+        settings.pitch_comp = defaultSettings.pitch_comp;
+    }
+
+    if (settings.highgrass_Limit < 0.5 || settings.highgrass_Limit > 10) {
+        settings.highgrass_Limit = defaultSettings.highgrass_Limit;
+    }
+
+    if (settings.kd < 0 || settings.kd > 5) {
+        settings.kd = defaultSettings.kd;
+    }
+
+    if (settings.ki < 0 || settings.ki > 5) {
+        settings.ki = defaultSettings.ki;
+    }
+
+    if (settings.kp < 0 || settings.kp > 5) {
+        settings.kp = defaultSettings.kp;
+    }
+
+    settings.Config_Set = global_settings_version;
+    write_all_settings(settings);
+    return CONFIG_FOUND;
 }
