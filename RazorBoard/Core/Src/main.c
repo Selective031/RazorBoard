@@ -944,7 +944,7 @@ void ChargerConnected(void) {
         cutterHardBreak();
         add_error_event("Charger connect");
         Serial_Console("Charger Connected\r\n");
-        HAL_Delay(2000);
+        HAL_Delay(5000);
         HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
         Serial_Console("Changing Main Power\r\n");
         ChargerConnect = 1;
