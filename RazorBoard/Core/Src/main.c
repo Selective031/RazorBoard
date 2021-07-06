@@ -690,6 +690,8 @@ void SendInfo() {
     Serial_DATA(msg);
     sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
     Serial_DATA(msg);
+    sprintf(msg, "Perimeter tracking: %d\r\n", perimeterTracking);
+    Serial_DATA(msg);
     if (mpu.movement < settings.movement) {
         sprintf(msg, "Movement Verdict: Standing\r\n");
     } else {
@@ -1243,10 +1245,10 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &speed);
                 settings.perimeterTrackerSpeed = speed;
             }
-            if (strncmp(Command, "CUT PERIMETER RATIO", 19) == 0) {
+            if (strncmp(Command, "SET PERIMETER CUT RATIO", 23) == 0) {
                 int ratio;
-                char cmd1[3], cmd2[9], cmd3[5];
-                sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, &ratio);
+                char cmd1[3], cmd2[9], cmd3[3], cmd4[5];
+                sscanf(Command, "%s %s %s %d", cmd1, cmd2, cmd3, cmd4, &ratio);
                 settings.cut_perimeter_ratio = ratio;
             }
             if (strncmp(Command, "SET ADC LEVEL", 13) == 0) {
