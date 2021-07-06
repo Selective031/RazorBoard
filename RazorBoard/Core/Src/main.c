@@ -1429,7 +1429,6 @@ void parseCommand_Console(void) {
             }
             if (strcmp(Command, "TRACK PERIMETER") == 0) {
                 perimeterTracking = 1;
-                cutterOFF();
                 Serial_Console("Perimeter tracking ENABLED\r\n");
             }
             if (strcmp(Command, "HELP") == 0) {
