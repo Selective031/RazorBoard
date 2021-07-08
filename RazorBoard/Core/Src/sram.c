@@ -415,6 +415,10 @@ uint8_t validate_settings(uint8_t revision) {
         settings.cut_perimeter_ratio = defaultSettings.cut_perimeter_ratio;
     }
 
+    if (settings.Config_Set < 46) {
+
+    }
+
     // Validate allowed values
     if (settings.perimeterTrackerSpeed < 1 || settings.perimeterTrackerSpeed > 3359) {
         settings.perimeterTrackerSpeed = defaultSettings.perimeterTrackerSpeed;

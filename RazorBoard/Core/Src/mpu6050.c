@@ -26,6 +26,7 @@ uint8_t roll_limit_idx = 0;
 float a,b;
 float move_array[20] = {1.0};
 uint8_t move_index = 0;
+uint8_t getYawError = 1;
 
 void Init6050() {
 
@@ -160,11 +161,13 @@ void MPU6050_Read_Gyro(void) {
 	        ? 5
 	        : 1;
 
-	if (Initial_Start == 0) {
+	if (getYawError == 1) {
 		if (fabs(yaw) < minLimit) {
 			mpu.yaw_error = fabs(yaw);		// Auto calibrate the Gyro error at startup
+			getYawError = 0;
 		}
 	}
+
 	yaw += mpu.yaw_error;					//Cancel out error
 
 	if (yaw < -minLimit || yaw > minLimit) {		//if not moving, do not change
