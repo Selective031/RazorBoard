@@ -114,12 +114,12 @@ int bwf3_inside = 0;
 int bwf1_outside = 0;
 int bwf2_outside = 0;
 int bwf3_outside = 0;
-/*
+
 int bwf1guide_inside = 0;
 int bwf2guide_inside = 0;
 int bwf1guide_outside = 0;
 int bwf2guide_outside = 0;
-*/
+
 uint32_t Boundary_Timer;            // Keep track of time between signals.
 
 float M1_amp = 0.0f;                // Values for AMP per motor
@@ -272,7 +272,6 @@ static void CheckState(void);
 static uint8_t CheckSecurity(void);
 static void CheckBWF(void);
 static void CheckBWF_Rear(void);
-//static void CheckBWF_Guide(void);
 static void cutterON(void);
 static void cutterOFF(void);
 static void cutterHardBreak(void);
@@ -718,12 +717,12 @@ void SendInfo() {
 		bwf2_outside = 0;
 		bwf3_inside = 0;
 		bwf3_outside = 0;
-/*
+
 		bwf1guide_inside = 0;
 		bwf1guide_outside = 0;
 		bwf2guide_inside = 0;
 		bwf2guide_outside = 0;
-*/
+
 		return;
 	}
 
@@ -751,11 +750,11 @@ void SendInfo() {
 	sprintf(msg, "IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside,
 			bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
 	Serial_DATA(msg);
-/*
+
 	sprintf(msg, "IN_GUIDE-> BWF1: %d BWF2: %d\r\nOUT_GUIDE-> BWF1: %d BWF2: %d\r\n", bwf1guide_inside, bwf2guide_inside,
 			bwf1guide_outside, bwf2guide_outside);
 	Serial_DATA(msg);
-*/
+
 
 	sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
 	Serial_DATA(msg);
@@ -856,12 +855,12 @@ void SendInfo() {
 	bwf2_outside = 0;
 	bwf3_inside = 0;
 	bwf3_outside = 0;
-/*
+
 	bwf1guide_inside = 0;
 	bwf1guide_outside = 0;
 	bwf2guide_inside = 0;
 	bwf2guide_outside = 0;
-*/
+
 	//    HAL_UART_Transmit(&huart2, (uint8_t *) &Data, strlen(Data), 100);
 
 }
@@ -1579,7 +1578,6 @@ void Serial_RPi(char *msg) {
 uint8_t CheckSecurity(void) {
 	// Check security, what is our status with the boundary signals
 
-//	CheckBWF_Guide();
 	CheckBWF();
 
 	if (State == BACKWARD) {
@@ -1747,28 +1745,26 @@ void CheckBWF() {
 	float BWF2_Mixed_Signal = 0;
 	float BWF2_Received_Signal = 0;
 
-//	float Guide_BWF1_Mixed_Signal = 0;
-//	float Guide_BWF2_Mixed_Signal = 0;
+	float Guide_BWF1_Mixed_Signal = 0;
+	float Guide_BWF2_Mixed_Signal = 0;
 
 	uint16_t myID = 0;
 	uint8_t BWF1_reply = 0;
 	uint8_t BWF2_reply = 0;
 
-/*
 	uint8_t Guide_BWF1_reply = 0;
 	uint8_t Guide_BWF2_reply = 0;
-*/
 
 	float Match_Signal = 0;
 	float Result_Signal = 0;
 	float BWF1_Verdict_Signal = 0.0;
 	float BWF2_Verdict_Signal = 0.0;
-/*
+
 	float Guide_Match_Signal = 0;
 	float Guide_Result_Signal = 0;
 	float Guide_BWF1_Verdict_Signal = 0.0;
 	float Guide_BWF2_Verdict_Signal = 0.0;
-*/
+
 	int count = 0;
 
 	for (int x = 0; x < ADC_SAMPLE_LEN; x++) {
@@ -1800,41 +1796,40 @@ void CheckBWF() {
 		BWF2_Mixed_Signal = 0;
 		BWF2_Received_Signal = 0;
 		Match_Signal = 0;
-/*
+
 		Guide_BWF1_Mixed_Signal = 0;
 		Guide_BWF2_Mixed_Signal = 0;
 		Guide_Match_Signal = 0;
-*/
+
 
 		for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
 			BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
-//			Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
+			Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
 
 			BWF1_Received_Signal += BWF1[x] * BWF1[x];
 
 			BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
-//			Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
+			Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
 
 			BWF2_Received_Signal += BWF2[x] * BWF2[x];
 
 			Match_Signal += validSignature[myID] * validSignature[myID];
-//			Guide_Match_Signal += validGuide[myID] * validGuide[myID];
+			Guide_Match_Signal += validGuide[myID] * validGuide[myID];
 			myID++;
 		}
 
 		arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
-//		arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+		arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 
 		BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
-//		Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
+		Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
 
 		arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
-//		arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+		arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 
 		BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
-//		Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
+		Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
 
-/*
 		if (Guide_BWF1_Verdict_Signal >= 0.80 && Guide_BWF1_reply == 0) {
 			BWF1_guide_status = INSIDE;
 			bwf1guide_inside++;
@@ -1856,7 +1851,7 @@ void CheckBWF() {
 			bwf2guide_outside++;
 			Guide_BWF2_reply = 1;
 		}
-*/
+
 		if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN && BWF1_reply == 0) {
 			BWF1_Status = INSIDE;
 			Boundary_Timer = HAL_GetTick();
@@ -1905,94 +1900,6 @@ void CheckBWF() {
 
 	}
 }
-/*
-void CheckBWF_Guide() {
-	 * From the 512 samples, break out 256 for each sensor
-	 * Run FIR filter
-	 * Run Cross-Correlation to find a signal match.
-	 * 1.0 = 100% match for INSIDE
-	 * 0.85 = 85% match for INSIDE
-	 * -0.75 = 75% match for OUTSIDE
-	 * -1.0 = 100% match for OUTSIDE
-	 */
-/*
-	float BWF1_Mixed_Signal = 0;
-	float BWF1_Received_Signal = 0;
-	float BWF2_Mixed_Signal = 0;
-	float BWF2_Received_Signal = 0;
-	uint16_t myID = 0;
-	uint8_t BWF1_reply = 0;
-	uint8_t BWF2_reply = 0;
-	float Match_Signal = 0;
-	float Result_Signal = 0;
-	float BWF1_Verdict_Signal = 0.0;
-	float BWF2_Verdict_Signal = 0.0;
-	int count = 0;
-
-	for (int x = 0; x < ADC_SAMPLE_LEN; x++) {
-		if (x % 2) {
-			BWF2[count] = ADC_BUFFER[x] - settings.adcLevel;        // Normalize the ADC signal
-			count++;
-		} else {
-			BWF1[count] = ADC_BUFFER[x] - settings.adcLevel;        // Normalize the ADC signal
-		}
-	}
-
-	FIR_LEFT();         // Run FIR on left BWF	(BWF1)
-	FIR_RIGHT();    	// Run FIR on right BWF	(BWF2)
-
-	for (uint16_t idx = 0; idx < 96; idx++) {
-		if (BWF1_reply == 1 && BWF2_reply == 1) {
-			break;
-		}
-		myID = 0;
-		BWF1_Mixed_Signal = 0;
-		BWF1_Received_Signal = 0;
-		BWF2_Mixed_Signal = 0;
-		BWF2_Received_Signal = 0;
-		Match_Signal = 0;
-
-
-		for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
-			BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
-			BWF1_Received_Signal += BWF1[x] * BWF1[x];
-
-			BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
-			BWF2_Received_Signal += BWF2[x] * BWF2[x];
-
-			Match_Signal += validGuide[myID] * validGuide[myID];
-			myID++;
-		}
-
-		arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
-		BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
-
-		arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
-		BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
-
-		if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN && BWF1_reply == 0) {
-			BWF1_guide_status = INSIDE;
-			BWF1_reply = 1;
-			bwf1guide_inside++;
-		} else if (BWF1_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF1_reply == 0) {
-			BWF1_guide_status = OUTSIDE;
-			BWF1_reply = 1;
-			bwf1guide_outside++;
-		}
-
-		if (BWF2_Verdict_Signal >= settings.Signal_Integrity_IN && BWF2_reply == 0) {
-			BWF2_guide_status = INSIDE;
-			BWF2_reply = 1;
-			bwf2guide_inside++;
-		} else if (BWF2_Verdict_Signal <= settings.Signal_Integrity_OUT && BWF2_reply == 0) {
-			BWF2_guide_status = OUTSIDE;
-			BWF2_reply = 1;
-			bwf2guide_outside++;
-		}
-
-	}
-}
-*/
 void ADC_Send(uint8_t Channel) {
 	// Send ADC data
 
