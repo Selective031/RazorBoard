@@ -66,7 +66,6 @@ IWDG_HandleTypeDef hiwdg;
 #define FAIL 6
 #define BRAKE 7
 #define HARDBRAKE 8
-//#define GUIDE_WIRE_FOUND 99
 
 #define NOSIGNAL 0
 #define INSIDE 1
@@ -104,6 +103,8 @@ double previousTime = 0;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
+uint8_t guideTrackingActive = 0;
+uint8_t guideTracking = 0;
 
 uint8_t Initial_Start = 0;
 uint16_t Start_Threshold = 0;
@@ -198,6 +199,9 @@ uint8_t bumper_count = 0;
 uint8_t move_count = 0;
 uint8_t board_revision = 12;
 
+float guide_integrity_in = 0.80;
+float guide_integrity_out = -0.80;
+
 sram_settings settings;
 sram_error errors;
 mpu6050 mpu;
@@ -268,6 +272,7 @@ static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms
 static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+static void MotorRight_Circle(uint16_t minSpeed, uint16_t maxSpeed);
 static void CheckState(void);
 static uint8_t CheckSecurity(void);
 static void CheckBWF(void);
@@ -278,6 +283,7 @@ static void cutterHardBreak(void);
 static void parseCommand_RPI(void);
 static void parseCommand_Console(void);
 static void perimeterTracker(void);
+static void guideTracker(void);
 static void ChargerConnected(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
@@ -307,7 +313,7 @@ static void getIMUOrientation(void);
 static void i2c_scanner(void);
 static void Serial_DATA(char *msg);
 static HAL_StatusTypeDef I2CResetBus(void);
-void scanner(I2C_HandleTypeDef i2c_bus);
+static void scanner(I2C_HandleTypeDef i2c_bus);
 
 /* USER CODE END PFP */
 
@@ -755,7 +761,6 @@ void SendInfo() {
 			bwf1guide_outside, bwf2guide_outside);
 	Serial_DATA(msg);
 
-
 	sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
 	Serial_DATA(msg);
 	sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
@@ -769,6 +774,8 @@ void SendInfo() {
 	sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
 	Serial_DATA(msg);
 	sprintf(msg, "Perimeter tracking: %d\r\n", perimeterTracking);
+	Serial_DATA(msg);
+	sprintf(msg, "Guide tracking: %d\r\n", guideTracking);
 	Serial_DATA(msg);
 	if (mpu.movement < settings.movement) {
 		sprintf(msg, "Movement Verdict: Standing\r\n");
@@ -1038,6 +1045,87 @@ void ChargerConnected(void) {
 		Serial_Console("Charging activated\r\n");
 
 		return;
+	}
+}
+void guideTracker(void) {
+	CheckSecurity();
+
+	mag_near_bwf = 0;
+	highgrass_slowdown = 0;
+
+	elapsedTime = HAL_GetTick() - previousTime;
+
+	if (BWF2_guide_status == OUTSIDE) {
+		Tick1 -= (elapsedTime * 4);
+		Tick2 = 0;
+		GoHome_timer_IN = HAL_GetTick();
+
+		if (HAL_GetTick() - GoHome_timer_OUT >= 10000) {        // 10 seconds
+			guideTrackingActive = 0;
+			guideTracking = 0;
+			MasterSwitch = 0;
+			add_error_event("Stuck guideTracking BWF2 OUT - HALT");
+			return;
+		}
+	}
+
+	if (BWF2_guide_status == INSIDE) {
+		Tick2 -= (elapsedTime * 4);
+		Tick1 = 0;
+		GoHome_timer_OUT = HAL_GetTick();
+
+		if (HAL_GetTick() - GoHome_timer_IN >= 10000) {            // 10 seconds
+			guideTrackingActive = 0;
+			guideTracking = 0;
+			MasterSwitch = 0;
+			add_error_event("Stuck guideTracking BWF2 IN - HALT");
+			return;
+		}
+	}
+
+	error = settings.perimeterTrackerSpeed - (Tick1 + Tick2);                // determine error
+	cumError += error * elapsedTime;               // compute integral
+	rateError = (error - lastError) / elapsedTime;   // compute derivative
+
+	double out = settings.kp * error + settings.ki * cumError + settings.kd * rateError;                //PID output
+
+	lastError = error;                             //remember current error
+	previousTime = HAL_GetTick();                  //remember current time
+
+	int speedA = (settings.perimeterTrackerSpeed + round(out));
+	int speedB = (settings.perimeterTrackerSpeed - round(out));
+
+	if (speedA > settings.perimeterTrackerSpeed) {
+		speedA = settings.perimeterTrackerSpeed;
+	}                // limit upper and lower speed
+	if (speedB > settings.perimeterTrackerSpeed)
+		speedB = settings.perimeterTrackerSpeed;
+
+	if (speedA < 1000)
+		speedA = 1000;
+	if (speedB < 1000)
+		speedB = 1000;
+
+	if (BWF2_guide_status == OUTSIDE) {
+		if (BWF1_guide_status == OUTSIDE) {
+			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
+			HAL_Delay(200);
+			MOTOR_LEFT_FORWARD = 0;
+		} else if (BWF1_guide_status == INSIDE) {
+			MOTOR_LEFT_BACKWARD = 0;
+			MOTOR_LEFT_FORWARD = speedB;
+		}
+
+		MOTOR_RIGHT_FORWARD = speedA;
+		MOTOR_RIGHT_BACKWARD = 0;
+	}
+
+	if (BWF2_guide_status == INSIDE) {
+		MOTOR_LEFT_BACKWARD = 0;
+		MOTOR_LEFT_FORWARD = speedA;
+
+		MOTOR_RIGHT_FORWARD = speedB;
+		MOTOR_RIGHT_BACKWARD = 0;
 	}
 }
 
@@ -1393,6 +1481,18 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.Signal_Integrity_IN = limit;
 			}
+			if (strncmp(Command, "SET GUIDE IN", 10) == 0) {
+				float limit;
+				char cmd1[3], cmd2[5], cmd3[2];
+				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
+				guide_integrity_in = limit;
+			}
+			if (strncmp(Command, "SET GUIDE OUT", 10) == 0) {
+				float limit;
+				char cmd1[3], cmd2[5], cmd3[3];
+				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
+				guide_integrity_out = limit;
+			}
 			if (strncmp(Command, "SET CHARGE DETECTION", 20) == 0) {
 				int limit;
 				char cmd1[3], cmd2[6], cmd3[9];
@@ -1512,10 +1612,14 @@ void parseCommand_Console(void) {
 				perimeterTracking = 1;
 				Serial_Console("Perimeter tracking ENABLED\r\n");
 			}
+			if (strcmp(Command, "TRACK GUIDE") == 0) {
+				guideTracking = 1;
+				Serial_Console("Guide tracking ENABLED\r\n");
+			}
 			if (strcmp(Command, "RESETI2C") == 0) {
 				reInitIMU();
 			}
-			if (strcmp(Command, "scan_i2c") == 0) {
+			if (strcmp(Command, "SCAN I2C") == 0) {
 				scanner(hi2c1);
 				scanner(hi2c2);
 			}
@@ -1621,6 +1725,14 @@ uint8_t CheckSecurity(void) {
 	}
 	if (BWF1_Status == INSIDE || BWF2_Status == INSIDE) {
 		OUTSIDE_timer = HAL_GetTick();        // We are inside with at least one sensor, reset OUTSIDE_timer
+	}
+
+	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1) {
+
+		if ( (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) || (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) ) {
+			guideTrackingActive = 1;
+		}
+
 	}
 
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
@@ -1803,53 +1915,61 @@ void CheckBWF() {
 
 
 		for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
-			BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
-			Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
+			if (guideTrackingActive == 0) BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
+			if (guideTracking == 1) Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
 
 			BWF1_Received_Signal += BWF1[x] * BWF1[x];
 
-			BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
-			Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
+			if (guideTrackingActive == 0) BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
+			if (guideTracking == 1) Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
 
 			BWF2_Received_Signal += BWF2[x] * BWF2[x];
 
-			Match_Signal += validSignature[myID] * validSignature[myID];
-			Guide_Match_Signal += validGuide[myID] * validGuide[myID];
+			if (guideTrackingActive == 0) Match_Signal += validSignature[myID] * validSignature[myID];
+			if (guideTracking == 1) Guide_Match_Signal += validGuide[myID] * validGuide[myID];
 			myID++;
 		}
 
 		arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
-		arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+		if (guideTracking == 1) arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 
 		BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
-		Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
+		if (guideTracking == 1) Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
 
 		arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
-		arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+		if (guideTracking == 1) arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 
 		BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
-		Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
+		if (guideTracking == 1) Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
 
-		if (Guide_BWF1_Verdict_Signal >= 0.80 && Guide_BWF1_reply == 0) {
-			BWF1_guide_status = INSIDE;
+		if (Guide_BWF1_Verdict_Signal >= guide_integrity_in && Guide_BWF1_reply == 0) {
+			BWF1_guide_status = OUTSIDE;
+			Boundary_Timer = HAL_GetTick();
 			bwf1guide_inside++;
 			Guide_BWF1_reply = 1;
+			CalcMagnitude(1);
 		}
-		if (Guide_BWF1_Verdict_Signal <= -0.80 && Guide_BWF1_reply == 0) {
-			BWF1_guide_status = OUTSIDE;
+		if (Guide_BWF1_Verdict_Signal <= guide_integrity_out && Guide_BWF1_reply == 0) {
+			BWF1_guide_status = INSIDE;
+			Boundary_Timer = HAL_GetTick();
 			bwf1guide_outside++;
 			Guide_BWF1_reply = 1;
+			CalcMagnitude(1);
 		}
 
-		if (Guide_BWF2_Verdict_Signal >= 0.80 && Guide_BWF2_reply == 0) {
-			BWF2_guide_status = INSIDE;
+		if (Guide_BWF2_Verdict_Signal >= guide_integrity_in && Guide_BWF2_reply == 0) {
+			BWF2_guide_status = OUTSIDE;
+			Boundary_Timer = HAL_GetTick();
 			bwf2guide_inside++;
 			Guide_BWF2_reply = 1;
+			CalcMagnitude(2);
 		}
-		if (Guide_BWF2_Verdict_Signal <= -0.80 && Guide_BWF2_reply == 0) {
-			BWF2_guide_status = OUTSIDE;
+		if (Guide_BWF2_Verdict_Signal <= guide_integrity_out && Guide_BWF2_reply == 0) {
+			BWF2_guide_status = INSIDE;
+			Boundary_Timer = HAL_GetTick();
 			bwf2guide_outside++;
 			Guide_BWF2_reply = 1;
+			CalcMagnitude(2);
 		}
 
 		if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN && BWF1_reply == 0) {
@@ -2155,7 +2275,28 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	}
 	MotorStop();
 }
+void MotorRight_Circle(uint16_t minSpeed, uint16_t maxSpeed) {
+	add_error_event("MotorRight_Circle");
+	State = RIGHT;
 
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+		MOTOR_LEFT_BACKWARD = 0;
+		MOTOR_LEFT_FORWARD = currentSpeed;
+
+		MOTOR_RIGHT_FORWARD = currentSpeed * 0.80;
+		MOTOR_RIGHT_BACKWARD = 0;
+
+		HAL_Delay(1);
+
+		CheckSecurity();
+
+	}
+
+}
 void MotorStop(void) {
 	State = STOP;
 	int speed = 0;
@@ -2273,7 +2414,7 @@ void CheckState(void) {
 		}
 		State = STOP;
 		return;
-	} else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL) {
+	} else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL && guideTracking == 0) {
 		add_error_event("FORWARD+SECURITY_FAIL");
 		MotorStop();
 		getIMUOrientation();
@@ -2342,6 +2483,41 @@ void CheckState(void) {
 		}
 
 		delay(500);
+	} else if (guideTrackingActive == 1) {
+		MotorHardBrake();
+		cutterOFF();
+		move_count = 0;
+		bumper_count = 0;
+		mag_near_bwf = 0;
+		highgrass_slowdown = 0;
+		add_error_event("Found Guide Wire");
+
+		if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
+			add_error_event("Orientation correct on Guide Wire");
+			return;
+		}
+		add_error_event("Searching for Guide Wire orientation");
+
+		MotorRight_Circle(settings.motorMinSpeed, (settings.motorMaxSpeed * 0.80));
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+		while (BWF1_guide_status != OUTSIDE && BWF2_guide_status != INSIDE) {
+			CheckSecurity();
+			if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
+				guideTracking = 0;
+				guideTrackingActive = 0;
+				MasterSwitch = 0;
+				add_error_event("Stuck at turning on Guide Wire");
+				break;
+			}
+		}
+		MotorHardBrake();
+		add_error_event("Found orientation on Guide Wire");
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+
+		return;
+
 	} else if (State == FORWARD) {
 		if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
 			State = STOP;
@@ -2503,7 +2679,7 @@ int main(void)
 			IMU_timer = HAL_GetTick();
 		}
 
-		if (perimeterTrackingActive == 0) {
+		if (perimeterTrackingActive == 0 && guideTrackingActive == 0) {
 			CheckSecurity();
 			CheckState();
 
@@ -2515,7 +2691,12 @@ int main(void)
 			}
 			CollectADC();
 		} else {
-			perimeterTracker();
+			if (perimeterTrackingActive == 1) {
+				perimeterTracker();
+			}
+			if (guideTrackingActive == 1) {
+				guideTracker();
+			}
 		}
 
 		ChargerConnected();
@@ -3237,8 +3418,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+
 	WatchdogRefresh();        // STM32 Watchdog - NEVER DISABLE THIS (for safety!)
 	SendInfo();
+
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
