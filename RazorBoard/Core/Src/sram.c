@@ -255,6 +255,8 @@ sram_settings read_all_settings(void) {
     settings.pitch_comp = read_sram_float(PITCH_COMP_ADDR);
     settings.roll_comp = read_sram_float(ROLL_COMP_ADDR);
     settings.highgrass_Limit = read_sram_float(HIGHGRASS_LIMIT_ADDR);
+    settings.Guide_Integrity_IN = read_sram_float(GUIDE_INTEGRITY_IN_ADDR);
+    settings.Guide_Integrity_OUT = read_sram_float(GUIDE_INTEGRITY_OUT_ADDR);
 
     return settings;
 }
@@ -327,6 +329,8 @@ void write_all_settings(sram_settings settings) {
     write_sram_float(settings.pitch_comp, PITCH_COMP_ADDR);
     write_sram_float(settings.roll_comp, ROLL_COMP_ADDR);
     write_sram_float(settings.highgrass_Limit, HIGHGRASS_LIMIT_ADDR);
+    write_sram_float(settings.Guide_Integrity_IN, GUIDE_INTEGRITY_IN_ADDR);
+    write_sram_float(settings.Guide_Integrity_OUT, GUIDE_INTEGRITY_OUT_ADDR);
 
 }
 
@@ -379,6 +383,8 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.BatteryChargeTime = 60;
     settings.perimeterTrackerSpeed = 3360 - 1;
     settings.cut_perimeter_ratio = 0;
+    settings.Guide_Integrity_IN = 0.95;
+    settings.Guide_Integrity_IN = -0.95;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
@@ -416,8 +422,10 @@ uint8_t validate_settings(uint8_t revision) {
     }
 
     if (settings.Config_Set < 46) {
-
+    	settings.Guide_Integrity_IN = defaultSettings.Guide_Integrity_IN;
+    	settings.Guide_Integrity_OUT = defaultSettings.Guide_Integrity_OUT;
     }
+
 
     // Validate allowed values
     if (settings.perimeterTrackerSpeed < 1 || settings.perimeterTrackerSpeed > 3359) {
@@ -461,6 +469,14 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.Signal_Integrity_IN < -1 || settings.Signal_Integrity_IN > 1) {
         settings.Signal_Integrity_IN = defaultSettings.Signal_Integrity_IN;
+    }
+
+    if (settings.Guide_Integrity_OUT < -1 || settings.Guide_Integrity_OUT > 1) {
+        settings.Guide_Integrity_OUT = defaultSettings.Guide_Integrity_OUT;
+    }
+
+    if (settings.Guide_Integrity_IN < -1 || settings.Guide_Integrity_IN > 1) {
+        settings.Guide_Integrity_IN = defaultSettings.Guide_Integrity_IN;
     }
 
     if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 30) {

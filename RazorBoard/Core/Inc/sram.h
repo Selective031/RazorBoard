@@ -54,6 +54,8 @@ static const uint8_t global_settings_version = 46;
 #define ROLL_COMP_ADDR					0xA0
 #define PITCH_COMP_ADDR					0xA4
 #define HIGHGRASS_LIMIT_ADDR			0xA8
+#define GUIDE_INTEGRITY_IN_ADDR			0xAC
+#define GUIDE_INTEGRITY_OUT_ADDR		0xB0
 
 #define ERRORLOG_INDEX_ADDR				0x1FF
 #define ERRORLOG_ADDR					0x200
@@ -107,6 +109,8 @@ typedef struct SRAM {
 	float roll_comp;
 	float pitch_comp;
 	float highgrass_Limit;
+	float Guide_Integrity_IN;
+	float Guide_Integrity_OUT;
 } sram_settings;
 
 extern void enable_backup_sram(void);

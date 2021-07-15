@@ -103,6 +103,10 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "HighGrass limit: %.1f\r\n", settings.highgrass_Limit);
     Serial_Console(msg);
+    sprintf(msg, "Guide IN: %.2f\r\n", settings.Guide_Integrity_IN);
+    Serial_Console(msg);
+    sprintf(msg, "Guide OUT: %.2f\r\n", settings.Guide_Integrity_OUT);
+    Serial_Console(msg);
 }
 
 void help(void) {
@@ -119,6 +123,9 @@ void help(void) {
     Serial_Console("SHOW SIG                    - Show reference BWF signature\r\n");
     Serial_Console("EXPORT SIG                  - Export reference BWF signature as an array\r\n");
     Serial_Console("RECORD SIG                  - Record a new signature\r\n");
+    Serial_Console("SHOW GUIDE                  - Show reference GUIDE signature\r\n");
+    Serial_Console("EXPORT GUIDE                - Export reference GUIDE signature as an array\r\n");
+    Serial_Console("RECORD GUIDE                - Record a new GUIDE signature\r\n");
     Serial_Console("TEST LEFT MOTOR             - Test left motor (M1)\r\n");
     Serial_Console("TEST RIGHT MOTOR            - Test right motor (M2)\r\n");
     Serial_Console("SHOW CURRENT                - Show current sensors M1, M2, C1\r\n");
@@ -139,6 +146,8 @@ void help(void) {
     Serial_Console("SET BWF OUT                 - Limit for considering BWF OUT\r\n");
     Serial_Console("SET BWF IN                  - Limit for considering BWF IN\r\n");
     Serial_Console("SET CUTTER LIMIT            - Set Cutter Motor Limit in Amp\r\n");
+    Serial_Console("SET GUIDE OUT               - Limit for considering GUIDE OUT\r\n");
+    Serial_Console("SET GUIDE IN                - Limit for considering GUIDE IN\r\n");
     Serial_Console("SET MOTOR LIMIT             - Set Motor Limit, in multiply, default = 3.0\r\n");
     Serial_Console("SET MOVEMENT LIMIT          - Set Movement Limit for detecting movement\r\n");
     Serial_Console("SET ADC LEVEL               - Set the ADC level for BWF\r\n");
@@ -158,6 +167,7 @@ void help(void) {
     Serial_Console("                              Date must be set in a special order:\r\n");
     Serial_Console("                              Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
     Serial_Console("TRACK PERIMETER             - Track perimeter next time it crosses\r\n");
+    Serial_Console("TRACK GUIDE                 - Track guide next time it crosses\r\n");
     Serial_Console("SET PERIMETER SPEED         - Set track perimeter speed\r\n");
     Serial_Console("SET PERIMETER CUT RATIO     - Set ratio for cutting perimeter wire (0-100)\r\n");
     Serial_Console("SET KP                      - PID Controller KP for Perimeter Tracking\r\n");
