@@ -120,13 +120,14 @@ http://www.wch-ic.com/downloads/CH341SER_ZIP.html?fbclid=IwAR3x0DqTek31MVq-KcTly
 2. Power the board
 3. Start "Flash Loader Demonstrator"
 4. Select the com-port for RazorBoard
-5. Click NEXT 3 times.
-6. Select "Download to Device"
-7. Locate the .bin file.
-8. Click Next and your file will now be uploaded.
-9. Remove Power from board.
-10. Change the jumper back to RUN.
-11. Power the board.
+5. Select baudrate of 57600
+6. Click NEXT 3 times.
+7. Select "Download to Device"
+8. Locate the .bin file.
+9. Click Next and your file will now be uploaded.
+10. Remove Power from board.
+11. Change the jumper back to RUN.
+12. Power the board.
 
 When sending commands to Razorboard make sure you send the whole command, and finish with CRLF. Just sending character by character will not work.
 One working example is the Arduino IDE Serial Monitor, this one sends the whole line and you can choose CRLF as line termination.
