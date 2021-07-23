@@ -251,8 +251,6 @@
                                     									
                                     <listOptionValue builtIn="false" value="../Core/Inc"/>
                                     									
-                                    <listOptionValue builtIn="false" value="../Drivers/CMSIS/DSP/Include"/>
-                                    									
                                     <listOptionValue builtIn="false" value="&quot;C:\Users\secwk0\STM32Cube\Repository\STM32Cube_FW_F4_V1.26.1\Drivers\CMSIS\DSP\&quot;"/>
                                     									
                                     <listOptionValue builtIn="false" value="../Drivers/STM32F4xx_HAL_Driver/Inc"/>
