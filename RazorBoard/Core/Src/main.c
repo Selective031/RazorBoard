@@ -206,6 +206,8 @@ uint8_t bumper_count = 0;
 uint8_t move_count = 0;
 uint8_t board_revision = 12;
 
+uint32_t BWF_timer = 0;
+
 sram_settings settings;
 sram_error errors;
 mpu6050 mpu;
@@ -237,6 +239,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
@@ -266,6 +269,7 @@ static void MX_TIM5_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_I2C2_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void MotorStop(void);
@@ -320,11 +324,50 @@ static void Serial_DATA(char *msg);
 static void scanner(I2C_HandleTypeDef i2c_bus);
 static void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
 static bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
+static void freqAnalyzer(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void freqAnalyzer(void) {
+
+#define FFT_SIZE 256
+	static arm_rfft_instance_q15 fft_instance;
+	static q15_t output[FFT_SIZE*2]; //has to be twice FFT size
+
+	int16_t ADC_Freq_INPUT[FFT_SIZE*4];
+	int16_t FREQ_BUF[FFT_SIZE*2];
+
+//	arm_cfft_radix4_init_f32(&S, 256, 0, 1);
+	HAL_ADC_Stop_DMA(&hadc1);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_Freq_INPUT, FFT_SIZE*4);
+	delay(10);
+	HAL_ADC_Stop_DMA(&hadc1);
+
+	int count = 0;
+	for (int x = 0; x < FFT_SIZE*4; x++) {
+		if (x %2 == 0) {
+			FREQ_BUF[count] = ADC_Freq_INPUT[x] - 2050;
+			count++;
+		}
+	}
+
+
+	arm_rfft_init_q15(&fft_instance, 256/*bin count*/, 0/*forward FFT*/, 1/*output bit order is normal*/);
+
+	arm_rfft_q15(&fft_instance, (q15_t*)FREQ_BUF, output);
+
+	arm_abs_q15(output, output, FFT_SIZE);
+
+	for (int x = 0; x < (FFT_SIZE); x++) {
+		sprintf(msg, "%d %u\r\n", x, output[x]);
+		Serial_Console(msg);
+	}
+
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_BUFFER, ADC_SAMPLE_LEN);
+
+}
 
 bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout)
  {
@@ -716,7 +759,7 @@ uint32_t rnd(uint32_t maxValue) {
 
 void CheckMotorCurrent(int RAW) {
 	// Check if any motor is experiencing a spike in power, then we probably hit something.
-
+	if (Docked == 1) return;
 	float M1, M2;
 	if (M1_idx == 10 || M2_idx == 10 || C1_idx == 10) {
 		Force_Active = 1;
@@ -988,6 +1031,7 @@ void CollectADC() {
 		CheckMotorCurrent(RAW);
 
 		if (Channel == C1_addr && Docked == 0) {
+			if (Docked == 1) return;
 			C1_Value = RAW;
 			float C1;
 			C1 = fabs(((C1_Value * 0.1875) - 2500) / 100);
@@ -1073,6 +1117,7 @@ void unDock(void) {
 		HAL_Delay(5000);
 
 		MasterSwitch = 1;
+		Docked = 0;
 
 		mpu.roll = 0;
 		mpu.pitch = 0;
@@ -1080,7 +1125,6 @@ void unDock(void) {
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
 
-		Docked = 0;
 		Initial_Start = 0;
 		Start_Threshold = 0;
 		Battery_Ready = 0;
@@ -1091,6 +1135,7 @@ void unDock(void) {
 		guideTrackingActive = 0;
 		settings.Guide_Integrity_IN = 0.95;
 		settings.Guide_Integrity_OUT = -0.95;
+		settings.Signal_Integrity_OUT = -0.95;
 		write_all_settings(settings);
 	}
 }
@@ -1289,7 +1334,7 @@ void perimeterTracker(void) {
 		if (BWF1_Status == OUTSIDE) {
 			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
 			HAL_Delay(200);
-			MOTOR_LEFT_FORWARD = 0;
+			MOTOR_LEFT_BACKWARD = 0;
 		} else if (BWF1_Status == INSIDE) {
 			MOTOR_LEFT_BACKWARD = 0;
 			MOTOR_LEFT_FORWARD = speedB;
@@ -1741,6 +1786,10 @@ void parseCommand_Console(void) {
 				scanner(hi2c1);
 				scanner(hi2c2);
 			}
+			if (strcmp(Command, "FREQ") == 0) {
+				delay(8000);
+				freqAnalyzer();
+			}
 			if (strcmp(Command, "HELP") == 0) {
 				help();
 			}
@@ -2027,7 +2076,7 @@ void CheckBWF() {
 		Guide_Record = FALSE;
 	}
 
-	for (uint16_t idx = 0; idx < 96; idx++) {
+	for (uint16_t idx = 0; idx < 48; idx++) {
 		if ( (BWF1_reply == 1 && BWF2_reply == 1) || (Guide_BWF1_reply == 1 && Guide_BWF2_reply == 1)) {
 			break;
 		}
@@ -2044,32 +2093,39 @@ void CheckBWF() {
 
 
 		for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
-			if (guideTrackingActive == 0) BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
-			if (guideTracking == 1) Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
+
+			if (guideTrackingActive == 0) {
+				BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
+				BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
+				Match_Signal += validSignature[myID] * validSignature[myID];
+
+			}
+			if (guideTracking == 1) {
+				Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
+				Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
+				Guide_Match_Signal += validGuide[myID] * validGuide[myID];
+			}
 
 			BWF1_Received_Signal += BWF1[x] * BWF1[x];
-
-			if (guideTrackingActive == 0) BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
-			if (guideTracking == 1) Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
-
 			BWF2_Received_Signal += BWF2[x] * BWF2[x];
 
-			if (guideTrackingActive == 0) Match_Signal += validSignature[myID] * validSignature[myID];
-			if (guideTracking == 1) Guide_Match_Signal += validGuide[myID] * validGuide[myID];
 			myID++;
 		}
 
-		if (guideTrackingActive == 0) arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
-		if (guideTracking == 1) arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+		if (guideTrackingActive == 0) {
+			arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
+			BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
+			arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
+			BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
 
-		if (guideTrackingActive == 0) BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
-		if (guideTracking == 1) Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
+		}
+		if (guideTracking == 1) {
+			arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+			Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
+			arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
+			Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
 
-		if (guideTrackingActive == 0) arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
-		if (guideTracking == 1) arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
-
-		if (guideTrackingActive == 0) BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
-		if (guideTracking == 1) Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
+		}
 
 		if (guideTracking == 1 || guideTrackingActive == 1) {
 
@@ -2080,7 +2136,7 @@ void CheckBWF() {
 				Guide_BWF1_reply = 1;
 				CalcMagnitude(11);
 			}
-			if (Guide_BWF1_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF1_reply == 0) {
+			else if (Guide_BWF1_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF1_reply == 0) {
 				BWF1_guide_status = INSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf1guide_outside++;
@@ -2095,7 +2151,7 @@ void CheckBWF() {
 				Guide_BWF2_reply = 1;
 				CalcMagnitude(12);
 			}
-			if (Guide_BWF2_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF2_reply == 0) {
+			else if (Guide_BWF2_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF2_reply == 0) {
 				BWF2_guide_status = INSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf2guide_outside++;
@@ -2256,7 +2312,7 @@ void UpdateMotorSpeed() {
 }
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	State = FORWARD;
 
 	getIMUOrientation();
@@ -2363,7 +2419,7 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 }
 
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	add_error_event("MotorRight");
 	State = RIGHT;
 	uint32_t motor_timer;
@@ -2394,7 +2450,7 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	MotorStop();
 }
 void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	add_error_event("MotorRight_Guide");
 	State = RIGHT;
 	uint32_t motor_timer;
@@ -2421,7 +2477,7 @@ void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	MotorStop();
 }
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	add_error_event("MotorLeft");
 	State = LEFT;
 	uint32_t motor_timer;
@@ -2452,7 +2508,7 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	MotorStop();
 }
 void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	add_error_event("MotorLeft_Guide");
 	State = LEFT;
 	uint32_t motor_timer;
@@ -2515,6 +2571,7 @@ void MotorStop(void) {
 }
 
 void MotorBrake(void) {
+	if (MasterSwitch == 0 || Docked == 1) return;
 	State = BRAKE;
 
 	// Brake - free wheeling
@@ -2525,6 +2582,7 @@ void MotorBrake(void) {
 }
 
 void MotorHardBrake(void) {
+	if (MasterSwitch == 0 || Docked == 1) return;
 	State = HARDBRAKE;
 
 	// Wheels will do a hard brake when both pins go HIGH.
@@ -2560,7 +2618,6 @@ void CheckState(void) {
 	}
 
 	if (HAL_GetTick() - OUTSIDE_timer >= (settings.Outside_Threshold * 1000) && Docked == 0) {
-//		Serial_Console("OUTSIDE timer triggered\r\n");
 		MotorStop();
 		cutterOFF();
 		return;
@@ -2609,6 +2666,7 @@ void CheckState(void) {
 				cutterOFF();
 			}
 			perimeterTrackingActive = 1;
+			settings.Signal_Integrity_OUT = -0.80;
 			delay(500);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
@@ -2785,6 +2843,7 @@ int main(void)
   MX_I2C1_Init();
   MX_ADC2_Init();
   MX_I2C2_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
   	i2c_scanner();
@@ -2860,6 +2919,10 @@ int main(void)
 	Serial_RPi("Booting done!\r\n");
 	Serial_Console("Booting done!\r\n");
 	add_error_event("RazorBoard booted");
+
+	HAL_TIM_Base_Start_IT(&htim6);
+
+	BWF_timer = HAL_GetTick();
 
 	while (1)
 	{
@@ -3104,9 +3167,9 @@ static void MX_I2C1_Init(void)
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_ENABLE;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_ENABLE;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
   hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
   if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
@@ -3465,6 +3528,44 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 84-1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 65535;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -3611,12 +3712,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
-	WatchdogRefresh();        // STM32 Watchdog - NEVER DISABLE THIS (for safety!)
-	SendInfo();
+	 if(htim->Instance==TIM2) {
+		 WatchdogRefresh();        // STM32 Watchdog - NEVER DISABLE THIS (for safety!)
+		 SendInfo();
+	 }
+	 if(htim->Instance==TIM6) {
+
+
+	 }
 
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
