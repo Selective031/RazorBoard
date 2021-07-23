@@ -1668,6 +1668,24 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %f ", cmd1, cmd2, cmd3, &limit);
 				settings.Cutter_Limit = limit;
 			}
+			if (strncmp(Command, "SET MOTOR TURN STATIC", 21) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[4], cmd4[6];
+				sscanf(Command, "%s %s %s %s %hd", cmd1, cmd2, cmd3, cmd4, &time);
+				settings.motorTurnStatic_time =  time;
+			}
+			if (strncmp(Command, "SET MOTOR TURN RANDOM", 21) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[4], cmd4[6];
+				sscanf(Command, "%s %s %s %s %hd", cmd1, cmd2, cmd3, cmd4, &time);
+				settings.motorTurnRandom_time =  time;
+			}
+			if (strncmp(Command, "SET MOTOR BACKWARD", 18) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[8];
+				sscanf(Command, "%s %s %s %hd", cmd1, cmd2, cmd3, &time);
+				settings.motorBackward_time =  time;
+			}
 			if (strncmp(Command, "SET MOTOR LIMIT", 15) == 0) {
 				float limit;
 				char cmd1[3], cmd2[5], cmd3[5];
@@ -2639,8 +2657,8 @@ void CheckState(void) {
 			return;
 		}
 		delay(500);
-		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+		MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorBackward_time);
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time * 2);
 		return;
 	}
 	if (State == FAIL) {
@@ -2679,7 +2697,7 @@ void CheckState(void) {
 			}
 			if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 				while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
-					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600);
+					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
 					CheckSecurity();
 					if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
 						perimeterTracking = 0;
@@ -2702,22 +2720,22 @@ void CheckState(void) {
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			add_error_event("BWF1 OUT BWF2 IN");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
 			delay(500);
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 IN BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
 			delay(500);
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 OUT BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
 			delay(500);
 			if (rnd(100000) < 50000) {
-				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 			} else {
-				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 			}
 		}
 
@@ -2744,19 +2762,19 @@ void CheckState(void) {
 			return;
 		}
 		if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
-			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), 1000);
+			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
 			return;
 		}
 		if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
-			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), 700);
+			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
 			return;
 		}
 		if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
-			MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), 700);
+			MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
 			return;
@@ -2789,12 +2807,12 @@ void CheckState(void) {
 		CheckSecurity();
 
 		if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		}
 	}
 }

@@ -232,6 +232,9 @@ sram_settings read_all_settings(void) {
     settings.adcLevel = read_sram_uint16(ADC_LEVEL_ADDR);
     settings.roll_tilt_comp = read_sram_uint16(ROLL_TILT_COMP_ADDR);
     settings.steering_correction = read_sram_uint16(STEERING_CORRECTION_ADDR);
+    settings.motorTurnStatic_time = read_sram_uint16(MOTOR_TURN_STATIC_TIME_ADDR);
+    settings.motorTurnRandom_time = read_sram_uint16(MOTOR_TURN_RANDOM_TIME_ADDR);
+    settings.motorBackward_time = read_sram_uint16(MOTOR_BACKWARD_TIME_ADDR);
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -278,8 +281,8 @@ void write_all_settings(sram_settings settings) {
 
     // uint8_t = 1 byte
     // uint16_t = 2 byte
-    //uint32_t = 4 byte
-    //float = 4 byte
+    // uint32_t = 4 byte
+    // float = 4 byte
 
     // uint8_t & int8_t
     settings.Config_Set = global_settings_version;
@@ -309,6 +312,9 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.BatteryChargeTime, BATTERYCHARGETIME_ADDR);
     write_sram_uint16(settings.roll_tilt_comp, ROLL_TILT_COMP_ADDR);
     write_sram_uint16(settings.steering_correction, STEERING_CORRECTION_ADDR);
+    write_sram_uint16(settings.motorTurnStatic_time, MOTOR_TURN_STATIC_TIME_ADDR);
+    write_sram_uint16(settings.motorTurnRandom_time, MOTOR_TURN_RANDOM_TIME_ADDR);
+    write_sram_uint16(settings.motorBackward_time, MOTOR_BACKWARD_TIME_ADDR);
 
 
     // uint32_t & float
@@ -385,6 +391,9 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.cut_perimeter_ratio = 0;
     settings.Guide_Integrity_IN = 0.95;
     settings.Guide_Integrity_IN = -0.95;
+    settings.motorTurnStatic_time = 700;
+    settings.motorTurnRandom_time = 700;
+    settings.motorBackward_time = 1500;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
@@ -424,6 +433,9 @@ uint8_t validate_settings(uint8_t revision) {
     if (settings.Config_Set < 46) {
     	settings.Guide_Integrity_IN = defaultSettings.Guide_Integrity_IN;
     	settings.Guide_Integrity_OUT = defaultSettings.Guide_Integrity_OUT;
+    	settings.motorTurnStatic_time = defaultSettings.motorTurnStatic_time;
+    	settings.motorTurnRandom_time = defaultSettings.motorTurnRandom_time;
+    	settings.motorBackward_time = defaultSettings.motorBackward_time;
     }
 
 
@@ -513,6 +525,17 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.kp < 0 || settings.kp > 5) {
         settings.kp = defaultSettings.kp;
+    }
+
+    if (settings.motorTurnStatic_time < 0 || settings.motorTurnStatic_time > 4000) {
+    	settings.motorTurnStatic_time = defaultSettings.motorTurnStatic_time;
+    }
+
+    if (settings.motorTurnRandom_time < 0 || settings.motorTurnRandom_time > 4000) {
+    	settings.motorTurnRandom_time = defaultSettings.motorTurnRandom_time;
+    }
+    if (settings.motorBackward_time < 0 || settings.motorBackward_time > 4000) {
+    	settings.motorBackward_time = defaultSettings.motorBackward_time;
     }
 
     settings.Config_Set = global_settings_version;

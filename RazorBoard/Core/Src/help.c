@@ -85,6 +85,12 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Motor Min Speed: %d\r\n", settings.motorMinSpeed);
     Serial_Console(msg);
+    sprintf(msg, "Motor Turn Static Time: %d\r\n", settings.motorTurnStatic_time);
+    Serial_Console(msg);
+    sprintf(msg, "Motor Turn Random Time: %d\r\n", settings.motorTurnRandom_time);
+    Serial_Console(msg);
+    sprintf(msg, "Motor Backward Time: %d\r\n", settings.motorBackward_time);
+    Serial_Console(msg);
     sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
     Serial_Console(msg);
     sprintf(msg, "Cut perimeter ratio: %d\r\n", settings.cut_perimeter_ratio);
@@ -150,6 +156,9 @@ void help(void) {
     Serial_Console("SET GUIDE IN                - Limit for considering GUIDE IN\r\n");
     Serial_Console("SET MOTOR LIMIT             - Set Motor Limit, in multiply, default = 3.0\r\n");
     Serial_Console("SET MOVEMENT LIMIT          - Set Movement Limit for detecting movement\r\n");
+    Serial_Console("SET MOTOR TURN STATIC       - Set Motor Turn Time, static\r\n");
+    Serial_Console("SET MOTOR TURN RANDOM       - Set Motor Turn Time, random\r\n");
+    Serial_Console("SET MOTOR BACKWARD          - Set Motor Backward Time, static\r\n");
     Serial_Console("SET ADC LEVEL               - Set the ADC level for BWF\r\n");
     Serial_Console("SET CUTTER SPEED            - Set speed of cutter motor\r\n");
     Serial_Console("SET MOVEMENT COUNT LIMIT    - Set limit for movement detection before HALT\r\n");
