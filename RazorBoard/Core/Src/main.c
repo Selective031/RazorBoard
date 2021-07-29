@@ -336,23 +336,14 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 		uint16_t 		i2c_sda;
 		GPIO_TypeDef  * i2c_sda_group;
 
-
 	} gpios_i2c;
 
 	gpios_i2c gp;
 
-	if (board_revision == 10) {
-		gp.i2c_scl = GPIO_PIN_10;
-		gp.i2c_scl_group = GPIOB;
-		gp.i2c_sda = GPIO_PIN_11;
-		gp.i2c_sda_group = GPIOB;
-	}
-	if (board_revision == 12) {
-		gp.i2c_scl = GPIO_PIN_6;
-		gp.i2c_scl_group = GPIOB;
-		gp.i2c_sda = GPIO_PIN_7;
-		gp.i2c_sda_group = GPIOB;
-	}
+	gp.i2c_scl = GPIO_PIN_6;
+	gp.i2c_scl_group = GPIOB;
+	gp.i2c_sda = GPIO_PIN_7;
+	gp.i2c_sda_group = GPIOB;
 
     GPIO_InitTypeDef GPIO_InitStructure;
 
@@ -404,8 +395,7 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 
     // 12. Configure the SCL and SDA I/Os as Alternate function Open-Drain.
     GPIO_InitStructure.Mode = GPIO_MODE_AF_OD;
-    if (board_revision == 12) GPIO_InitStructure.Alternate = GPIO_AF4_I2C1;
-    if (board_revision == 10) GPIO_InitStructure.Alternate = GPIO_AF4_I2C2;
+    GPIO_InitStructure.Alternate = GPIO_AF4_I2C1;
 
     GPIO_InitStructure.Pin = gp.i2c_scl;
     HAL_GPIO_Init(gp.i2c_scl_group, &GPIO_InitStructure);
@@ -432,7 +422,6 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 void Serial_DATA(char *msg) {
     HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
 }
-
 
 void i2c_scanner(void) {
 
@@ -1884,7 +1873,6 @@ void ADC_Send(uint8_t Channel) {
 	ADSwrite[1] = Channel;
 	ADSwrite[2] = 0x83;
 	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100) != HAL_OK) {
-		add_error_event("Error Transmitting ADC_Send_1");
 		I2C_ClearBusyFlagErratum(&hi2c1, 100);
 		return;
 	}
