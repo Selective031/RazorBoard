@@ -35,6 +35,9 @@ static const uint8_t global_settings_version = 46;
 #define PERIMETERTRACKERSPEED_ADDR		0x42	//uint16_t
 #define ROLL_TILT_COMP_ADDR				0x44	//uint16_t
 #define STEERING_CORRECTION_ADDR        0x46	//uint16_t
+#define MOTOR_TURN_STATIC_TIME_ADDR		0x48	//uint16_t
+#define MOTOR_TURN_RANDOM_TIME_ADDR		0x4A	//uint16_t
+#define MOTOR_BACKWARD_TIME_ADDR		0x4C	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -90,6 +93,9 @@ typedef struct SRAM {
 	uint16_t perimeterTrackerSpeed;
     uint16_t roll_tilt_comp;
     uint16_t steering_correction;
+    uint16_t motorTurnStatic_time;
+    uint16_t motorTurnRandom_time;
+    uint16_t motorBackward_time;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;

@@ -2154,8 +2154,8 @@ void CheckState(void) {
             return;
         }
         delay(500);
-        MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
-        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+        MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorBackward_time);
+        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time * 2);
         return;
     }
     if (State == FAIL) {
@@ -2193,7 +2193,7 @@ void CheckState(void) {
             }
             if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
                 while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
-                    MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 600);
+                    MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
                     CheckSecurity();
                     if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
                         perimeterTracking = 0;
@@ -2216,22 +2216,22 @@ void CheckState(void) {
 
         if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
             add_error_event("BWF1 OUT BWF2 IN");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
             delay(500);
-            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
             add_error_event("BWF1 IN BWF2 OUT");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
             delay(500);
-            MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+            MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
             add_error_event("BWF1 OUT BWF2 OUT");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
             delay(500);
             if (rnd(100000) < 50000) {
-                MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+                MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
             } else {
-                MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+                MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
             }
         }
 
@@ -2257,12 +2257,12 @@ void CheckState(void) {
         CheckSecurity();
 
         if (BWF1_Status == INSIDE && (BWF2_Status == OUTSIDE || BWF2_Status == NOSIGNAL)) {
-            MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+            MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
-            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (1500 + (mpu.pitch * 50)));
-            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 700 + rnd(700));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         }
     }
 }

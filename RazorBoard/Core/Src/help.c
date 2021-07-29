@@ -103,6 +103,12 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "HighGrass limit: %.1f\r\n", settings.highgrass_Limit);
     Serial_Console(msg);
+    sprintf(msg, "Motor Turn Static Time: %d\r\n", settings.motorTurnStatic_time);
+    Serial_Console(msg);
+    sprintf(msg, "Motor Turn Random Time: %d\r\n", settings.motorTurnRandom_time);
+    Serial_Console(msg);
+    sprintf(msg, "Motor Backward Time: %d\r\n", settings.motorBackward_time);
+    Serial_Console(msg);
 }
 
 void help(void) {
@@ -127,8 +133,8 @@ void help(void) {
     Serial_Console("RUN MOTORS REVERSE          - Run motors backward\r\n");
     Serial_Console("SET PROXIMITY SPEED         - Set proximity speed\r\n");
     Serial_Console("SET VOLTAGE MULTIPLY        - Voltage Multiply for calculating voltage\r\n");
-    Serial_Console("SET MOTOR MAX LIMIT         - Set Motor Max Limit in amp\r\n");
-    Serial_Console("SET MOTOR MIN LIMIT         - Set Motor Min Limit in amp\r\n");
+    Serial_Console("SET MOTOR MAX LIMIT         - Set Motor Max Limit in Amp\r\n");
+    Serial_Console("SET MOTOR MIN LIMIT         - Set Motor Min Limit in Amp\r\n");
     Serial_Console("SET BOUNDARY TIMEOUT        - How many seconds without INSIDE before HALT\r\n");
     Serial_Console("SET OVERTURN LIMIT          - How many degrees it can tilt before HALT\r\n");
     Serial_Console("SET OUTSIDE LIMIT           - How many seconds OUTSIDE before HALT\r\n");
@@ -150,6 +156,11 @@ void help(void) {
     Serial_Console("SET ROLL COMP               - Compensate roll if not perfectly leveled\r\n");
     Serial_Console("SET ROLL TILT COMP          - Compensate wheel power ratio when turning based on roll\r\n");
     Serial_Console("SET STEERING CORRECTION     - Compensate wheel power ratio when drifting\r\n");
+    Serial_Console("SET MOTOR TURN STATIC       - Set Motor Turn Time, static\r\n");
+    Serial_Console("SET MOTOR TURN RANDOM       - Set Motor Turn Time, random\r\n");
+    Serial_Console("SET MOTOR BACKWARD          - Set Motor Backward Time, static\r\n");
+    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN speed\r\n");
+    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX speed\r\n");
     Serial_Console("SET HIGHGRASS LIMIT         - When to trigger High Grass, in Amps\r\n");
     Serial_Console("LOCK DOCKING                - Do NOT allow mower to undock when ready\r\n");
     Serial_Console("UNLOCK DOCKING              - Do allow mower to undock when ready\r\n");
