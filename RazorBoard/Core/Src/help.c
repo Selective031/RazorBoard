@@ -159,8 +159,8 @@ void help(void) {
     Serial_Console("SET MOTOR TURN STATIC       - Set Motor Turn Time, static\r\n");
     Serial_Console("SET MOTOR TURN RANDOM       - Set Motor Turn Time, random\r\n");
     Serial_Console("SET MOTOR BACKWARD          - Set Motor Backward Time, static\r\n");
-    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN speed\r\n");
-    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX speed\r\n");
+    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN speed 0-3389\r\n");
+    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX speed 0-3389\r\n");
     Serial_Console("SET HIGHGRASS LIMIT         - When to trigger High Grass, in Amps\r\n");
     Serial_Console("LOCK DOCKING                - Do NOT allow mower to undock when ready\r\n");
     Serial_Console("UNLOCK DOCKING              - Do allow mower to undock when ready\r\n");

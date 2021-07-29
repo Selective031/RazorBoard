@@ -455,19 +455,17 @@ void delay(uint32_t time_ms) {
 }
 
 void reInitIMU(void) {
-	// If the I2C bus hangs, this will clear the deadlock and re-init the MPU
+	// If the I2C bus hangs, this will clear the deadlock and re-init the MPU and ADC
 
 	MotorStop();
 	cutterOFF();
 
 	add_error_event("reInit IMU");
-	Serial_Console("reInit IMU\r\n");
 
 	I2C_ClearBusyFlagErratum(&hi2c1, 100);
 
 	Init6050();
 }
-
 
 void CalcMagnitude(uint8_t Sensor) {
     float32_t Mag_Out[LENGTH_SAMPLES / 2];
@@ -2243,7 +2241,6 @@ void CheckState(void) {
         MotorStop();
         cutterOFF();
         while (CheckSecurity() != SECURITY_OK) {
-            Serial_Console("State Fail, waiting...\r\n");
         }
         State = STOP;
         return;
