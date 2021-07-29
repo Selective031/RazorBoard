@@ -148,7 +148,7 @@ void help(void) {
     Serial_Console("SET MOTOR LIMIT             - Set Motor Limit, in multiply, default = 3.0\r\n");
     Serial_Console("SET MOVEMENT LIMIT          - Set Movement Limit for detecting movement\r\n");
     Serial_Console("SET ADC LEVEL               - Set the ADC level for BWF\r\n");
-    Serial_Console("SET CUTTER SPEED            - Set speed of cutter motor\r\n");
+    Serial_Console("SET CUTTER SPEED            - Set speed of cutter motor 0-3359 (25KHz)\r\n");
     Serial_Console("SET MOVEMENT COUNT LIMIT    - Set limit for movement detection before HALT\r\n");
     Serial_Console("SET BUMPER COUNT LIMIT      - Set limit for bumper detection before HALT\r\n");
     Serial_Console("SET UNDOCK BACKING SECONDS  - Set number of seconds to move backwards when undocking\r\n");
@@ -159,8 +159,8 @@ void help(void) {
     Serial_Console("SET MOTOR TURN STATIC       - Set Motor Turn Time, static\r\n");
     Serial_Console("SET MOTOR TURN RANDOM       - Set Motor Turn Time, random\r\n");
     Serial_Console("SET MOTOR BACKWARD          - Set Motor Backward Time, static\r\n");
-    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN speed 0-3389\r\n");
-    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX speed 0-3389\r\n");
+    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN speed 0-3389 (25KHz)\r\n");
+    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX speed 0-3389 (25KHz)\r\n");
     Serial_Console("SET HIGHGRASS LIMIT         - When to trigger High Grass, in Amps\r\n");
     Serial_Console("LOCK DOCKING                - Do NOT allow mower to undock when ready\r\n");
     Serial_Console("UNLOCK DOCKING              - Do allow mower to undock when ready\r\n");

@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define M_PI 3.14159265358979323846
-
 extern I2C_HandleTypeDef* razor_hi2c;
 extern uint8_t board_revision;
 extern mpu6050 mpu;
@@ -112,7 +110,7 @@ void MPU6050_Read_Accel(void) {
 	Ay = Accel_Y_RAW/16384.0;
 	Az = Accel_Z_RAW/16384.0;
 
-	b = (fabs(Ax) + fabs(Ay) + fabs(Az))* 0.02;
+	b = (fabsf(Ax) + fabsf(Ay) + fabsf(Az))* 0.02;
 
 	float r, p;
 
@@ -152,7 +150,7 @@ void MPU6050_Read_Gyro(void) {
 	Gy = Gyro_Y_RAW/131.0;
 	Gz = Gyro_Z_RAW/131.0;
 
-	a = (fabs(Gx) + fabs(Gy) + fabs(Gz))* 0.02;
+	a = (fabsf(Gx) + fabsf(Gy) + fabsf(Gz))* 0.02;
 
 	float yaw = board_revision == 12
 	        ? Gx
@@ -163,8 +161,8 @@ void MPU6050_Read_Gyro(void) {
 	        : 1;
 
 	if (getYawError == 1) {
-		if (fabs(yaw) < minLimit) {
-			mpu.yaw_error = fabs(yaw);		// Auto calibrate the Gyro error at startup
+		if (fabsf(yaw) < minLimit) {
+			mpu.yaw_error = fabsf(yaw);		// Auto calibrate the Gyro error at startup
 			getYawError = 0;
 		}
 	}
