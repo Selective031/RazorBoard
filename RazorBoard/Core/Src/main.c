@@ -664,11 +664,11 @@ void CheckMotorCurrent(int RAW) {
 
     if (Channel == M1_addr) {
         M1_Value = RAW;
-        M1 = fabs(((M1_Value * 0.1875) - 2500) / 100);
+        M1 = fabsf(((M1_Value * 0.1875) - 2500) / 100);
         if (Initial_Start == 0) {
             M1_error = M1;
         }
-        M1_amp = fabs(M1 - M1_error);
+        M1_amp = fabsf(M1 - M1_error);
         M1_force[M1_idx] = M1_amp;
         M1_idx++;
         if (M1_idx == 20) {
@@ -702,11 +702,11 @@ void CheckMotorCurrent(int RAW) {
         }
     } else if (Channel == M2_addr) {
         M2_Value = RAW;
-        M2 = fabs(((M2_Value * 0.1875) - 2500) / 100);
+        M2 = fabsf(((M2_Value * 0.1875) - 2500) / 100);
         if (Initial_Start == 0) {
             M2_error = M2;
         }
-        M2_amp = fabs(M2 - M2_error);
+        M2_amp = fabsf(M2 - M2_error);
         M2_force[M2_idx] = M2_amp;
         M2_idx++;
         if (M2_idx == 20) {
@@ -910,11 +910,11 @@ void CollectADC() {
         if (Channel == C1_addr && Docked == 0) {
             C1_Value = RAW;
             float C1;
-            C1 = fabs(((C1_Value * 0.1875) - 2500) / 100);
+            C1 = fabsf(((C1_Value * 0.1875) - 2500) / 100);
             if (Initial_Start == 0) {
                 C1_error = C1;
             }
-            C1_amp = fabs(C1 - C1_error);
+            C1_amp = fabsf(C1 - C1_error);
 
             if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0) {
                 C1_amp = 0.0;
@@ -1331,6 +1331,24 @@ void parseCommand_Console(void) {
                 sscanf(Command, "%s %s %s %s %d", cmd1, cmd2, cmd3, cmd4, &speed);
                 settings.motorMinSpeed = speed;
             }
+			if (strncmp(Command, "SET MOTOR TURN STATIC", 21) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[4], cmd4[6];
+				sscanf(Command, "%s %s %s %s %hd", cmd1, cmd2, cmd3, cmd4, &time);
+				settings.motorTurnStatic_time =  time;
+			}
+			if (strncmp(Command, "SET MOTOR TURN RANDOM", 21) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[4], cmd4[6];
+				sscanf(Command, "%s %s %s %s %hd", cmd1, cmd2, cmd3, cmd4, &time);
+				settings.motorTurnRandom_time =  time;
+			}
+			if (strncmp(Command, "SET MOTOR BACKWARD", 18) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[8];
+				sscanf(Command, "%s %s %s %hd", cmd1, cmd2, cmd3, &time);
+				settings.motorBackward_time =  time;
+			}
             if (strncmp(Command, "SET ROLL TILT COMP", 18) == 0) {
                 int comp;
                 char cmd1[3], cmd2[4], cmd3[4], cmd4[4];
@@ -1600,10 +1618,10 @@ uint8_t CheckSecurity(void) {
         }
     }
 
-    if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
+    if (fabsf(mpu.pitch) >= settings.Overturn_Limit || fabsf(mpu.roll) >= settings.Overturn_Limit) {
         getIMUOrientation();    // Double check pitch and roll
         delay(100);
-        if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
+        if (fabsf(mpu.pitch) >= settings.Overturn_Limit || fabsf(mpu.roll) >= settings.Overturn_Limit) {
             sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
             add_error_event(emsg);
             MotorHardBrake();
@@ -1979,10 +1997,10 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
         uint16_t rightTilt = 0;
 
         if (mpu.roll < 0) {
-            leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+            leftTilt = fabsf(mpu.roll * settings.roll_tilt_comp);
         }
         if (mpu.roll > 0) {
-            rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+            rightTilt = fabsf(mpu.roll * settings.roll_tilt_comp);
         }
 
         MOTOR_LEFT_BACKWARD = 0;
@@ -2022,10 +2040,10 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
         uint16_t rightTilt = 0;
 
         if (mpu.roll < 0) {
-            leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+            leftTilt = fabsf(mpu.roll * settings.roll_tilt_comp);
         }
         if (mpu.roll > 0) {
-            rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+            rightTilt = fabsf(mpu.roll * settings.roll_tilt_comp);
         }
 
         MOTOR_LEFT_BACKWARD = currentSpeed - round(rightTilt);
