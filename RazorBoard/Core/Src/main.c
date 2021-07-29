@@ -1118,8 +1118,8 @@ void perimeterTracker(void) {
     if (BWF2_Status == OUTSIDE) {
         if (BWF1_Status == OUTSIDE) {
             MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
-            HAL_Delay(200);
             MOTOR_LEFT_FORWARD = 0;
+            HAL_Delay(200);
         } else if (BWF1_Status == INSIDE) {
             MOTOR_LEFT_BACKWARD = 0;
             MOTOR_LEFT_FORWARD = speedB;
