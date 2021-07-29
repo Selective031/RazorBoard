@@ -337,9 +337,9 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 		GPIO_TypeDef  * i2c_sda_group;
 
 
-	} gpios_i2c1;
+	} gpios_i2c;
 
-	gpios_i2c1 gp;
+	gpios_i2c gp;
 
 	if (board_revision == 10) {
 		gp.i2c_scl = GPIO_PIN_10;
