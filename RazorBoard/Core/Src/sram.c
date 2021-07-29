@@ -474,11 +474,11 @@ uint8_t validate_settings(uint8_t revision) {
         settings.Signal_Integrity_IN = defaultSettings.Signal_Integrity_IN;
     }
 
-    if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 30) {
+    if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 32) {
         settings.Battery_High_Limit = defaultSettings.Battery_High_Limit;
     }
 
-    if (settings.Battery_Low_Limit < 7 || settings.Battery_Low_Limit > 30) {
+    if (settings.Battery_Low_Limit < 7 || settings.Battery_Low_Limit > 32) {
         settings.Battery_Low_Limit = defaultSettings.Battery_Low_Limit;
     }
 
