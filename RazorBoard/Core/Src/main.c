@@ -2094,7 +2094,7 @@ void CheckBWF() {
 		Guide_Record = FALSE;
 	}
 
-	for (uint16_t idx = 0; idx < 48; idx++) {
+	for (uint16_t idx = 0; idx < 96; idx++) {
 		if ( (BWF1_reply == 1 && BWF2_reply == 1) || (Guide_BWF1_reply == 1 && Guide_BWF2_reply == 1)) {
 			break;
 		}
