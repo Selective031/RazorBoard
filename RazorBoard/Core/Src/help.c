@@ -140,8 +140,10 @@ void help(void) {
     Serial_Console("RUN MOTORS REVERSE          - Run motors backward\r\n");
     Serial_Console("SET PROXIMITY SPEED         - Set proximity speed\r\n");
     Serial_Console("SET VOLTAGE MULTIPLY        - Voltage Multiply for calculating voltage\r\n");
-    Serial_Console("SET MOTOR MAX LIMIT         - Set Motor Max Limit in amp\r\n");
-    Serial_Console("SET MOTOR MIN LIMIT         - Set Motor Min Limit in amp\r\n");
+    Serial_Console("SET MOTOR MAX LIMIT         - Set Motor MAX Limit in amp\r\n");
+    Serial_Console("SET MOTOR MIN LIMIT         - Set Motor MIN Limit in amp\r\n");
+    Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX Speed (25 KHz)\r\n");
+    Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN Speed (25 KHz)\r\n");
     Serial_Console("SET BOUNDARY TIMEOUT        - How many seconds without INSIDE before HALT\r\n");
     Serial_Console("SET OVERTURN LIMIT          - How many degrees it can tilt before HALT\r\n");
     Serial_Console("SET OUTSIDE LIMIT           - How many seconds OUTSIDE before HALT\r\n");
