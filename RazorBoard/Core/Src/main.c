@@ -296,12 +296,138 @@ static void delay(uint32_t time_ms);
 static void getIMUOrientation(void);
 static void i2c_scanner(void);
 static void Serial_DATA(char *msg);
-static HAL_StatusTypeDef I2CResetBus(void);
+static void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
+static bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout)
+ {
+    uint32_t Tickstart = HAL_GetTick();
+    bool ret = true;
+    /* Wait until flag is set */
+    for(;(state != HAL_GPIO_ReadPin(port, pin)) && (true == ret);)
+    {
+        /* Check for the timeout */
+        if (timeout != HAL_MAX_DELAY)
+        {
+            if ((timeout == 0U) || ((HAL_GetTick() - Tickstart) > timeout))
+            {
+                ret = false;
+            }
+            else
+            {
+            }
+        }
+        asm("nop");
+    }
+    return ret;
+}
+
+void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
+{
+	typedef struct gpios {
+
+		uint16_t 		i2c_scl;
+		GPIO_TypeDef  * i2c_scl_group;
+		uint16_t 		i2c_sda;
+		GPIO_TypeDef  * i2c_sda_group;
+
+
+	} gpios_i2c1;
+
+	gpios_i2c1 gp;
+
+	if (board_revision == 10) {
+		gp.i2c_scl = GPIO_PIN_10;
+		gp.i2c_scl_group = GPIOB;
+		gp.i2c_sda = GPIO_PIN_11;
+		gp.i2c_sda_group = GPIOB;
+	}
+	if (board_revision == 12) {
+		gp.i2c_scl = GPIO_PIN_6;
+		gp.i2c_scl_group = GPIOB;
+		gp.i2c_sda = GPIO_PIN_7;
+		gp.i2c_sda_group = GPIOB;
+	}
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+
+    // 1. Clear PE bit.
+    CLEAR_BIT(handle->Instance->CR1, I2C_CR1_PE);
+
+    //  2. Configure the SCL and SDA I/Os as General Purpose Output Open-Drain, High level (Write 1 to GPIOx_ODR).
+    HAL_I2C_DeInit(handle);
+
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+
+    GPIO_InitStructure.Pin = gp.i2c_scl;
+    HAL_GPIO_Init(gp.i2c_scl_group, &GPIO_InitStructure);
+
+    GPIO_InitStructure.Pin = gp.i2c_sda;
+    HAL_GPIO_Init(gp.i2c_sda_group, &GPIO_InitStructure);
+
+    // 3. Check SCL and SDA High level in GPIOx_IDR.
+    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET);
+
+    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET, timeout);
+    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET, timeout);
+
+    // 4. Configure the SDA I/O as General Purpose Output Open-Drain, Low level (Write 0 to GPIOx_ODR).
+    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_RESET);
+
+    // 5. Check SDA Low level in GPIOx_IDR.
+    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_RESET, timeout);
+
+    // 6. Configure the SCL I/O as General Purpose Output Open-Drain, Low level (Write 0 to GPIOx_ODR).
+    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_RESET);
+
+    // 7. Check SCL Low level in GPIOx_IDR.
+    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_RESET, timeout);
+
+    // 8. Configure the SCL I/O as General Purpose Output Open-Drain, High level (Write 1 to GPIOx_ODR).
+    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET);
+
+    // 9. Check SCL High level in GPIOx_IDR.
+    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET, timeout);
+
+    // 10. Configure the SDA I/O as General Purpose Output Open-Drain , High level (Write 1 to GPIOx_ODR).
+    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET);
+
+    // 11. Check SDA High level in GPIOx_IDR.
+    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET, timeout);
+
+    // 12. Configure the SCL and SDA I/Os as Alternate function Open-Drain.
+    GPIO_InitStructure.Mode = GPIO_MODE_AF_OD;
+    if (board_revision == 12) GPIO_InitStructure.Alternate = GPIO_AF4_I2C1;
+    if (board_revision == 10) GPIO_InitStructure.Alternate = GPIO_AF4_I2C2;
+
+    GPIO_InitStructure.Pin = gp.i2c_scl;
+    HAL_GPIO_Init(gp.i2c_scl_group, &GPIO_InitStructure);
+
+    GPIO_InitStructure.Pin = gp.i2c_sda;
+    HAL_GPIO_Init(gp.i2c_sda_group, &GPIO_InitStructure);
+
+    // 13. Set SWRST bit in I2Cx_CR1 register.
+    SET_BIT(handle->Instance->CR1, I2C_CR1_SWRST);
+    asm("nop");
+
+    /* 14. Clear SWRST bit in I2Cx_CR1 register. */
+    CLEAR_BIT(handle->Instance->CR1, I2C_CR1_SWRST);
+    asm("nop");
+
+    /* 15. Enable the I2C peripheral by setting the PE bit in I2Cx_CR1 register */
+    SET_BIT(handle->Instance->CR1, I2C_CR1_PE);
+    asm("nop");
+
+    // Call initialization function.
+    HAL_I2C_Init(handle);
+}
 
 void Serial_DATA(char *msg) {
     HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
@@ -338,66 +464,21 @@ void delay(uint32_t time_ms) {
         CheckSecurity();
     }
 }
-static HAL_StatusTypeDef I2CResetBus(void)
-{
-    __HAL_I2C_DISABLE(&hi2c1);
-    /* 1. Set SWRST bit in I2Cx_CR1 register. */
-    hi2c1.Instance->CR1 |=  I2C_CR1_SWRST;
-    HAL_Delay(2);
-    /* 2. Clear SWRST bit in I2Cx_CR1 register. */
-    hi2c1.Instance->CR1 &=  ~I2C_CR1_SWRST;
-    HAL_Delay(2);
-    /* 3. Enable the I2C peripheral by setting the PE bit in I2Cx_CR1 register */
-    MX_I2C1_Init();
-    __HAL_I2C_ENABLE(&hi2c1);
-    HAL_Delay(2);
-    hi2c1.ErrorCode = HAL_I2C_ERROR_NONE;
-    hi2c1.State = HAL_I2C_STATE_READY;
-    hi2c1.Mode = HAL_I2C_MODE_NONE;
-    return HAL_OK;
-}
+
 void reInitIMU(void) {
-    // If the I2C bus hangs, this will clear the deadlock and re-init the MPU
+	// If the I2C bus hangs, this will clear the deadlock and re-init the MPU
 
-    MotorStop();
-    cutterOFF();
+	MotorStop();
+	cutterOFF();
 
-    add_error_event("reInit IMU");
-    Serial_Console("reInit IMU\r\n");
+	add_error_event("reInit IMU");
+	Serial_Console("reInit IMU\r\n");
 
-    __HAL_RCC_I2C1_FORCE_RESET();
-    __HAL_RCC_I2C2_FORCE_RESET();
-    HAL_Delay(10);
-    __HAL_RCC_I2C1_RELEASE_RESET();
-    __HAL_RCC_I2C2_RELEASE_RESET();
-    HAL_Delay(10);
+	I2C_ClearBusyFlagErratum(&hi2c1, 100);
 
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    HAL_I2C_DeInit(&hi2c1);
-    HAL_I2C_DeInit(&hi2c2);
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    GPIO_InitStruct.Pin = GPIO_PIN_11;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
-    HAL_Delay(2);
-
-    I2CResetBus();
-
-    HAL_I2C_Init(&hi2c1);
-    HAL_I2C_Init(&hi2c2);
-
-    i2c_scanner();
-    Init6050();
+	Init6050();
 }
+
 
 void CalcMagnitude(uint8_t Sensor) {
     float32_t Mag_Out[LENGTH_SAMPLES / 2];
@@ -1795,33 +1876,44 @@ void CheckBWF() {
 }
 
 void ADC_Send(uint8_t Channel) {
-    // Send ADC data
+	// Send ADC data
 
-    unsigned char ADSwrite[6];
+	unsigned char ADSwrite[3];
 
-    ADSwrite[0] = 0x01;
-    ADSwrite[1] = Channel;
-    ADSwrite[2] = 0x83;
-    HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100);
-    ADSwrite[0] = 0x00;
-    HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100);
+	ADSwrite[0] = 0x01;
+	ADSwrite[1] = Channel;
+	ADSwrite[2] = 0x83;
+	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100) != HAL_OK) {
+		add_error_event("Error Transmitting ADC_Send_1");
+		I2C_ClearBusyFlagErratum(&hi2c1, 100);
+		return;
+	}
+	ADSwrite[0] = 0x00;
+	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100) != HAL_OK) {
+		I2C_ClearBusyFlagErratum(&hi2c1, 100);
+		return;
+	}
 }
 
 int ADC_Receive() {
-    // Receive ADC data
+	// Receive ADC data
 
-    unsigned char ADSwrite[6];
-    int reading;
+	unsigned char ADSwrite[2];
+	int reading;
 
-    HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 2, 100);
+	if (HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 2, 100) != HAL_OK) {
+		I2C_ClearBusyFlagErratum(&hi2c1, 100);
+		return 0;
 
-    reading = (ADSwrite[0] << 8 | ADSwrite[1]);
+	}
 
-    if (reading < 0 || reading > 32768) {
-        reading = 0;
-    }
+	reading = (ADSwrite[0] << 8 | ADSwrite[1]);
 
-    return reading;
+	if (reading < 0 || reading > 32767) {
+		reading = 0;
+	}
+
+	return reading;
 }
 
 void UpdateMotorSpeed() {
@@ -2445,7 +2537,6 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
   */
@@ -2479,12 +2570,6 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-  PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
