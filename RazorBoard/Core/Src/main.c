@@ -993,11 +993,11 @@ void unDock(void) {
 
         mpu.roll = 0;
         mpu.pitch = 0;
+        Docked = 0;
 
         MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
         MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
 
-        Docked = 0;
         Initial_Start = 0;
         Start_Threshold = 0;
         Battery_Ready = 0;
@@ -1979,6 +1979,7 @@ void UpdateMotorSpeed() {
 }
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
+	if (Docked == 1) return;
     State = FORWARD;
 
     getIMUOrientation();
@@ -2083,6 +2084,7 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 }
 
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+	if (Docked == 1) return;
     add_error_event("MotorRight");
     State = RIGHT;
     uint32_t motor_timer;
@@ -2114,6 +2116,7 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 }
 
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+	if (Docked == 1) return;
     add_error_event("MotorLeft");
     State = LEFT;
     uint32_t motor_timer;
