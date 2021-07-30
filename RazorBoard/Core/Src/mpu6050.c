@@ -115,7 +115,7 @@ void MPU6050_Read_Accel(void) {
 	float r, p;
 
 	if (board_revision == 12) {
-        p = atan2(Ax , Ay) * 57.3;									// Ay, Az
+        p = atan2(Ax , Ay) * 57.3;										// Ay, Az
     	p -= 90;
         r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
 	} else {

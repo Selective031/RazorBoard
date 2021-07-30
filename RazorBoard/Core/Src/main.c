@@ -2311,17 +2311,17 @@ void CheckState(void) {
 
         if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
             add_error_event("BWF1 OUT BWF2 IN");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
             delay(500);
             MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
             add_error_event("BWF1 IN BWF2 OUT");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
             delay(500);
             MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
         } else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
             add_error_event("BWF1 OUT BWF2 OUT");
-            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorTurnRandom_time + (mpu.pitch * 50)));
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
             delay(500);
             if (rnd(100000) < 50000) {
                 MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
