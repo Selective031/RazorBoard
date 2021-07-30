@@ -680,7 +680,7 @@ void CheckMotorCurrent(int RAW) {
         if (M1_F < settings.Motor_Min_Limit) {
             M1_F = settings.Motor_Min_Limit;
         }
-        if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1) {
+        if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1 && M1_amp < 10.0) {
             sprintf(emsg, "M1 current: %.2f", M1_amp);
             add_error_event(emsg);
             sprintf(msg, "Motor Current Limit reached for M1: %.2f", M1_amp);
@@ -718,7 +718,7 @@ void CheckMotorCurrent(int RAW) {
         if (M2_F < settings.Motor_Min_Limit) {
             M2_F = settings.Motor_Min_Limit;
         }
-        if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1) {
+        if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1 && M2_amp < 10.0) {
             sprintf(emsg, "M2 current: %.2f", M2_amp);
             add_error_event(emsg);
             sprintf(msg, "Motor Current Limit reached for M2: %.2f", M2_amp);
@@ -914,7 +914,7 @@ void CollectADC() {
             }
             C1_amp = fabsf(C1 - C1_error);
 
-            if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0) {
+            if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0 && C1_amp < 10.0) {
                 C1_amp = 0.0;
                 highgrass_slowdown = 1;
                 MotorStop();
