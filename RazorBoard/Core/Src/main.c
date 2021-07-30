@@ -52,6 +52,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+#define I2C1_SCL_Pin GPIO_PIN_6
+#define I2C1_SCL_GPIO_Port GPIOB
+#define I2C1_SDA_Pin GPIO_PIN_7
+#define I2C1_SDA_GPIO_Port GPIOB
+
 IWDG_HandleTypeDef hiwdg;
 
 #define TRUE 1
@@ -329,22 +334,6 @@ bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState
 
 void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 {
-	typedef struct gpios {
-
-		uint16_t 		i2c_scl;
-		GPIO_TypeDef  * i2c_scl_group;
-		uint16_t 		i2c_sda;
-		GPIO_TypeDef  * i2c_sda_group;
-
-	} gpios_i2c;
-
-	gpios_i2c gp;
-
-	gp.i2c_scl = GPIO_PIN_6;
-	gp.i2c_scl_group = GPIOB;
-	gp.i2c_sda = GPIO_PIN_7;
-	gp.i2c_sda_group = GPIOB;
-
     GPIO_InitTypeDef GPIO_InitStructure;
 
     // 1. Clear PE bit.
@@ -356,52 +345,52 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
     GPIO_InitStructure.Pull = GPIO_NOPULL;
 
-    GPIO_InitStructure.Pin = gp.i2c_scl;
-    HAL_GPIO_Init(gp.i2c_scl_group, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = I2C1_SCL_Pin;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_InitStructure.Pin = gp.i2c_sda;
-    HAL_GPIO_Init(gp.i2c_sda_group, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = I2C1_SDA_Pin;
+    HAL_GPIO_Init(I2C1_SDA_GPIO_Port, &GPIO_InitStructure);
 
     // 3. Check SCL and SDA High level in GPIOx_IDR.
-    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET);
 
-    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET, timeout);
-    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET, timeout);
 
     // 4. Configure the SDA I/O as General Purpose Output Open-Drain, Low level (Write 0 to GPIOx_ODR).
-    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_RESET);
 
     // 5. Check SDA Low level in GPIOx_IDR.
-    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_RESET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_RESET, timeout);
 
     // 6. Configure the SCL I/O as General Purpose Output Open-Drain, Low level (Write 0 to GPIOx_ODR).
-    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_RESET);
 
     // 7. Check SCL Low level in GPIOx_IDR.
-    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_RESET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_RESET, timeout);
 
     // 8. Configure the SCL I/O as General Purpose Output Open-Drain, High level (Write 1 to GPIOx_ODR).
-    HAL_GPIO_WritePin(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET);
 
     // 9. Check SCL High level in GPIOx_IDR.
-    wait_for_gpio_state_timeout(gp.i2c_scl_group, gp.i2c_scl, GPIO_PIN_SET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET, timeout);
 
     // 10. Configure the SDA I/O as General Purpose Output Open-Drain , High level (Write 1 to GPIOx_ODR).
-    HAL_GPIO_WritePin(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET);
 
     // 11. Check SDA High level in GPIOx_IDR.
-    wait_for_gpio_state_timeout(gp.i2c_sda_group, gp.i2c_sda, GPIO_PIN_SET, timeout);
+    wait_for_gpio_state_timeout(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET, timeout);
 
     // 12. Configure the SCL and SDA I/Os as Alternate function Open-Drain.
     GPIO_InitStructure.Mode = GPIO_MODE_AF_OD;
     GPIO_InitStructure.Alternate = GPIO_AF4_I2C1;
 
-    GPIO_InitStructure.Pin = gp.i2c_scl;
-    HAL_GPIO_Init(gp.i2c_scl_group, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = I2C1_SCL_Pin;
+    HAL_GPIO_Init(I2C1_SCL_GPIO_Port, &GPIO_InitStructure);
 
-    GPIO_InitStructure.Pin = gp.i2c_sda;
-    HAL_GPIO_Init(gp.i2c_sda_group, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = I2C1_SDA_Pin;
+    HAL_GPIO_Init(I2C1_SDA_GPIO_Port, &GPIO_InitStructure);
 
     // 13. Set SWRST bit in I2Cx_CR1 register.
     SET_BIT(handle->Instance->CR1, I2C_CR1_SWRST);
@@ -419,22 +408,31 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
     HAL_I2C_Init(handle);
 }
 
+
 void Serial_DATA(char *msg) {
     HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
 }
 
 void i2c_scanner(void) {
 
-    if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(72<<1), 10, 100) == HAL_OK &&
-        HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(104<<1), 10, 100) == HAL_OK) {
-        Serial_Console("Scanner OK PCB 1.2\r\n");
-        board_revision = 12;
-        razor_hi2c = &hi2c1;
-    } else {
-        Serial_Console("Scanner OK PCB 1.0\r\n");
-        board_revision = 10;
-        razor_hi2c = &hi2c2;
-    }
+	//72 - ADC
+	//104 - MPU6050
+
+	if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(72<<1), 10, 100) == HAL_OK &&
+			HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(104<<1), 10, 100) == HAL_OK) {
+		Serial_Console("Scanner OK PCB 1.2\r\n");
+		board_revision = 12;
+		razor_hi2c = &hi2c1;
+
+	} else if (HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(104<<1), 10, 100) == HAL_OK){
+		Serial_Console("Scanner OK PCB 1.0\r\n");
+		board_revision = 10;
+		razor_hi2c = &hi2c2;
+	}
+	else {
+		board_revision = 12;
+		razor_hi2c = &hi2c1;
+	}
 }
 
 void getIMUOrientation(void) {
