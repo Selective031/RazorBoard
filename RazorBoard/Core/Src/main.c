@@ -152,7 +152,7 @@ uint32_t OUTSIDE_timer = 0;
 
 uint8_t Docked = 0;
 uint8_t Docked_Locked = 0;
-uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
+uint8_t MasterSwitch = 0;            // This is the "masterswitch", by default this is turned on.
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
@@ -1133,9 +1133,9 @@ void unDock(void) {
 		perimeterTrackingActive = 0;
 		guideTracking = 0;
 		guideTrackingActive = 0;
-		settings.Guide_Integrity_IN = 0.95;
-		settings.Guide_Integrity_OUT = -0.95;
-		settings.Signal_Integrity_OUT = -0.95;
+//		settings.Guide_Integrity_IN = 0.95;
+//		settings.Guide_Integrity_OUT = -0.95;
+//		settings.Signal_Integrity_OUT = -0.95;
 		write_all_settings(settings);
 	}
 }
@@ -1186,7 +1186,7 @@ void ChargerConnected(void) {
 	}
 }
 void guideTracker(void) {
-	if (MasterSwitch == 0) return;
+	if (Docked == 1) return;
 
 	CheckSecurity();
 
@@ -1248,9 +1248,9 @@ void guideTracker(void) {
 
 	if (BWF2_guide_status == OUTSIDE) {
 		if (BWF1_guide_status == OUTSIDE) {
+			MOTOR_LEFT_FORWARD = 0;
 			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.50;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
 			HAL_Delay(200);
-			MOTOR_LEFT_FORWARD = 0;
 		} else if (BWF1_guide_status == INSIDE) {
 			MOTOR_LEFT_BACKWARD = 0;
 			MOTOR_LEFT_FORWARD = speedB;
@@ -1271,7 +1271,7 @@ void guideTracker(void) {
 }
 
 void perimeterTracker(void) {
-	if (MasterSwitch == 0) return;
+	if (Docked == 1) return;
 	CheckSecurity();
 
 	mag_near_bwf = 0;
@@ -1877,8 +1877,6 @@ uint8_t CheckSecurity(void) {
 	}
 
 	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-		getIMUOrientation();    // Double check pitch and roll
-		delay(100);
 		if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
 			sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
 			add_error_event(emsg);
@@ -1915,10 +1913,8 @@ uint8_t CheckSecurity(void) {
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1 && guideTrackingActive == 0) {
 
 		if ( (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) || (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) ) {
-			if (Guide_magBWF1 > (magBWF1 * 1.2) && Guide_magBWF2 > (magBWF2 * 1.2)) {
+			if (Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2) {
 				guideTrackingActive = 1;
-				settings.Guide_Integrity_IN = 0.80;
-				settings.Guide_Integrity_OUT = -0.80;
 			}
 		}
 
@@ -2231,6 +2227,8 @@ void ADC_Send(uint8_t Channel) {
 
 	unsigned char ADSwrite[3];
 
+	memset(ADSwrite, 0, sizeof(ADSwrite));
+
 	ADSwrite[0] = 0x01;
 	ADSwrite[1] = Channel;
 	ADSwrite[2] = 0x83;
@@ -2251,7 +2249,9 @@ int ADC_Receive() {
 	// Receive ADC data
 
 	unsigned char ADSwrite[2];
-	int reading;
+	int16_t reading;
+
+	memset(ADSwrite, 0, sizeof(ADSwrite));
 
 	if (HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 2, 100) != HAL_OK) {
 		add_error_event("Error ADC_Receive");
@@ -3004,7 +3004,6 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
   */
@@ -3038,12 +3037,6 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-  PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
@@ -3181,7 +3174,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;

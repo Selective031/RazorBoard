@@ -34,7 +34,7 @@ void Init6050() {
 	HAL_I2C_Mem_Read(razor_hi2c, MPU6050_ADDR, WHO_AM_I_REG, 1, &check, 1, 50);
 	HAL_Delay(20);
 
-	Data = 0;
+	Data = 0x0;
 	HAL_I2C_Mem_Write(razor_hi2c, MPU6050_ADDR, PWR_MGMT_1_REG, 1,&Data, 1, 50);
 	HAL_Delay(20);
 
@@ -42,8 +42,12 @@ void Init6050() {
 	HAL_I2C_Mem_Write(razor_hi2c, MPU6050_ADDR, SMPLRT_DIV_REG, 1, &Data, 1, 50);
 	HAL_Delay(20);
 
-	Data = 0;
+	Data = 0x0;
 	HAL_I2C_Mem_Write(razor_hi2c, MPU6050_ADDR, GYRO_CONFIG_REG, 1, &Data, 1, 50);
+	HAL_Delay(20);
+
+	Data = 0x0;
+	HAL_I2C_Mem_Write(razor_hi2c, MPU6050_ADDR, ACCEL_CONFIG_REG, 1, &Data, 1, 50);
 	HAL_Delay(20);
 
 }
@@ -95,32 +99,32 @@ void MPU6050_Read_Accel(void) {
 	int16_t Accel_Y_RAW = 0;
 	int16_t Accel_Z_RAW = 0;
 
-	// Read 6 BYTES of data starting from ACCEL_XOUT_H register
+	memset(Rec_Data, 0, sizeof(Rec_Data));
 
-	if (HAL_I2C_Mem_Read (razor_hi2c, MPU6050_ADDR, ACCEL_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
-		reInitIMU();		// if the MPU-6050 does not respond within 50ms, re-init
+	// Read 6 BYTES of data starting from ACCEL_XOUT_H register
+	if (HAL_I2C_Mem_Read(razor_hi2c,MPU6050_ADDR,ACCEL_XOUT_H_REG,I2C_MEMADD_SIZE_8BIT,Rec_Data,6,100) != HAL_OK) {
+		reInitIMU();
 		return;
-	}
+	};
 
 	Accel_X_RAW = (int16_t)(Rec_Data[0] << 8 | Rec_Data [1]);
 	Accel_Y_RAW = (int16_t)(Rec_Data[2] << 8 | Rec_Data [3]);
 	Accel_Z_RAW = (int16_t)(Rec_Data[4] << 8 | Rec_Data [5]);
 
-	Ax = Accel_X_RAW/16384.0;
-	Ay = Accel_Y_RAW/16384.0;
-	Az = Accel_Z_RAW/16384.0;
+	Ax = (int16_t)Accel_X_RAW/16384.0;
+	Ay = (int16_t)Accel_Y_RAW/16384.0;
+	Az = (int16_t)Accel_Z_RAW/16384.0;
 
-	b = (fabsf(Ax) + fabsf(Ay) + fabsf(Az))* 0.02;
+	b = (fabs(Ax) + fabs(Ay) + fabs(Az)) * 0.02;
 
 	float r, p;
 
 	if (board_revision == 12) {
-        p = atan2(Ax , Ay) * 57.3;										// Ay, Az
-    	p -= 90;
-        r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
+        p = (atan2(Ax , Ay) * 57.3) - 90;										// Ay, Az
+        r = atan2((- Az) , sqrt(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
 	} else {
         r = atan2(Ay , Az) * 57.3;										// Ay, Az
-        p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
+        p = atan2((- Ax) , sqrt(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
 	}
 
 	raw_roll = r + mpu.roll_error;
@@ -135,12 +139,14 @@ void MPU6050_Read_Gyro(void) {
 	int16_t Gyro_Y_RAW = 0;
 	int16_t Gyro_Z_RAW = 0;
 
+	memset(Rec_Data, 0, sizeof(Rec_Data));
+
 	// Read 6 BYTES of data starting from GYRO_XOUT_H register
 
-	if (HAL_I2C_Mem_Read (razor_hi2c, MPU6050_ADDR, GYRO_XOUT_H_REG, 1, Rec_Data, 6, 50) != HAL_OK) {
-		reInitIMU();	// if the MPU-6050 does not respond within 50ms, re-init
-		return;
-	}
+	if (HAL_I2C_Mem_Read(razor_hi2c,MPU6050_ADDR,GYRO_XOUT_H_REG,I2C_MEMADD_SIZE_8BIT,Rec_Data,6,100) != HAL_OK) {
+			reInitIMU();
+			return;
+		};
 
 	Gyro_X_RAW = (int16_t)(Rec_Data[0] << 8 | Rec_Data [1]);
 	Gyro_Y_RAW = (int16_t)(Rec_Data[2] << 8 | Rec_Data [3]);
@@ -150,7 +156,7 @@ void MPU6050_Read_Gyro(void) {
 	Gy = Gyro_Y_RAW/131.0;
 	Gz = Gyro_Z_RAW/131.0;
 
-	a = (fabs(Gx) + fabs(Gy) + fabs(Gz))* 0.02;
+	a = (fabs(Gx) + fabs(Gy) + fabs(Gz)) * 0.02;
 
 	float yaw = board_revision == 12
 	        ? Gx
@@ -161,10 +167,8 @@ void MPU6050_Read_Gyro(void) {
 	        : 1;
 
 	if (getYawError == 1) {
-		if (fabsf(yaw) < minLimit) {
-			mpu.yaw_error = fabsf(yaw);		// Auto calibrate the Gyro error at startup
+			mpu.yaw_error = fabs(yaw);		// Auto calibrate the Gyro error at startup
 			getYawError = 0;
-		}
 	}
 
 	yaw += mpu.yaw_error;					//Cancel out error
