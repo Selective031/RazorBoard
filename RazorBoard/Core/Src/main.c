@@ -326,50 +326,11 @@ static void Serial_DATA(char *msg);
 static void scanner(I2C_HandleTypeDef i2c_bus);
 static void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
 static bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
-static void freqAnalyzer(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void freqAnalyzer(void) {
-
-#define FFT_SIZE 256
-	static arm_rfft_instance_q15 fft_instance;
-	static q15_t output[FFT_SIZE*2]; //has to be twice FFT size
-
-	int16_t ADC_Freq_INPUT[FFT_SIZE*4];
-	int16_t FREQ_BUF[FFT_SIZE*2];
-
-//	arm_cfft_radix4_init_f32(&S, 256, 0, 1);
-	HAL_ADC_Stop_DMA(&hadc1);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_Freq_INPUT, FFT_SIZE*4);
-	delay(10);
-	HAL_ADC_Stop_DMA(&hadc1);
-
-	int count = 0;
-	for (int x = 0; x < FFT_SIZE*4; x++) {
-		if (x %2 == 0) {
-			FREQ_BUF[count] = ADC_Freq_INPUT[x] - 2050;
-			count++;
-		}
-	}
-
-
-	arm_rfft_init_q15(&fft_instance, 256/*bin count*/, 0/*forward FFT*/, 1/*output bit order is normal*/);
-
-	arm_rfft_q15(&fft_instance, (q15_t*)FREQ_BUF, output);
-
-	arm_abs_q15(output, output, FFT_SIZE);
-
-	for (int x = 0; x < (FFT_SIZE); x++) {
-		sprintf(msg, "%d %u\r\n", x, output[x]);
-		Serial_Console(msg);
-	}
-
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_BUFFER, ADC_SAMPLE_LEN);
-
-}
 
 bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout)
  {
@@ -542,28 +503,6 @@ void reInitIMU(void) {
 	Serial_Console("reInit IMU\r\n");
 
 	I2C_ClearBusyFlagErratum(&hi2c1, 100);
-/*
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    HAL_I2C_DeInit(&hi2c1);
-    HAL_I2C_DeInit(&hi2c2);
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    GPIO_InitStruct.Pin = GPIO_PIN_11;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    delay(10);
-
-	HAL_I2C_Init(&hi2c1);
-	HAL_I2C_Init(&hi2c2);
-*/
 	Init6050();
 }
 
@@ -1181,6 +1120,8 @@ void ChargerConnected(void) {
 		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
 		add_error_event("Charging active");
 		Serial_Console("Charging activated\r\n");
+		guideTrackingActive = 0;
+		perimeterTrackingActive = 0;
 
 		return;
 	}
@@ -1805,10 +1746,6 @@ void parseCommand_Console(void) {
 				scanner(hi2c1);
 				scanner(hi2c2);
 			}
-			if (strcmp(Command, "FREQ") == 0) {
-				delay(8000);
-				freqAnalyzer();
-			}
 			if (strcmp(Command, "HELP") == 0) {
 				help();
 			}
@@ -1878,13 +1815,11 @@ uint8_t CheckSecurity(void) {
 	}
 
 	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-		if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
 			sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
 			add_error_event(emsg);
 			MotorHardBrake();
 			cutterHardBreak();
 			return SECURITY_IMU_FAIL;
-		}
 	}
 
 	if (HAL_GetTick() - Boundary_Timer >= (settings.Boundary_Timeout * 1000)) {
@@ -2225,13 +2160,11 @@ void ADC_Send(uint8_t Channel) {
 	ADSwrite[1] = Channel;
 	ADSwrite[2] = 0x83;
 	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100) != HAL_OK) {
-		add_error_event("Error Transmitting ADC_Send_1");
 		I2C_ClearBusyFlagErratum(&hi2c1, 100);
 		return;
 	}
 	ADSwrite[0] = 0x00;
 	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 1, 100) != HAL_OK) {
-		add_error_event("Error Transmitting ADC_Send_2");
 		I2C_ClearBusyFlagErratum(&hi2c1, 100);
 		return;
 	}
@@ -2246,7 +2179,6 @@ int ADC_Receive() {
 	memset(ADSwrite, 0, sizeof(ADSwrite));
 
 	if (HAL_I2C_Master_Receive(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 2, 100) != HAL_OK) {
-		add_error_event("Error ADC_Receive");
 		I2C_ClearBusyFlagErratum(&hi2c1, 100);
 		return 0;
 
@@ -2673,7 +2605,6 @@ void CheckState(void) {
 				cutterOFF();
 			}
 			perimeterTrackingActive = 1;
-			settings.Signal_Integrity_OUT = -0.80;
 			delay(500);
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
@@ -2951,7 +2882,6 @@ int main(void)
 					MotorSpeedUpdateFreq_timer = HAL_GetTick();
 				}
 			}
-			CollectADC();
 		} else {
 			if (perimeterTrackingActive == 1) {
 				perimeterTracker();
@@ -2977,6 +2907,8 @@ int main(void)
 		if (UART2_ready == 1) {
 			parseCommand_RPI();
 		}
+
+		CollectADC();
 
     /* USER CODE END WHILE */
 
