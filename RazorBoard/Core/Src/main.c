@@ -136,6 +136,8 @@ float M2_error = 0.0f;              // Auto calibration value stored here.
 float C1_error = 0.0f;              // Auto calibration value stored here.
 float Voltage = 0;
 
+int BWF_cycle = 0;
+
 uint8_t BWF1_Status = 0;
 uint8_t BWF2_Status = 0;
 uint8_t BWF3_Status = 0;
@@ -152,7 +154,7 @@ uint32_t OUTSIDE_timer = 0;
 
 uint8_t Docked = 0;
 uint8_t Docked_Locked = 0;
-uint8_t MasterSwitch = 0;            // This is the "masterswitch", by default this is turned on.
+uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
@@ -759,7 +761,6 @@ uint32_t rnd(uint32_t maxValue) {
 
 void CheckMotorCurrent(int RAW) {
 	// Check if any motor is experiencing a spike in power, then we probably hit something.
-	if (Docked == 1) return;
 	float M1, M2;
 	if (M1_idx == 10 || M2_idx == 10 || C1_idx == 10) {
 		Force_Active = 1;
@@ -975,6 +976,8 @@ void SendInfo() {
 	Serial_Console(msg);
 	sprintf(msg, "Board_Revision: %d\r\n", board_revision);
 	Serial_DATA(msg);
+	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
+	Serial_DATA(msg);
 
 	/*
     char Data[128];
@@ -1031,7 +1034,6 @@ void CollectADC() {
 		CheckMotorCurrent(RAW);
 
 		if (Channel == C1_addr && Docked == 0) {
-			if (Docked == 1) return;
 			C1_Value = RAW;
 			float C1;
 			C1 = fabs(((C1_Value * 0.1875) - 2500) / 100);
@@ -1121,6 +1123,7 @@ void unDock(void) {
 
 		mpu.roll = 0;
 		mpu.pitch = 0;
+		mpu.yaw = 0;
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
@@ -1133,9 +1136,6 @@ void unDock(void) {
 		perimeterTrackingActive = 0;
 		guideTracking = 0;
 		guideTrackingActive = 0;
-//		settings.Guide_Integrity_IN = 0.95;
-//		settings.Guide_Integrity_OUT = -0.95;
-//		settings.Signal_Integrity_OUT = -0.95;
 		write_all_settings(settings);
 	}
 }
@@ -1268,6 +1268,7 @@ void guideTracker(void) {
 		MOTOR_RIGHT_FORWARD = speedB;
 		MOTOR_RIGHT_BACKWARD = 0;
 	}
+
 }
 
 void perimeterTracker(void) {
@@ -1913,7 +1914,7 @@ uint8_t CheckSecurity(void) {
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1 && guideTrackingActive == 0) {
 
 		if ( (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) || (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) ) {
-			if (Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2) {
+			if ((Guide_magBWF1 / magBWF1 > 1.0) && (Guide_magBWF2 / magBWF2 > 1.0)) {
 				guideTrackingActive = 1;
 			}
 		}
@@ -1936,7 +1937,7 @@ void cutterHardBreak() {
 
 	TIM3->CCR1 = 3359;        // Motor will hard brake when both "pins" go HIGH
 	TIM3->CCR2 = 3359;
-	HAL_Delay(3000);
+	delay(3000);
 	cutterOFF();
 }
 
@@ -1991,7 +1992,7 @@ void CheckBWF_Rear() {
 
 	FIR_REAR();
 
-	for (uint16_t idx = 0; idx < 96; idx++) {
+	for (uint16_t idx = 0; idx < 128; idx++) {
 		if (BWF3_reply == 1) {
 			break;
 		}
@@ -2036,6 +2037,8 @@ void CheckBWF() {
 	 * -0.75 = 75% match for OUTSIDE
 	 * -1.0 = 100% match for OUTSIDE
 	 */
+	int BWF_duration;
+	BWF_duration = HAL_GetTick();
 
 	float BWF1_Mixed_Signal = 0;
 	float BWF1_Received_Signal = 0;
@@ -2090,7 +2093,7 @@ void CheckBWF() {
 		Guide_Record = FALSE;
 	}
 
-	for (uint16_t idx = 0; idx < 96; idx++) {
+	for (uint16_t idx = 0; idx < 128; idx++) {
 		if ( (BWF1_reply == 1 && BWF2_reply == 1) || (Guide_BWF1_reply == 1 && Guide_BWF2_reply == 1)) {
 			break;
 		}
@@ -2108,17 +2111,13 @@ void CheckBWF() {
 
 		for (int x = idx; x < (idx + SIGNATURE_LEN - 1); x++) {
 
-			if (guideTrackingActive == 0) {
 				BWF1_Mixed_Signal += (BWF1[x] * validSignature[myID]);
 				BWF2_Mixed_Signal += (BWF2[x] * validSignature[myID]);
 				Match_Signal += validSignature[myID] * validSignature[myID];
 
-			}
-			if (guideTracking == 1) {
 				Guide_BWF1_Mixed_Signal += (BWF1[x] * validGuide[myID]);
 				Guide_BWF2_Mixed_Signal += (BWF2[x] * validGuide[myID]);
 				Guide_Match_Signal += validGuide[myID] * validGuide[myID];
-			}
 
 			BWF1_Received_Signal += BWF1[x] * BWF1[x];
 			BWF2_Received_Signal += BWF2[x] * BWF2[x];
@@ -2126,22 +2125,15 @@ void CheckBWF() {
 			myID++;
 		}
 
-		if (guideTrackingActive == 0) {
 			arm_sqrt_f32((BWF1_Received_Signal * Match_Signal), &Result_Signal);
 			BWF1_Verdict_Signal = (BWF1_Mixed_Signal / Result_Signal);
 			arm_sqrt_f32((BWF2_Received_Signal * Match_Signal), &Result_Signal);
 			BWF2_Verdict_Signal = (BWF2_Mixed_Signal / Result_Signal);
 
-		}
-		if (guideTracking == 1) {
 			arm_sqrt_f32((BWF1_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 			Guide_BWF1_Verdict_Signal = (Guide_BWF1_Mixed_Signal / Guide_Result_Signal);
 			arm_sqrt_f32((BWF2_Received_Signal * Guide_Match_Signal), &Guide_Result_Signal);
 			Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
-
-		}
-
-		if (guideTracking == 1 || guideTrackingActive == 1) {
 
 			if (Guide_BWF1_Verdict_Signal >= settings.Guide_Integrity_IN && Guide_BWF1_reply == 0) {
 				BWF1_guide_status = OUTSIDE;
@@ -2172,7 +2164,6 @@ void CheckBWF() {
 				Guide_BWF2_reply = 1;
 				CalcMagnitude(12);
 			}
-		}
 
 		if (BWF1_Verdict_Signal >= settings.Signal_Integrity_IN && BWF1_reply == 0) {
 			BWF1_Status = INSIDE;
@@ -2221,6 +2212,7 @@ void CheckBWF() {
 		}
 
 	}
+	BWF_cycle = HAL_GetTick() - BWF_duration;
 }
 void ADC_Send(uint8_t Channel) {
 	// Send ADC data
@@ -2665,9 +2657,6 @@ void CheckState(void) {
 		add_error_event("State Fail, waiting");
 		MotorStop();
 		cutterOFF();
-		while (CheckSecurity() != SECURITY_OK) {
-			Serial_Console("State Fail, waiting...\r\n");
-		}
 		State = STOP;
 		return;
 	} else if (State == FORWARD && CheckSecurity() == SECURITY_FAIL) {
