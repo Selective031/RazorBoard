@@ -106,10 +106,22 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
+float PIDerror = 0;
+
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
 uint8_t guideTrackingActive = 0;
-uint8_t guideTracking = 0;
+uint8_t guideTracking = 1;
+
+float32_t magBWFArray1[100] = {0};
+float32_t magBWFArray2[100] = {0};
+uint8_t magBWFIndex1 = 0;
+uint8_t magBWFIndex2 = 0;
+
+float32_t magGuideArray1[100] = {0};
+float32_t magGuideArray2[100] = {0};
+uint8_t magGuideIndex1 = 0;
+uint8_t magGuideIndex2 = 0;
 
 uint8_t Initial_Start = 0;
 uint16_t Start_Threshold = 0;
@@ -154,7 +166,7 @@ uint32_t OUTSIDE_timer = 0;
 
 uint8_t Docked = 0;
 uint8_t Docked_Locked = 0;
-uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
+uint8_t MasterSwitch = 0;            // This is the "masterswitch", by default this is turned on.
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
@@ -184,8 +196,8 @@ arm_fir_instance_f32 S;
 uint8_t Signature_Record = FALSE;
 uint8_t Guide_Record = FALSE;
 
-uint16_t magBWF1, magBWF2, magBWF3;
-uint16_t Guide_magBWF1, Guide_magBWF2;
+float32_t magBWF1, magBWF2, magBWF3;
+float32_t Guide_magBWF1, Guide_magBWF2;
 
 uint32_t MotorSpeedUpdateFreq_timer = 0;        // Timer for MotorSpeed Update
 uint8_t MotorSpeedUpdateFreq = 100;                // Freq to update motor speed, in milliseconds
@@ -338,44 +350,42 @@ static void PIDtracker(void);
 
 void PIDtracker(void) {
 
+	if (Docked == 1 || MasterSwitch == 0) {
+		MotorStop();
+		return;
+	}
+
+	if (cutterStatus == 1) {
+		cutterOFF();
+	}
+
 	CheckBWF();
 
 	GoHome_timer_IN = HAL_GetTick();
 	GoHome_timer_OUT = HAL_GetTick();
 
-	uint16_t Magnitude;
-
-	// BWF1 = OUT
-	// BWF2 = IN
-
-	if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
-		if (setPoint == 0) setPoint = (Guide_magBWF1 + Guide_magBWF2) / 2;
-	}
-
-	Magnitude = (Guide_magBWF1 + Guide_magBWF2) / 2;
-
-	float error = 0;
+	PIDerror = 0;
 
 	int speed_M1 = 3000;
 	int speed_M2 = 3000;
 
-	if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
-		error = arm_pid_f32(&PID, setPoint + Magnitude);
+
+	if (BWF1_guide_status == OUTSIDE) {
+		if (setPoint == 10) arm_pid_init_f32(&PID, 1);
+		setPoint = -10;
+		PIDerror = arm_pid_f32(&PID, setPoint);
 	}
-	if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
-		error = arm_pid_f32(&PID, setPoint - Magnitude);
+	if (BWF1_guide_status == INSIDE) {
+		if (setPoint == -10) arm_pid_init_f32(&PID, 1);
+		setPoint = 10;
+		PIDerror = arm_pid_f32(&PID, setPoint);
 	}
 
-	if (Magnitude >= (setPoint-5) && Magnitude <= (setPoint+5)) {
-		arm_pid_init_f32(&PID, 1);
-		error = 0;
-	}
+	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
+	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
 
-	if (error < 0) speed_M1 -= abs((int)error);
-	if (error > 0) speed_M1 += abs((int)error);
-
-	if (error < 0) speed_M2 += abs((int)error);
-	if (error > 0) speed_M2 -= abs((int)error);
+	if (PIDerror < 0) speed_M2 += abs((int)PIDerror);
+	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
 
 
 	if (speed_M1 < 1000) speed_M1 = 1000;
@@ -384,11 +394,10 @@ void PIDtracker(void) {
 	if (speed_M1 > 3359) speed_M1 = 3359;
 	if (speed_M2 > 3359) speed_M2 = 3359;
 
-	MOTOR_RIGHT_BACKWARD = 0;
-	MOTOR_RIGHT_FORWARD = speed_M2;
-
 	MOTOR_LEFT_BACKWARD = 0;
 	MOTOR_LEFT_FORWARD = speed_M1;
+	MOTOR_RIGHT_BACKWARD = 0;
+	MOTOR_RIGHT_FORWARD = speed_M2;
 
 }
 
@@ -596,17 +605,27 @@ void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
 	}
 	arm_sqrt_f32(sum, &magValue);
 
-	magValue *= 2;
-
 	if (Sensor == 1) {
-		magBWF1 = round(magValue);
+		magBWFArray1[magBWFIndex1] = magValue;
+		magBWFIndex1++;
+		if (magBWFIndex1 == 100) magBWFIndex1 = 0;
+		if (magBWFArray1[99] != 0) arm_mean_f32(magBWFArray1, 100, &magBWF1);
 	} else if (Sensor == 2) {
-		magBWF2 = round(magValue);
+		magBWFArray2[magBWFIndex2] = magValue;
+		magBWFIndex2++;
+		if (magBWFIndex2 == 100) magBWFIndex2 = 0;
+		if (magBWFArray2[99] != 0) arm_mean_f32(magBWFArray2, 100, &magBWF2);
 	}
 	if (Sensor == 11) {
-		Guide_magBWF1 = round(magValue);
+		magGuideArray1[magGuideIndex1] = magValue;
+		magGuideIndex1++;
+		if (magGuideIndex1 == 100) magGuideIndex1 = 0;
+		if (magGuideArray1[99] != 0) arm_mean_f32(magGuideArray1, 100, &Guide_magBWF1);
 	} else if (Sensor == 12) {
-		Guide_magBWF2 = round(magValue);
+		magGuideArray2[magGuideIndex2] = magValue;
+		magGuideIndex2++;
+		if (magGuideIndex2 == 100) magGuideIndex2 = 0;
+		if (magGuideArray2[99] != 0) arm_mean_f32(magGuideArray2, 100, &Guide_magBWF2);
 	}
 
 	if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) && (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
@@ -906,9 +925,9 @@ void SendInfo() {
 			bwf1guide_outside, bwf2guide_outside);
 	Serial_DATA(msg);
 
-	sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
+	sprintf(msg, "Magnitude -> BWF1: %.2f BWF2: %.2f\r\n", magBWF1, magBWF2);
 	Serial_DATA(msg);
-	sprintf(msg, "GuideMagnitude -> BWF1: %d BWF2: %d\r\n", Guide_magBWF1, Guide_magBWF2);
+	sprintf(msg, "GuideMgmt -> BWF1: %.2f BWF2: %.2f\r\n", Guide_magBWF1, Guide_magBWF2);
 	Serial_DATA(msg);
 	sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
 	Serial_DATA(msg);
@@ -992,6 +1011,10 @@ void SendInfo() {
 	sprintf(msg, "Board_Revision: %d\r\n", board_revision);
 	Serial_DATA(msg);
 	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
+	Serial_DATA(msg);
+	sprintf(msg, "setPoint: %.2f\r\n", setPoint);
+	Serial_DATA(msg);
+	sprintf(msg, "Error: %.2f\r\n", PIDerror);
 	Serial_DATA(msg);
 
 	/*
@@ -2930,9 +2953,9 @@ int main(void)
 		V1_array[x] = settings.Battery_High_Limit;
 	}
 
-	PID.Kp = 20.0;
-	PID.Kd = 0.04;
-	PID.Ki = 0.2;
+	PID.Kp = 40.0;
+	PID.Kd = 0.02;
+	PID.Ki = 0.01;
 
     arm_pid_init_f32(&PID, 1);
 
