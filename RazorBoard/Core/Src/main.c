@@ -929,6 +929,10 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
 	Serial_DATA(msg);
+    sprintf(msg, "Docked: %d\r\n", Docked);
+    Serial_Console(msg);
+    sprintf(msg, "Enabled: %d\r\n", MasterSwitch);
+    Serial_Console(msg);
 	sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
 	Serial_DATA(msg);
 	sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
@@ -1402,6 +1406,37 @@ void parseCommand_Console(void) {
 				MotorStop();
 				Serial_Console("Done.\r\n");
 			}
+            if (strncmp(Command, "MOTOR RIGHT", 11) == 0) {
+                int ms;
+                char cmd1[5], cmd2[5];
+                sscanf(Command, "%s %s %d ", cmd1, cmd2, &ms);
+                MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, ms);
+            }
+            if (strncmp(Command, "MOTOR LEFT", 10) == 0) {
+                int ms;
+                char cmd1[5], cmd2[4];
+                sscanf(Command, "%s %s %d ", cmd1, cmd2, &ms);
+
+                MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, ms);
+            }
+            if (strncmp(Command, "MOTOR BACKWARDS", 15) == 0) {
+                int ms;
+                char cmd1[5], cmd2[9];
+                sscanf(Command, "%s %s %d ", cmd1, cmd2, &ms);
+                MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, ms, true);
+            }
+            if (strncmp(Command, "MOTOR FORWARD", 13) == 0) {
+                int ms;
+                char cmd1[5], cmd2[7];
+                sscanf(Command, "%s %s %d ", cmd1, cmd2, &ms);
+                MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+                HAL_Delay(ms);
+                MotorStop();
+            }
+            if (strcmp(Command, "MOTOR STOP") == 0) {
+                MotorStop();
+            }
+
 			if (strcmp(Command, "REBOOT") == 0) {
 				Serial_Console("Rebooting...\r\n");
 				HAL_Delay(500);
