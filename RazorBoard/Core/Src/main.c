@@ -1148,7 +1148,7 @@ void unDock(void) {
 		add_error_event("Switch Main Battery");
 		Serial_Console("Switching to Main Battery\r\n");
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
-		HAL_Delay(5000);
+		delay(5000);
 
 		MasterSwitch = 1;
 		Docked = 0;
@@ -1192,7 +1192,7 @@ void ChargerConnected(void) {
 			add_error_event("Charger disconnect");
 			Serial_Console("Charger disconnected.\r\n");
 			ChargerConnect = 0;
-			HAL_Delay(5000);
+			delay(5000);
 			unDock();
 		}
 		return;
@@ -1205,12 +1205,12 @@ void ChargerConnected(void) {
 		cutterHardBreak();
 		add_error_event("Charger connect");
 		Serial_Console("Charger Connected\r\n");
-		HAL_Delay(5000);
+		delay(5000);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
 		Serial_Console("Changing Main Power\r\n");
 		ChargerConnect = 1;
 		Docked = 1;
-		HAL_Delay(2000);
+		delay(2000);
 		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
 		add_error_event("Charging active");
 		Serial_Console("Charging activated\r\n");
