@@ -306,7 +306,6 @@ static void cutterHardBreak(void);
 static void parseCommand_RPI(void);
 static void parseCommand_Console(void);
 static void perimeterTracker(void);
-static void guideTracker(void);
 static void ChargerConnected(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
@@ -664,8 +663,8 @@ void TimeToGoHome(void) {
 	if (currTime.Hours >= settings.WorkingHourEnd || Voltage <= settings.Battery_Low_Limit) {
 		sprintf(emsg, "tracking enabled %d", currTime.Hours);
 		add_error_event(emsg);
-//		perimeterTracking = 1;
-		guideTracking = 1;
+		if (settings.use_guide_wire == 0) perimeterTracking = 1;
+		else guideTracking = 1;
 	}
 }
 
@@ -819,7 +818,7 @@ void CheckMotorCurrent(int RAW) {
 		if (M1_F < settings.Motor_Min_Limit) {
 			M1_F = settings.Motor_Min_Limit;
 		}
-		if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1 && M1_amp < 10.0) {
+		if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1 && M1_amp < 10.0 && perimeterTrackingActive == 0 && guideTrackingActive == 0) {
 			sprintf(emsg, "M1 current: %.2f", M1_amp);
 			add_error_event(emsg);
 			sprintf(msg, "Motor Current Limit reached for M1: %.2f", M1_amp);
@@ -857,7 +856,7 @@ void CheckMotorCurrent(int RAW) {
 		if (M2_F < settings.Motor_Min_Limit) {
 			M2_F = settings.Motor_Min_Limit;
 		}
-		if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1 && M2_amp < 10.0) {
+		if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1 && M2_amp < 10.0 && perimeterTrackingActive == 0 && guideTrackingActive == 0) {
 			sprintf(emsg, "M2 current: %.2f", M2_amp);
 			add_error_event(emsg);
 			sprintf(msg, "Motor Current Limit reached for M2: %.2f", M2_amp);
@@ -1060,7 +1059,7 @@ void CollectADC() {
 		ADC_timer = HAL_GetTick();
 	}
 
-	if ((HAL_GetTick() - ADC_timer) >= 25 && Channel_Status == 1) {
+	if ((HAL_GetTick() - ADC_timer) >= 20 && Channel_Status == 1) {
 		int RAW = 0;
 		RAW = ADC_Receive();
 
@@ -1075,7 +1074,7 @@ void CollectADC() {
 			}
 			C1_amp = fabs(C1 - C1_error);
 
-			if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0 && C1_amp < 10.0) {
+			if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0 && C1_amp < 10.0 && perimeterTrackingActive == 0 && guideTrackingActive == 0) {
 				add_error_event("High Grass detected");
 				highgrass_slowdown = 1;
 				MotorStop();
@@ -1097,6 +1096,7 @@ void CollectADC() {
 					}
 				}
 			}
+
 			if (C1_amp >= settings.Cutter_Limit && C1_amp < 10.0) {
 				sprintf(emsg, "C1 current: %.2f", C1_amp);
 				add_error_event(emsg);
@@ -1219,91 +1219,6 @@ void ChargerConnected(void) {
 
 		return;
 	}
-}
-void guideTracker(void) {
-	if (Docked == 1) return;
-
-	CheckSecurity();
-
-	mag_near_bwf = 0;
-	highgrass_slowdown = 0;
-
-	elapsedTime = HAL_GetTick() - previousTime;
-
-	if (BWF2_guide_status == OUTSIDE) {
-		Tick1 -= (elapsedTime * 4);
-		Tick2 = 0;
-		GoHome_timer_IN = HAL_GetTick();
-
-		if (HAL_GetTick() - GoHome_timer_OUT >= 10000) {        // 10 seconds
-			guideTrackingActive = 0;
-			guideTracking = 0;
-			MasterSwitch = 0;
-			add_error_event("Stuck guideTracking BWF2 OUT - HALT");
-			return;
-		}
-	}
-
-	if (BWF2_guide_status == INSIDE) {
-		Tick2 -= (elapsedTime * 4);
-		Tick1 = 0;
-		GoHome_timer_OUT = HAL_GetTick();
-
-		if (HAL_GetTick() - GoHome_timer_IN >= 10000) {            // 10 seconds
-			guideTrackingActive = 0;
-			guideTracking = 0;
-			MasterSwitch = 0;
-			add_error_event("Stuck guideTracking BWF2 IN - HALT");
-			return;
-		}
-	}
-
-	error = settings.perimeterTrackerSpeed - (Tick1 + Tick2);                // determine error
-	cumError += error * elapsedTime;               // compute integral
-	rateError = (error - lastError) / elapsedTime;   // compute derivative
-
-	double out = settings.kp * error + settings.ki * cumError + settings.kd * rateError;                //PID output
-
-	lastError = error;                             //remember current error
-	previousTime = HAL_GetTick();                  //remember current time
-
-	int speedA = (settings.perimeterTrackerSpeed + round(out));
-	int speedB = (settings.perimeterTrackerSpeed - round(out));
-
-	if (speedA > settings.perimeterTrackerSpeed) {
-		speedA = settings.perimeterTrackerSpeed;
-	}                // limit upper and lower speed
-	if (speedB > settings.perimeterTrackerSpeed)
-		speedB = settings.perimeterTrackerSpeed;
-
-	if (speedA < 1000)
-		speedA = 1000;
-	if (speedB < 1000)
-		speedB = 1000;
-
-	if (BWF2_guide_status == OUTSIDE) {
-		if (BWF1_guide_status == OUTSIDE) {
-			MOTOR_LEFT_FORWARD = 0;
-			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.50;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
-			HAL_Delay(200);
-		} else if (BWF1_guide_status == INSIDE) {
-			MOTOR_LEFT_BACKWARD = 0;
-			MOTOR_LEFT_FORWARD = speedB;
-		}
-
-
-		MOTOR_RIGHT_FORWARD = speedA;
-		MOTOR_RIGHT_BACKWARD = 0;
-	}
-
-	if (BWF2_guide_status == INSIDE) {
-		MOTOR_LEFT_BACKWARD = 0;
-		MOTOR_LEFT_FORWARD = speedA;
-
-		MOTOR_RIGHT_FORWARD = speedB;
-		MOTOR_RIGHT_BACKWARD = 0;
-	}
-
 }
 
 void perimeterTracker(void) {
@@ -1812,6 +1727,12 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %f", cmd1, cmd2, cmd3, &highgrass);
 				settings.highgrass_Limit = highgrass;
 			}
+			if (strncmp(Command, "SET USE GUIDE WIRE", 18) == 0) {
+				uint8_t guide_wire;
+				char cmd1[3], cmd2[3], cmd3[5], cmd4[4];
+				sscanf(Command, "%s %s %s %s %hhd", cmd1, cmd2, cmd3, cmd4, &guide_wire);
+				settings.use_guide_wire = guide_wire;
+			}
 			if (strcmp(Command, "DISABLE") == 0) {
 				MasterSwitch = 0;
 				add_error_event("User typed disable");
@@ -2253,7 +2174,7 @@ void ADC_Send(uint8_t Channel) {
 	ADSwrite[0] = 0x01;
 	ADSwrite[1] = Channel;
 	ADSwrite[2] = 0x83;
-	if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100) != HAL_OK) {
+    if (HAL_I2C_Master_Transmit(&hi2c1, ADS1115_ADDRESS << 1, ADSwrite, 3, 100) != HAL_OK) {
 		I2C_ClearBusyFlagErratum(&hi2c1, 100);
 		return;
 	}
@@ -2765,40 +2686,41 @@ void CheckState(void) {
 		add_error_event("Found Guide Wire");
 
 		CheckBWF();
-/*
-		GoHome_timer_IN = HAL_GetTick();
-		GoHome_timer_OUT = HAL_GetTick();
+		if (settings.use_guide_wire == 0) {
 
-		if (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) {
-			add_error_event("Orientation correct on Guide Wire");
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
-			return;
-		}
-		if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
-			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-			return;
-		}
-		if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
-			MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-			return;
-		}
-		if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
-			MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-			return;
-		}
 
-		MotorStop();
-		GoHome_timer_IN = HAL_GetTick();
-		GoHome_timer_OUT = HAL_GetTick();
-		return;
-*/
+			if (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) {
+				add_error_event("Orientation correct on Guide Wire");
+				GoHome_timer_IN = HAL_GetTick();
+				GoHome_timer_OUT = HAL_GetTick();
+				return;
+			}
+			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
+				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				GoHome_timer_IN = HAL_GetTick();
+				GoHome_timer_OUT = HAL_GetTick();
+				return;
+			}
+			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
+				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				GoHome_timer_IN = HAL_GetTick();
+				GoHome_timer_OUT = HAL_GetTick();
+				return;
+		}
+			if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
+				MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				GoHome_timer_IN = HAL_GetTick();
+				GoHome_timer_OUT = HAL_GetTick();
+				return;
+			}
+
+			MotorStop();
+			GoHome_timer_IN = HAL_GetTick();
+			GoHome_timer_OUT = HAL_GetTick();
+			return;
+		}
 
 	} else if (State == FORWARD) {
 		if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
@@ -3577,9 +3499,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 84-1;
+  htim6.Init.Prescaler = 28-1;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 65535;
+  htim6.Init.Period = 30000-1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -3749,8 +3671,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		 SendInfo();
 	 }
 	 if(htim->Instance==TIM6) {
-
-
 	 }
 
 }

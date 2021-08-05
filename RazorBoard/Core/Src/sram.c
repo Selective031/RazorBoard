@@ -221,6 +221,7 @@ sram_settings read_all_settings(void) {
     settings.bumper_count_limit = read_sram_uint8(BUMPER_COUNT_ADDR);
     settings.undock_backing_seconds = read_sram_uint8(UNDOCK_BACKING_SECONDS_ADDR);
     settings.cut_perimeter_ratio = read_sram_uint8(CUT_PERIMETER_RATIO_ADDR);
+    settings.use_guide_wire = read_sram_uint8(USE_GUIDE_WIRE_ADDR);
 
     settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
     settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
@@ -298,6 +299,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint8(settings.bumper_count_limit, BUMPER_COUNT_ADDR);
     write_sram_uint8(settings.undock_backing_seconds, UNDOCK_BACKING_SECONDS_ADDR);
     write_sram_uint8(settings.cut_perimeter_ratio, CUT_PERIMETER_RATIO_ADDR);
+    write_sram_uint8(settings.use_guide_wire, USE_GUIDE_WIRE_ADDR);
 
 
     // uint16_t
@@ -394,6 +396,7 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.motorTurnStatic_time = 700;
     settings.motorTurnRandom_time = 700;
     settings.motorBackward_time = 1500;
+    settings.use_guide_wire = 0;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
@@ -540,6 +543,10 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.movement < 0 || settings.movement > 5) {
     	settings.movement = defaultSettings.movement;
+    }
+
+    if (settings.use_guide_wire < 0 || settings.use_guide_wire > 1) {
+    	settings.use_guide_wire = defaultSettings.use_guide_wire;
     }
 
     settings.Config_Set = global_settings_version;

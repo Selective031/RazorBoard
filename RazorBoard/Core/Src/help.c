@@ -113,6 +113,8 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Guide OUT: %.2f\r\n", settings.Guide_Integrity_OUT);
     Serial_Console(msg);
+    sprintf(msg, "Use Guide: %d\r\n", settings.use_guide_wire);
+    Serial_Console(msg);
 }
 
 void help(void) {
@@ -179,6 +181,7 @@ void help(void) {
     Serial_Console("                              Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
     Serial_Console("TRACK PERIMETER             - Track perimeter next time it crosses\r\n");
     Serial_Console("TRACK GUIDE                 - Track guide next time it crosses\r\n");
+    Serial_Console("SET USE GUIDE WIRE          - Enable this to use Guide Wire to charger\r\n");
     Serial_Console("SET PERIMETER SPEED         - Set track perimeter speed\r\n");
     Serial_Console("SET PERIMETER CUT RATIO     - Set ratio for cutting perimeter wire (0-100)\r\n");
     Serial_Console("SET KP                      - PID Controller KP for Perimeter Tracking\r\n");
