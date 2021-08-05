@@ -362,7 +362,7 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.Motor_Limit = 4.0;
     settings.Overturn_Limit = 35;
     settings.Signal_Integrity_IN = 0.80;
-    settings.Signal_Integrity_OUT = -0.80;
+    settings.Signal_Integrity_OUT = -0.85;
     settings.WorkingHourStart = 10;
     settings.WorkingHourEnd = 20;
     settings.kp = 0.20;
@@ -389,8 +389,8 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.BatteryChargeTime = 60;
     settings.perimeterTrackerSpeed = 3360 - 1;
     settings.cut_perimeter_ratio = 0;
-    settings.Guide_Integrity_IN = 0.95;
-    settings.Guide_Integrity_IN = -0.95;
+    settings.Guide_Integrity_IN = 0.90;
+    settings.Guide_Integrity_IN = -0.90;
     settings.motorTurnStatic_time = 700;
     settings.motorTurnRandom_time = 700;
     settings.motorBackward_time = 1500;
@@ -491,11 +491,11 @@ uint8_t validate_settings(uint8_t revision) {
         settings.Guide_Integrity_IN = defaultSettings.Guide_Integrity_IN;
     }
 
-    if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 30) {
+    if (settings.Battery_High_Limit < 7 || settings.Battery_High_Limit > 32) {
         settings.Battery_High_Limit = defaultSettings.Battery_High_Limit;
     }
 
-    if (settings.Battery_Low_Limit < 7 || settings.Battery_Low_Limit > 30) {
+    if (settings.Battery_Low_Limit < 7 || settings.Battery_Low_Limit > 32) {
         settings.Battery_Low_Limit = defaultSettings.Battery_Low_Limit;
     }
 
@@ -536,6 +536,10 @@ uint8_t validate_settings(uint8_t revision) {
     }
     if (settings.motorBackward_time < 0 || settings.motorBackward_time > 4000) {
     	settings.motorBackward_time = defaultSettings.motorBackward_time;
+    }
+
+    if (settings.movement < 0 || settings.movement > 5) {
+    	settings.movement = defaultSettings.movement;
     }
 
     settings.Config_Set = global_settings_version;

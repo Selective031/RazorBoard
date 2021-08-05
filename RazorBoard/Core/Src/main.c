@@ -106,12 +106,10 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
-float PIDerror = 0;
-
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
 uint8_t guideTrackingActive = 0;
-uint8_t guideTracking = 1;
+uint8_t guideTracking = 0;
 
 float32_t magBWFArray1[100] = {0};
 float32_t magBWFArray2[100] = {0};
@@ -122,6 +120,7 @@ float32_t magGuideArray1[100] = {0};
 float32_t magGuideArray2[100] = {0};
 uint8_t magGuideIndex1 = 0;
 uint8_t magGuideIndex2 = 0;
+float setPoint = 0;
 
 uint8_t Initial_Start = 0;
 uint16_t Start_Threshold = 0;
@@ -166,7 +165,7 @@ uint32_t OUTSIDE_timer = 0;
 
 uint8_t Docked = 0;
 uint8_t Docked_Locked = 0;
-uint8_t MasterSwitch = 0;            // This is the "masterswitch", by default this is turned on.
+uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
@@ -221,8 +220,6 @@ uint8_t move_count = 0;
 uint8_t board_revision = 12;
 
 uint32_t BWF_timer = 0;
-
-float setPoint = 0;
 
 sram_settings settings;
 sram_error errors;
@@ -350,6 +347,8 @@ static void PIDtracker(void);
 
 void PIDtracker(void) {
 
+	CheckBWF();
+
 	if (Docked == 1 || MasterSwitch == 0) {
 		MotorStop();
 		return;
@@ -359,27 +358,26 @@ void PIDtracker(void) {
 		cutterOFF();
 	}
 
-	CheckBWF();
-
 	GoHome_timer_IN = HAL_GetTick();
 	GoHome_timer_OUT = HAL_GetTick();
 
-	PIDerror = 0;
+	float PIDerror = 0;
 
 	int speed_M1 = 3000;
 	int speed_M2 = 3000;
 
+	if (BWF1_guide_status == INSIDE) {
+		if (setPoint == -20) arm_pid_init_f32(&PID, 1);
+		setPoint = 20;
+		PIDerror = arm_pid_f32(&PID, setPoint);
+	}
 
 	if (BWF1_guide_status == OUTSIDE) {
-		if (setPoint == 10) arm_pid_init_f32(&PID, 1);
-		setPoint = -10;
+		if (setPoint == 20) arm_pid_init_f32(&PID, 1);
+		setPoint = -20;
 		PIDerror = arm_pid_f32(&PID, setPoint);
 	}
-	if (BWF1_guide_status == INSIDE) {
-		if (setPoint == -10) arm_pid_init_f32(&PID, 1);
-		setPoint = 10;
-		PIDerror = arm_pid_f32(&PID, setPoint);
-	}
+
 
 	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
 	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
@@ -666,7 +664,8 @@ void TimeToGoHome(void) {
 	if (currTime.Hours >= settings.WorkingHourEnd || Voltage <= settings.Battery_Low_Limit) {
 		sprintf(emsg, "tracking enabled %d", currTime.Hours);
 		add_error_event(emsg);
-		perimeterTracking = 1;
+//		perimeterTracking = 1;
+		guideTracking = 1;
 	}
 }
 
@@ -1012,10 +1011,6 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
 	Serial_DATA(msg);
-	sprintf(msg, "setPoint: %.2f\r\n", setPoint);
-	Serial_DATA(msg);
-	sprintf(msg, "Error: %.2f\r\n", PIDerror);
-	Serial_DATA(msg);
 
 	/*
     char Data[128];
@@ -1082,7 +1077,6 @@ void CollectADC() {
 
 			if (C1_amp >= settings.highgrass_Limit && mag_near_bwf == 0 && C1_amp < 10.0) {
 				add_error_event("High Grass detected");
-				C1_amp = 0.0;
 				highgrass_slowdown = 1;
 				MotorStop();
 				MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
@@ -1090,7 +1084,7 @@ void CollectADC() {
 				MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed * 0.78);
 				highgrass_timer = HAL_GetTick();
 			} else {
-				if (HAL_GetTick() - highgrass_timer >= 5000 && highgrass_slowdown == 1) {
+				if (HAL_GetTick() - highgrass_timer >= 5000 && highgrass_slowdown == 1 && MasterSwitch == 1 && Docked == 0) {
 					highgrass_slowdown = 0;
 					for (uint32_t x = (settings.motorMaxSpeed * 0.78); x < settings.motorMaxSpeed; x++) {
 						MOTOR_LEFT_FORWARD = x;
@@ -1162,9 +1156,7 @@ void unDock(void) {
 		mpu.roll = 0;
 		mpu.pitch = 0;
 		mpu.yaw = 0;
-
-		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
+		setPoint = 0;
 
 		Initial_Start = 0;
 		Start_Threshold = 0;
@@ -1175,6 +1167,9 @@ void unDock(void) {
 		guideTracking = 0;
 		guideTrackingActive = 0;
 		write_all_settings(settings);
+
+		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
+		MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
 	}
 }
 
@@ -2392,12 +2387,12 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 }
 
 void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
 }
 
 void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced) {
-	if (MasterSwitch == 0) return;
+	if (MasterSwitch == 0 || Docked == 1) return;
 	add_error_event("MotorBackward");
 	uint32_t motor_timer;
 	State = BACKWARD;
@@ -2953,9 +2948,9 @@ int main(void)
 		V1_array[x] = settings.Battery_High_Limit;
 	}
 
-	PID.Kp = 40.0;
+	PID.Kp = 20.0;
 	PID.Kd = 0.02;
-	PID.Ki = 0.01;
+	PID.Ki = 0.05;
 
     arm_pid_init_f32(&PID, 1);
 
