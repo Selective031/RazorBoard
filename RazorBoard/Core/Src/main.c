@@ -87,7 +87,7 @@ IWDG_HandleTypeDef hiwdg;
 #define SECURITY_MOVEMENT 8
 #define SECURITY_BACKWARD_OUTSIDE 9
 
-#define INITIAL_MAX_THRESHOLD 10000
+#define INITIAL_MAX_THRESHOLD 5000
 
 #define PI_BFR_SIZE 64                // Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64            // Buffer size for Serial Console
@@ -110,17 +110,18 @@ uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
 uint8_t guideTrackingActive = 0;
 uint8_t guideTracking = 0;
+uint8_t SwitchTracker = 0;
 
-float32_t magBWFArray1[100] = {0};
-float32_t magBWFArray2[100] = {0};
+float32_t magBWFArray1[50] = {0};
+float32_t magBWFArray2[50] = {0};
 uint8_t magBWFIndex1 = 0;
 uint8_t magBWFIndex2 = 0;
+float magGuide_max = 0;
 
-float32_t magGuideArray1[100] = {0};
-float32_t magGuideArray2[100] = {0};
+float32_t magGuideArray1[50] = {0};
+float32_t magGuideArray2[50] = {0};
 uint8_t magGuideIndex1 = 0;
 uint8_t magGuideIndex2 = 0;
-float setPoint = 0;
 
 uint8_t Initial_Start = 0;
 uint16_t Start_Threshold = 0;
@@ -197,6 +198,7 @@ uint8_t Guide_Record = FALSE;
 
 float32_t magBWF1, magBWF2, magBWF3;
 float32_t Guide_magBWF1, Guide_magBWF2;
+float Mag = 0;
 
 uint32_t MotorSpeedUpdateFreq_timer = 0;        // Timer for MotorSpeed Update
 uint8_t MotorSpeedUpdateFreq = 100;                // Freq to update motor speed, in milliseconds
@@ -357,26 +359,58 @@ void PIDtracker(void) {
 		cutterOFF();
 	}
 
-	GoHome_timer_IN = HAL_GetTick();
-	GoHome_timer_OUT = HAL_GetTick();
-
 	float PIDerror = 0;
+	float setPoint = 175.0;
 
-	int speed_M1 = 3000;
-	int speed_M2 = 3000;
+	Mag = Guide_magBWF2;
 
-	if (BWF1_guide_status == INSIDE) {
-		if (setPoint == -20) arm_pid_init_f32(&PID, 1);
-		setPoint = 20;
-		PIDerror = arm_pid_f32(&PID, setPoint);
+	if (magBWF2 > (setPoint - 10)) {
+		Mag += magBWF2 * 0.2;
 	}
 
-	if (BWF1_guide_status == OUTSIDE) {
-		if (setPoint == 20) arm_pid_init_f32(&PID, 1);
-		setPoint = -20;
-		PIDerror = arm_pid_f32(&PID, setPoint);
+
+	int speed_M1 = 2700;
+	int speed_M2 = 2700;
+
+	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF2_guide_status == OUTSIDE) {
+		PIDerror =  arm_pid_f32(&PID, setPoint - Mag);
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+	}
+	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF2_guide_status == INSIDE) {
+		Mag = setPoint + 10;
+		PIDerror =  arm_pid_f32(&PID, (setPoint - Mag ));
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+
 	}
 
+	if (Mag >= (setPoint -2) && Mag <= (setPoint+2)) {
+		PIDerror = 0;
+		arm_pid_init_f32(&PID, 1);
+	}
+
+	if (BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) {
+		guideTracking = 0;
+		guideTrackingActive = 0;
+		perimeterTracking = 1;
+		perimeterTrackingActive = 1;
+		SwitchTracker = 1;
+		return;
+	}
+/*
+	if (SwitchTracker == 1 && BWF2_Status == INSIDE) {
+		if (BWF2_guide_status == OUTSIDE) PIDerror =  arm_pid_f32(&PID, 40);
+		if (BWF2_guide_status == INSIDE) PIDerror =  -arm_pid_f32(&PID, 40);
+	}
+
+	if (SwitchTracker == 1 && BWF2_Status == OUTSIDE) {
+		if (BWF2_guide_status == OUTSIDE) PIDerror =  arm_pid_f32(&PID, 40);
+		if (BWF2_guide_status == INSIDE) PIDerror =  -arm_pid_f32(&PID, 40);
+	}
+*/
+
+	if (SwitchTracker == 1) PIDerror = 0;
 
 	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
 	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
@@ -385,11 +419,11 @@ void PIDtracker(void) {
 	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
 
 
-	if (speed_M1 < 1000) speed_M1 = 1000;
-	if (speed_M2 < 1000) speed_M2 = 1000;
+	if (speed_M1 < 1500) speed_M1 = 1500;
+	if (speed_M2 < 1500) speed_M2 = 1500;
 
-	if (speed_M1 > 3359) speed_M1 = 3359;
-	if (speed_M2 > 3359) speed_M2 = 3359;
+	if (speed_M1 > 2800) speed_M1 = 3000;
+	if (speed_M2 > 2800) speed_M2 = 3000;
 
 	MOTOR_LEFT_BACKWARD = 0;
 	MOTOR_LEFT_FORWARD = speed_M1;
@@ -573,13 +607,14 @@ void reInitIMU(void) {
 }
 
 void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
+
 	float32_t Mag_Out[LENGTH_SAMPLES / 4];
 	float32_t sum = 0;
 	float32_t magValue;
 	float32_t BWF[128];
 	uint16_t count = 0;
 
-	for (uint16_t x = idx; x < (idx + 128) - 1; x++ ) {
+	for (uint16_t x = idx; x < (idx + 128); x++ ) {
 		if (Sensor == 1 || Sensor == 11) {
 			BWF[count] = BWF1[x];
 			count++;
@@ -591,38 +626,41 @@ void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
 
 	}
 
-	if (Sensor == 1 || Sensor == 11) {
-		arm_cmplx_mag_f32(BWF, Mag_Out, LENGTH_SAMPLES / 4);
-	} else if (Sensor == 2 || Sensor == 12) {
-		arm_cmplx_mag_f32(BWF, Mag_Out, LENGTH_SAMPLES / 4);
-	}
+	arm_cmplx_mag_f32(BWF, Mag_Out, LENGTH_SAMPLES / 4);
 
 	for (int y = 0; y < (LENGTH_SAMPLES / 4); y++) {
 		sum += Mag_Out[y];
 	}
+
 	arm_sqrt_f32(sum, &magValue);
 
 	if (Sensor == 1) {
 		magBWFArray1[magBWFIndex1] = magValue;
 		magBWFIndex1++;
-		if (magBWFIndex1 == 100) magBWFIndex1 = 0;
-		if (magBWFArray1[99] != 0) arm_mean_f32(magBWFArray1, 100, &magBWF1);
+		if (magBWFIndex1 == 50) magBWFIndex1 = 0;
+		if (magBWFArray1[49] != 0) arm_rms_f32(magBWFArray1, 50, &magBWF1);
 	} else if (Sensor == 2) {
 		magBWFArray2[magBWFIndex2] = magValue;
 		magBWFIndex2++;
-		if (magBWFIndex2 == 100) magBWFIndex2 = 0;
-		if (magBWFArray2[99] != 0) arm_mean_f32(magBWFArray2, 100, &magBWF2);
+		if (magBWFIndex2 == 50) magBWFIndex2 = 0;
+		if (magBWFArray2[49] != 0) arm_rms_f32(magBWFArray2, 50, &magBWF2);
 	}
 	if (Sensor == 11) {
 		magGuideArray1[magGuideIndex1] = magValue;
 		magGuideIndex1++;
-		if (magGuideIndex1 == 100) magGuideIndex1 = 0;
-		if (magGuideArray1[99] != 0) arm_mean_f32(magGuideArray1, 100, &Guide_magBWF1);
+		if (magGuideIndex1 == 50) magGuideIndex1 = 0;
+		if (magGuideArray1[49] != 0) {
+			arm_rms_f32(magGuideArray1, 50, &Guide_magBWF1);
+		}
+		if (Guide_magBWF1 > magGuide_max) magGuide_max = Guide_magBWF1;
 	} else if (Sensor == 12) {
 		magGuideArray2[magGuideIndex2] = magValue;
 		magGuideIndex2++;
-		if (magGuideIndex2 == 100) magGuideIndex2 = 0;
-		if (magGuideArray2[99] != 0) arm_mean_f32(magGuideArray2, 100, &Guide_magBWF2);
+		if (magGuideIndex2 == 50) magGuideIndex2 = 0;
+		if (magGuideArray2[49] != 0) {
+			arm_rms_f32(magGuideArray2, 50, &Guide_magBWF2);
+		}
+		if (Guide_magBWF2 > magGuide_max) magGuide_max = Guide_magBWF2;
 	}
 
 	if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) && (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
@@ -1014,6 +1052,8 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
 	Serial_DATA(msg);
+	sprintf(msg, "magGuideMAX: %.2f\r\n", magGuide_max);
+	Serial_DATA(msg);
 
 	/*
     char Data[128];
@@ -1160,7 +1200,6 @@ void unDock(void) {
 		mpu.roll = 0;
 		mpu.pitch = 0;
 		mpu.yaw = 0;
-		setPoint = 0;
 
 		Initial_Start = 0;
 		Start_Threshold = 0;
@@ -1170,10 +1209,27 @@ void unDock(void) {
 		perimeterTrackingActive = 0;
 		guideTracking = 0;
 		guideTrackingActive = 0;
+		SwitchTracker = 0;
 		write_all_settings(settings);
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-		MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
+		for (int x = 0; x < 100; x++) {
+			CheckBWF();
+		}
+
+		if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
+			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+			return;
+		}
+		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
+			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+			return;
+		}
+
+		if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
+			if (magBWF1 > magBWF2) MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+			else MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+		}
 	}
 }
 
@@ -1203,21 +1259,33 @@ void ChargerConnected(void) {
 	}
 
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {            // Read Volt sense pin
-		HAL_Delay(settings.HoldChargeDetection);                          // Wait for a while so a proper connection is made
+		delay(settings.HoldChargeDetection);                          // Wait for a while so a proper connection is made
 		Force_Active = 0;
 		MotorBrake();
 		cutterHardBreak();
-		add_error_event("Charger connect");
-		Serial_Console("Charger Connected\r\n");
-		delay(5000);
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
-		Serial_Console("Changing Main Power\r\n");
-		ChargerConnect = 1;
-		Docked = 1;
 		delay(2000);
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
-		add_error_event("Charging active");
-		Serial_Console("Charging activated\r\n");
+/*
+		MOTOR_LEFT_FORWARD = 2500;
+		MOTOR_RIGHT_FORWARD = 2500;
+		delay(20);
+		MotorBrake();
+*/
+		Docked = 1;
+		delay(5000);
+		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {
+			add_error_event("Charger connect");
+			Serial_Console("Charger Connected\r\n");
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
+			Serial_Console("Changing Main Power\r\n");
+			delay(1000);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
+			add_error_event("Charging active");
+			Serial_Console("Charging activated\r\n");
+			ChargerConnect = 1;
+		}
+		else {
+			add_error_event("No power when tried to dock");
+		}
 		guideTrackingActive = 0;
 		perimeterTrackingActive = 0;
 
@@ -1286,7 +1354,7 @@ void perimeterTracker(void) {
 		speedB = 1000;
 
 	if (BWF2_Status == OUTSIDE) {
-		if (BWF1_Status == OUTSIDE) {
+		if (BWF1_Status == OUTSIDE && SwitchTracker == 0) {
 			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
 			MOTOR_LEFT_FORWARD = 0;
 			HAL_Delay(200);
@@ -1898,10 +1966,8 @@ uint8_t CheckSecurity(void) {
 
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1 && guideTrackingActive == 0) {
 
-		if ( (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) || (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) ) {
-			if (Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2) {
+		if ( BWF1_Status == INSIDE && BWF2_Status == INSIDE && (Guide_magBWF1 >= 175 || Guide_magBWF2 >= 175) && BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE)  {
 				guideTrackingActive = 1;
-			}
 		}
 
 	}
@@ -2121,14 +2187,14 @@ void CheckBWF() {
 			Guide_BWF2_Verdict_Signal = (Guide_BWF2_Mixed_Signal / Guide_Result_Signal);
 
 			if (Guide_BWF1_Verdict_Signal >= settings.Guide_Integrity_IN && Guide_BWF1_reply == 0) {
-				BWF1_guide_status = OUTSIDE;
+				BWF1_guide_status = INSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf1guide_inside++;
 				Guide_BWF1_reply = 1;
 				CalcMagnitude(idx, 11);
 			}
 			else if (Guide_BWF1_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF1_reply == 0) {
-				BWF1_guide_status = INSIDE;
+				BWF1_guide_status = OUTSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf1guide_outside++;
 				Guide_BWF1_reply = 1;
@@ -2136,14 +2202,14 @@ void CheckBWF() {
 			}
 
 			if (Guide_BWF2_Verdict_Signal >= settings.Guide_Integrity_IN && Guide_BWF2_reply == 0) {
-				BWF2_guide_status = OUTSIDE;
+				BWF2_guide_status = INSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf2guide_inside++;
 				Guide_BWF2_reply = 1;
 				CalcMagnitude(idx, 12);
 			}
 			else if (Guide_BWF2_Verdict_Signal <= settings.Guide_Integrity_OUT && Guide_BWF2_reply == 0) {
-				BWF2_guide_status = INSIDE;
+				BWF2_guide_status = OUTSIDE;
 				Boundary_Timer = HAL_GetTick();
 				bwf2guide_outside++;
 				Guide_BWF2_reply = 1;
@@ -2905,9 +2971,9 @@ int main(void)
 		V1_array[x] = settings.Battery_High_Limit;
 	}
 
-	PID.Kp = 20.0;
-	PID.Kd = 0.02;
-	PID.Ki = 0.05;
+	PID.Kp = 0.04;
+	PID.Kd = 0.1;
+	PID.Ki = 0.04;
 
     arm_pid_init_f32(&PID, 1);
 
