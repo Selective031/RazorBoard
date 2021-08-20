@@ -42,7 +42,6 @@ extern void Serial_Console(char *msg);
 extern void Serial_RPi(char *msg);
 extern void reInitIMU(void);
 
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

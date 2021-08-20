@@ -29,8 +29,6 @@ typedef struct MP6050 {
 	float pitch;
 	float hold_heading;
 	float yaw_error;
-	float roll_error;
-	float pitch_error;
 	float movement;
 
 } mpu6050;

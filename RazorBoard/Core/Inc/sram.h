@@ -141,6 +141,7 @@ extern sram_settings read_all_settings(void);
 extern void write_all_settings(sram_settings w_settings);
 extern void save_default_settings(uint8_t revision);
 extern uint8_t validate_settings(uint8_t revision);
+extern sram_settings get_default_settings(uint8_t revision);
 
 #define CONFIG_NOT_FOUND 0
 #define CONFIG_FOUND 1

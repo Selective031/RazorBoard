@@ -118,18 +118,21 @@ void MPU6050_Read_Accel(void) {
 	b = (fabs(Ax) + fabs(Ay) + fabs(Az)) * 0.02;
 
 	float r, p;
-
+/*
 	if (board_revision == 12) {
-        p = (atan2(Ax , Ay) * 57.3) - 90;										// Ay, Az
-        r = atan2((- Az) , sqrt(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
+        p = atan2(Ax , Ay) * 57.3;										// Ay, Az
+        r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
 	} else {
         r = atan2(Ay , Az) * 57.3;										// Ay, Az
-        p = atan2((- Ax) , sqrt(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
+        p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
 	}
+*/
+    r = atan2(Ay , Az) * 57.3;										// Ay, Az
+    p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
 
-	raw_roll = r + mpu.roll_error;
-	raw_pitch = p + mpu.pitch_error;
-
+//	r += 90;
+	raw_roll = r;
+	raw_pitch = p;
 
 }
 void MPU6050_Read_Gyro(void) {
@@ -159,7 +162,7 @@ void MPU6050_Read_Gyro(void) {
 	a = (fabs(Gx) + fabs(Gy) + fabs(Gz)) * 0.02;
 
 	float yaw = board_revision == 12
-	        ? Gx
+	        ? Gz  //Gx
 	        : Gz;
 
 	float minLimit = board_revision == 12

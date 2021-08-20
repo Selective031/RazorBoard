@@ -12,7 +12,6 @@
 #include <stdlib.h>
 
 extern RTC_HandleTypeDef hrtc;
-sram_settings get_default_settings(uint8_t revision);
 
 uint8_t read_sram_errorlog(uint16_t addr) {
     uint8_t i_retval;
@@ -392,7 +391,7 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.perimeterTrackerSpeed = 3360 - 1;
     settings.cut_perimeter_ratio = 0;
     settings.Guide_Integrity_IN = 0.90;
-    settings.Guide_Integrity_IN = -0.90;
+    settings.Guide_Integrity_OUT = -0.90;
     settings.motorTurnStatic_time = 700;
     settings.motorTurnRandom_time = 700;
     settings.motorBackward_time = 1500;

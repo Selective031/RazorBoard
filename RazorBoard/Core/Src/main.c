@@ -40,6 +40,8 @@
 #include <adc.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <motor.h>
+#include <uart.h>
 
 
 /* USER CODE END Includes */
@@ -97,6 +99,8 @@ IWDG_HandleTypeDef hiwdg;
 #define MOTOR_RIGHT_FORWARD TIM4->CCR3
 #define MOTOR_RIGHT_BACKWARD TIM4->CCR4
 
+uint8_t Tilt = 0;
+
 double Tick1 = 0;
 double Tick2 = 0;
 double error = 0;
@@ -105,6 +109,8 @@ double cumError = 0;
 double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
+
+uint8_t BLDC = 1;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
@@ -259,8 +265,11 @@ TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart3_rx;
+DMA_HandleTypeDef hdma_usart3_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -286,6 +295,7 @@ static void MX_I2C1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void MotorStop(void);
@@ -296,10 +306,8 @@ static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms
 static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void CheckState(void);
-static uint8_t CheckSecurity(void);
+uint8_t CheckSecurity(void);
 static void CheckBWF(void);
 static void CheckBWF_Rear(void);
 static void cutterON(void);
@@ -319,7 +327,7 @@ static void SendInfo(void);
 static void CheckMotorCurrent(int RAW);
 static void UpdateMotorSpeed();
 static void unDock(void);
-static uint32_t rnd(uint32_t maxValue);
+uint32_t rnd(uint32_t maxValue);
 static void InitFIR(void);
 static void FIR_LEFT(void);
 static void FIR_RIGHT(void);
@@ -332,7 +340,7 @@ static void setTime(uint8_t hour, uint8_t minute, uint8_t second);
 static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
 static void TimeToGoHome(void);
 static void CalcMagnitude(uint8_t idx, uint8_t Sensor);
-static void delay(uint32_t time_ms);
+void delay(uint32_t time_ms);
 static void getIMUOrientation(void);
 static void i2c_scanner(void);
 static void Serial_DATA(char *msg);
@@ -398,19 +406,6 @@ void PIDtracker(void) {
 		SwitchTracker = 1;
 		return;
 	}
-/*
-	if (SwitchTracker == 1 && BWF2_Status == INSIDE) {
-		if (BWF2_guide_status == OUTSIDE) PIDerror =  arm_pid_f32(&PID, 40);
-		if (BWF2_guide_status == INSIDE) PIDerror =  -arm_pid_f32(&PID, 40);
-	}
-
-	if (SwitchTracker == 1 && BWF2_Status == OUTSIDE) {
-		if (BWF2_guide_status == OUTSIDE) PIDerror =  arm_pid_f32(&PID, 40);
-		if (BWF2_guide_status == INSIDE) PIDerror =  -arm_pid_f32(&PID, 40);
-	}
-*/
-
-	if (SwitchTracker == 1) PIDerror = 0;
 
 	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
 	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
@@ -419,11 +414,11 @@ void PIDtracker(void) {
 	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
 
 
-	if (speed_M1 < 1500) speed_M1 = 1500;
-	if (speed_M2 < 1500) speed_M2 = 1500;
+	if (speed_M1 < 800) speed_M1 = 800;
+	if (speed_M2 < 800) speed_M2 = 800;
 
-	if (speed_M1 > 2800) speed_M1 = 3000;
-	if (speed_M2 > 2800) speed_M2 = 3000;
+	if (speed_M1 > 3000) speed_M1 = 3000;
+	if (speed_M2 > 3000) speed_M2 = 3000;
 
 	MOTOR_LEFT_BACKWARD = 0;
 	MOTOR_LEFT_FORWARD = speed_M1;
@@ -1213,23 +1208,8 @@ void unDock(void) {
 		write_all_settings(settings);
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-		for (int x = 0; x < 100; x++) {
-			CheckBWF();
-		}
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 
-		if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
-			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
-			return;
-		}
-		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
-			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
-			return;
-		}
-
-		if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
-			if (magBWF1 > magBWF2) MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
-			else MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
-		}
 	}
 }
 
@@ -1933,12 +1913,15 @@ uint8_t CheckSecurity(void) {
 	}
 
 	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-			sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
-			add_error_event(emsg);
-			MotorHardBrake();
-			cutterHardBreak();
-			return SECURITY_IMU_FAIL;
+			if (Tilt == 0) {
+				sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
+				add_error_event(emsg);
+				MotorHardBrake();
+				cutterOFF();
+				Tilt = 1;
+			}
 	}
+	else Tilt = 0;
 
 	if (HAL_GetTick() - Boundary_Timer >= (settings.Boundary_Timeout * 1000)) {
 		BWF1_Status = NOSIGNAL;
@@ -1988,11 +1971,17 @@ void cutterHardBreak() {
 
 	TIM3->CCR1 = 3359;        // Motor will hard brake when both "pins" go HIGH
 	TIM3->CCR2 = 3359;
-	delay(3000);
+	HAL_Delay(3000);
 	cutterOFF();
 }
 
 void cutterON(void) {
+
+	if (BLDC == 1) {
+		BLDC_Cutter_ON(settings);
+		return;
+	}
+
 	cutterStatus = 1;
 	uint8_t direction = 0;
 	if (rnd(100000) < 50000) {
@@ -2017,6 +2006,12 @@ void cutterON(void) {
 }
 
 void cutterOFF(void) {
+
+	if (BLDC == 1) {
+		BLDC_Cutter_OFF();
+		return;
+	}
+
 	cutterStatus = 0;
 
 	TIM3->CCR1 = 0;
@@ -2317,6 +2312,9 @@ void UpdateMotorSpeed() {
 
 	int16_t diff;
 	int8_t dir = 0;
+	char cmd[16];
+
+	extern uint8_t convToPercent(uint16_t PWMspeed);
 
 	// Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
 	diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
@@ -2353,17 +2351,27 @@ void UpdateMotorSpeed() {
 	// Target is on the Left side
 	if (dir > 0) {
 		int CorrectedSpeed = Speed - abs(diff);
+
+		sprintf(cmd, "M1S %u", convToPercent(CorrectedSpeed));
+		BLDC_send(cmd);
+
 		MOTOR_LEFT_FORWARD = CorrectedSpeed;
 		MOTOR_RIGHT_FORWARD = Speed;
 	}
 	// Target is on the Right side
 	else if (dir < 0) {
 		int CorrectedSpeed = Speed - abs(diff);
+		sprintf(cmd, "M2S %u", convToPercent(CorrectedSpeed));
+		BLDC_send(cmd);
 		MOTOR_LEFT_FORWARD = Speed;
 		MOTOR_RIGHT_FORWARD = CorrectedSpeed;
 	}
 	// Spot on! Full speed ahead Captain!
 	else if (dir == 0) {
+		sprintf(cmd, "M1S %u", convToPercent(Speed));
+		BLDC_send(cmd);
+		sprintf(cmd, "M2S %u", convToPercent(Speed));
+		BLDC_send(cmd);
 		MOTOR_LEFT_FORWARD = Speed;
 		MOTOR_RIGHT_FORWARD = Speed;
 	}
@@ -2371,6 +2379,12 @@ void UpdateMotorSpeed() {
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Forward(minSpeed, maxSpeed, settings, mpu);
+		return;
+	}
+
 	State = FORWARD;
 
 	getIMUOrientation();
@@ -2410,6 +2424,12 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Backward(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
 	MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
 }
 
@@ -2478,6 +2498,12 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Right(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
 	add_error_event("MotorRight");
 	State = RIGHT;
 	uint32_t motor_timer;
@@ -2507,35 +2533,15 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	}
 	MotorStop();
 }
-void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-	add_error_event("MotorRight_Guide");
-	State = RIGHT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
 
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = 0;
-		MOTOR_LEFT_FORWARD = currentSpeed;
-
-		MOTOR_RIGHT_FORWARD = 0;
-		MOTOR_RIGHT_BACKWARD = currentSpeed;
-
-		HAL_Delay(1);
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {}
-	MotorStop();
-}
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Left(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
 	add_error_event("MotorLeft");
 	State = LEFT;
 	uint32_t motor_timer;
@@ -2565,34 +2571,14 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	}
 	MotorStop();
 }
-void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-	add_error_event("MotorLeft_Guide");
-	State = LEFT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
 
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = currentSpeed;
-		MOTOR_LEFT_FORWARD = 0;
-
-		MOTOR_RIGHT_FORWARD = currentSpeed;
-		MOTOR_RIGHT_BACKWARD = 0;
-
-		HAL_Delay(1);
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {}
-	MotorStop();
-}
 void MotorStop(void) {
+
+	if (BLDC == 1) {
+		BLDC_Motor_Stop();
+		return;
+	}
+
 	State = STOP;
 	int speed = 0;
 
@@ -2630,6 +2616,12 @@ void MotorStop(void) {
 
 void MotorBrake(void) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Brake();
+		return;
+	}
+
 	State = BRAKE;
 
 	// Brake - free wheeling
@@ -2641,6 +2633,12 @@ void MotorBrake(void) {
 
 void MotorHardBrake(void) {
 	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Brake();
+		return;
+	}
+
 	State = HARDBRAKE;
 
 	// Wheels will do a hard brake when both pins go HIGH.
@@ -2785,48 +2783,13 @@ void CheckState(void) {
 		mag_near_bwf = 0;
 		highgrass_slowdown = 0;
 		add_error_event("Found Guide Wire");
+		return;
 
-		CheckBWF();
-		if (settings.use_guide_wire == 0) {
-
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-
-			if (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) {
-				add_error_event("Orientation correct on Guide Wire");
-				GoHome_timer_IN = HAL_GetTick();
-				GoHome_timer_OUT = HAL_GetTick();
-				return;
-			}
-			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
-				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-				GoHome_timer_IN = HAL_GetTick();
-				GoHome_timer_OUT = HAL_GetTick();
-				return;
-			}
-			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
-				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-				GoHome_timer_IN = HAL_GetTick();
-				GoHome_timer_OUT = HAL_GetTick();
-				return;
-		}
-			if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
-				MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
-				GoHome_timer_IN = HAL_GetTick();
-				GoHome_timer_OUT = HAL_GetTick();
-				return;
-			}
-
-			MotorStop();
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-			return;
-		}
-
-	} else if (State == FORWARD) {
+/*	} else if (State == FORWARD) {
 		if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
 			State = STOP;
 		}
+*/
 	} else if (State == STOP && CheckSecurity() == SECURITY_OK) {
 		delay(500);
 		add_error_event("STOP+SECURITY_OK");
@@ -2899,6 +2862,7 @@ int main(void)
   MX_ADC2_Init();
   MX_I2C2_Init();
   MX_TIM6_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
   	i2c_scanner();
@@ -2962,6 +2926,7 @@ int main(void)
 		Serial_Console("No config found - Saving factory defaults\r\n");
 		Serial_Console("Masterswitch set to OFF - please configure and save settings, then reboot\r\n");
 		MasterSwitch = 0;
+
 	}
 
 	settings = read_all_settings();
@@ -2984,6 +2949,19 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim6);
 
 	BWF_timer = HAL_GetTick();
+
+	FLASH->ACR = FLASH_ACR_PRFTEN |FLASH_ACR_ICEN |FLASH_ACR_DCEN |FLASH_ACR_LATENCY_5WS;	// Enable ART Acceleration and Zero-wait state
+
+	if (BLDC == 1) {
+		BLDC_send("m1 start");
+		BLDC_send("m2 start");
+		BLDC_send("m1t 1.0");
+		BLDC_send("m2t 1.0");
+		BLDC_send("debug off");
+
+		Serial_Console("Raptor Initilized.\r\n");
+
+	}
 
 	while (1)
 	{
@@ -3687,6 +3665,39 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 1000000;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -3697,6 +3708,12 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);

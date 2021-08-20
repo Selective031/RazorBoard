@@ -8,6 +8,6 @@
 #ifndef INC_UART_H_
 #define INC_UART_H_
 
-
+void BLDC_send(char *cmd);
 
 #endif /* INC_UART_H_ */
