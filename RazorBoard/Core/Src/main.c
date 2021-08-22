@@ -88,6 +88,7 @@ IWDG_HandleTypeDef hiwdg;
 #define SECURITY_OUTSIDE 7
 #define SECURITY_MOVEMENT 8
 #define SECURITY_BACKWARD_OUTSIDE 9
+#define SECURITY_STOP 10
 
 #define INITIAL_MAX_THRESHOLD 5000
 
@@ -110,7 +111,9 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
-uint8_t BLDC = 1;
+uint8_t BLDC = 0;
+
+uint32_t stopTimer = 0;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
@@ -165,6 +168,9 @@ uint8_t BWF2_guide_status = 0;
 
 uint8_t State = STOP;
 uint8_t cutterStatus = 0;
+
+uint8_t Collision = 0;
+uint8_t Avoidance = 0;
 
 uint32_t ADC_timer = 0;
 uint32_t IMU_timer = 0;
@@ -319,7 +325,7 @@ static void perimeterTracker(void);
 static void ChargerConnected(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
-static void delay_us(uint16_t us);
+void delay_us(uint16_t us);
 static void ADC_Send(uint8_t channel);
 static int ADC_Receive();
 static void CollectADC(void);
@@ -341,18 +347,60 @@ static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
 static void TimeToGoHome(void);
 static void CalcMagnitude(uint8_t idx, uint8_t Sensor);
 void delay(uint32_t time_ms);
-static void getIMUOrientation(void);
+void getIMUOrientation(void);
 static void i2c_scanner(void);
 static void Serial_DATA(char *msg);
 static void scanner(I2C_HandleTypeDef i2c_bus);
 static void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
 static bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
 static void PIDtracker(void);
+void CheckChassi(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void CheckChassi(void) {
+
+	if (State == FORWARD || State == LEFT || State == RIGHT || State == BACKWARD) {
+
+		Avoidance = 1;
+
+		uint8_t currentState = State;
+
+		add_error_event("Crash detected!");
+		BLDC_Motor_Brake();
+		delay(500);
+		switch (currentState) {
+
+			case BACKWARD:
+				BLDC_Motor_Forward_with_Time(settings.motorMinSpeed, settings.motorMaxSpeed, settings, mpu, 1000);
+				delay(500);
+				if (rnd(100000) < 50000) {
+					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 500);
+				}
+				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 500);
+				break;
+
+			case FORWARD:
+				BLDC_Motor_Backward(settings.motorMinSpeed, settings.motorMaxSpeed, 800, settings, mpu);
+				delay(500);
+				if (rnd(100000) < 50000) {
+					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				}
+				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				break;
+
+			case LEFT:
+				BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				break;
+			case RIGHT:
+				BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				break;
+		}
+	}
+}
 
 void PIDtracker(void) {
 
@@ -414,8 +462,8 @@ void PIDtracker(void) {
 	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
 
 
-	if (speed_M1 < 800) speed_M1 = 800;
-	if (speed_M2 < 800) speed_M2 = 800;
+	if (speed_M1 < 1200) speed_M1 = 1200;
+	if (speed_M2 < 1200) speed_M2 = 1200;
 
 	if (speed_M1 > 3000) speed_M1 = 3000;
 	if (speed_M2 > 3000) speed_M2 = 3000;
@@ -1905,11 +1953,19 @@ uint8_t CheckSecurity(void) {
 
 	CheckBWF();
 
+	if (MasterSwitch == 0) {
+		return SECURITY_STOP;
+	}
+
 	if (State == BACKWARD) {
 		CheckBWF_Rear();
 		if (BWF3_Status == OUTSIDE) {
 			return SECURITY_BACKWARD_OUTSIDE;
 		}
+	}
+
+	if (Collision == 1 && Avoidance == 0) {
+		return SECURITY_BUMPER;
 	}
 
 	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
@@ -2426,7 +2482,7 @@ void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	if (MasterSwitch == 0 || Docked == 1) return;
 
 	if (BLDC == 1) {
-		BLDC_Motor_Backward(minSpeed, maxSpeed, time_ms);
+		BLDC_Motor_Backward(minSpeed, maxSpeed, time_ms, settings, mpu);
 		return;
 	}
 
@@ -2961,6 +3017,8 @@ int main(void)
 
 		Serial_Console("Raptor Initilized.\r\n");
 
+	stopTimer = HAL_GetTick();
+
 	}
 
 	while (1)
@@ -3010,6 +3068,8 @@ int main(void)
 		}
 
 		CollectADC();
+
+		if (Collision == 1) CheckChassi();
 
     /* USER CODE END WHILE */
 
@@ -3742,14 +3802,37 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : chassiSensor_Pin */
+  GPIO_InitStruct.Pin = chassiSensor_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(chassiSensor_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : stopButton_Pin */
+  GPIO_InitStruct.Pin = stopButton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(stopButton_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PE10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
@@ -3771,15 +3854,54 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) {
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+
+	if (GPIO_Pin == stopButton_Pin) {
+
+		if (HAL_GPIO_ReadPin(GPIOE, stopButton_Pin) == GPIO_PIN_SET && MasterSwitch == 1) {
+			if (HAL_GetTick() - stopTimer > 1000) {
+				MasterSwitch = 0;
+				add_error_event("STOP button pushed! - HALT");
+				stopTimer = HAL_GetTick();
+				return;
+			}
+		}
+		if (HAL_GPIO_ReadPin(GPIOE, stopButton_Pin) == GPIO_PIN_SET && MasterSwitch == 0) {
+			if (HAL_GetTick() - stopTimer >= 3000) {
+				MasterSwitch = 1;
+				add_error_event("STOP button pushed! - GO");
+				stopTimer = HAL_GetTick();
+				return;
+			}
+		}
 	}
+
+	if (GPIO_Pin == chassiSensor_Pin) {
+		if (HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
+			if (Collision == 0)	{
+				Collision = 1;
+				return;
+			}
+
+		}
+		if (HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_RESET) {
+			if (Collision == 1)	{
+				Collision = 0;
+				Avoidance = 0;
+				return;
+			}
+
+		}
+	}
+
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {

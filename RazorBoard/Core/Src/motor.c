@@ -36,12 +36,18 @@ uint32_t move_timer;
 #define SECURITY_OUTSIDE 7
 #define SECURITY_MOVEMENT 8
 #define SECURITY_BACKWARD_OUTSIDE 9
+#define SECURITY_STOP 10
 
 extern uint8_t CheckSecurity(void);
 extern void BLDC_send(char *cmd);
 extern void delay(uint32_t time_ms);
 extern uint8_t cutterStatus;
 extern uint32_t rnd(uint32_t maxValue);
+extern void CheckChassi(void);
+extern void getIMUOrientation(void);
+
+extern uint8_t MasterSwitch;
+extern uint8_t Docked;
 
 uint16_t M1speed = 0;
 uint16_t M2speed = 0;
@@ -52,22 +58,27 @@ uint8_t convToPercent(uint16_t PWMspeed) {
 
 	s = round( PWMspeed / (3359 / 100));
 	if (s < 0) s = 0;
-	if (s > 80) s = 80;
+	if (s > 100) s = 100;
 
 	return s;
 
 }
+void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu, uint32_t time_ms) {
 
-void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
 	State = FORWARD;
 
-	move_timer = HAL_GetTick();
+	uint32_t motor_timer;
+	motor_timer = HAL_GetTick();
 
 	BLDC_send("M1R");
 	BLDC_send("M2R");
 
+	getIMUOrientation();
+
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 5;
+		currentSpeed += 3;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
@@ -75,17 +86,17 @@ void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings sett
 		uint16_t leftTilt = 0;
 		uint16_t rightTilt = 0;
 
-		if (mpu.roll < 0) {
+		if (mpu.roll < -5) {
 			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
 		}
-		if (mpu.roll > 0) {
+		if (mpu.roll > 5) {
 			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
 		}
 
 		char cmd[16];
 
-		M1speed = currentSpeed - round(leftTilt);;
-		M2speed = currentSpeed - round(rightTilt);;
+		M1speed = currentSpeed - round(leftTilt);
+		M2speed = currentSpeed - round(rightTilt);
 
 		sprintf(cmd, "M1S %u", convToPercent(M1speed));
 		BLDC_send(cmd);
@@ -93,15 +104,92 @@ void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings sett
 		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		if (CheckSecurity() == SECURITY_FAIL) {
-			BLDC_Motor_Stop();
+		if (HAL_GetTick() - motor_timer >= time_ms) {
 			break;
+		}
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+		}
+
+	}
+	while (HAL_GetTick() - motor_timer < time_ms) {
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+		}
+	}
+
+	BLDC_Motor_Stop();
+
+}
+void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu) {
+
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	State = FORWARD;
+
+	move_timer = HAL_GetTick();
+
+	BLDC_send("M1R");
+	BLDC_send("M2R");
+
+	getIMUOrientation();
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+
+		uint16_t leftTilt = 0;
+		uint16_t rightTilt = 0;
+
+		if (mpu.roll < -5) {
+			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+		if (mpu.roll > 5) {
+			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+
+		char cmd[16];
+
+		M1speed = currentSpeed - round(leftTilt);
+		M2speed = currentSpeed - round(rightTilt);
+
+		sprintf(cmd, "M1S %u", convToPercent(M1speed));
+		BLDC_send(cmd);
+
+		sprintf(cmd, "M2S %u", convToPercent(M2speed));
+		BLDC_send(cmd);
+
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_FAIL:
+			BLDC_Motor_Stop();
+			return;
+
+		case SECURITY_BUMPER:
+			return;
 		}
 
 	}
 
 }
-void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, sram_settings settings, mpu6050 mpu) {
+
+	if (MasterSwitch == 0 || Docked == 1) return;
 
 	State = BACKWARD;
 
@@ -111,37 +199,71 @@ void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms)
 	BLDC_send("M1F");
 	BLDC_send("M2F");
 
+	getIMUOrientation();
+
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 5;
+		currentSpeed += 3;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
 
+		uint16_t leftTilt = 0;
+		uint16_t rightTilt = 0;
+
+		if (mpu.roll < -5) {
+			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+		if (mpu.roll > 5) {
+			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+
 		char cmd[16];
 
-		M1speed = currentSpeed;
-		M2speed = currentSpeed;
+		M1speed = currentSpeed - round(leftTilt);
+		M2speed = currentSpeed - round(rightTilt);
 
-		sprintf(cmd, "M1S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M1S %u", convToPercent(M1speed));
 		BLDC_send(cmd);
 
-		sprintf(cmd, "M2S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms *2) {
+		if (HAL_GetTick() - motor_timer >= time_ms * 2) {
 			break;
 		}
-		CheckSecurity();
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+
+		case SECURITY_BACKWARD_OUTSIDE:
+			return;
+		}
 
 	}
-	while (HAL_GetTick() - motor_timer < time_ms *2) {
-		CheckSecurity();
+	while (HAL_GetTick() - motor_timer < time_ms * 2) {
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+
+		case SECURITY_BACKWARD_OUTSIDE:
+			return;
+		}
 	}
 
 	BLDC_Motor_Stop();
 
 }
 void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+
+	if (MasterSwitch == 0 || Docked == 1) return;
 
 	State = LEFT;
 
@@ -152,7 +274,7 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	BLDC_send("M2F");
 
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 5;
+		currentSpeed += 1;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
@@ -162,20 +284,34 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 		M1speed = currentSpeed;
 		M2speed = currentSpeed;
 
-		sprintf(cmd, "M1S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		sprintf(cmd, "M2S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M1S %u", convToPercent(M1speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms *3) {
+		if (HAL_GetTick() - motor_timer >= time_ms *2) {
 			break;
 		}
-		CheckSecurity();
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+		}
 	}
 
-	while (HAL_GetTick() - motor_timer < time_ms *3) {
-		CheckSecurity();
+	while (HAL_GetTick() - motor_timer < time_ms *2) {
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+		}
 
 	}
 
@@ -183,6 +319,8 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 }
 void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+
+	if (MasterSwitch == 0 || Docked == 1) return;
 
 	State = RIGHT;
 
@@ -193,7 +331,7 @@ void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	BLDC_send("M2R");
 
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 5;
+		currentSpeed += 1;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
@@ -203,19 +341,33 @@ void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 		M1speed = currentSpeed;
 		M2speed = currentSpeed;
 
-		sprintf(cmd, "M1S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M1S %u", convToPercent(M1speed));
 		BLDC_send(cmd);
 
-		sprintf(cmd, "M2S %u", convToPercent(currentSpeed));
+		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms *3) {
+		if (HAL_GetTick() - motor_timer >= time_ms *2) {
 			break;
 		}
-		CheckSecurity();
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+			}
 	}
-	while (HAL_GetTick() - motor_timer < time_ms *3) {
-		CheckSecurity();
+	while (HAL_GetTick() - motor_timer < time_ms *2) {
+		switch (CheckSecurity()) {
+
+		case SECURITY_STOP:
+			return;
+
+		case SECURITY_BUMPER:
+			return;
+		}
 	}
 
 	BLDC_Motor_Stop();
@@ -225,8 +377,8 @@ void BLDC_Motor_Stop(void){
 
 	State = STOP;
 
-	for (uint16_t currentSpeed = M1speed; currentSpeed > 0; currentSpeed--) {
-		currentSpeed -= 8;
+	for (uint16_t currentSpeed = round((M1speed + M2speed) / 2); currentSpeed > 0; currentSpeed--) {
+		currentSpeed -= 5;
 		if (currentSpeed <= 300) break;
 
 		char cmd[16];
@@ -247,7 +399,6 @@ void BLDC_Motor_Brake(void){
 
 	BLDC_send("M1S 0");
 	BLDC_send("M2S 0");
-
 	M1speed = 0;
 	M2speed = 0;
 

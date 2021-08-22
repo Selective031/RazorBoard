@@ -11,8 +11,9 @@
 #include "sram.h"
 #include "mpu6050.h"
 
+void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu, uint32_t ms);
 void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu);
-void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms,sram_settings settings, mpu6050 mpu);
 void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Stop();

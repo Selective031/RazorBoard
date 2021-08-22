@@ -25,6 +25,7 @@ float a,b;
 float move_array[20] = {1.0};
 uint8_t move_index = 0;
 uint8_t getYawError = 1;
+extern uint8_t BLDC;
 
 void Init6050() {
 
@@ -117,20 +118,22 @@ void MPU6050_Read_Accel(void) {
 
 	b = (fabs(Ax) + fabs(Ay) + fabs(Az)) * 0.02;
 
-	float r, p;
-/*
-	if (board_revision == 12) {
-        p = atan2(Ax , Ay) * 57.3;										// Ay, Az
+	float r = 0;
+	float p = 0;
+
+	if (board_revision == 12 && BLDC == 0) {
+        p = atan2(Ax , Ay) * 57.3 - 90;										// Ay, Az
         r = atan2((- Az) , sqrtf(Ay * Ay + Ax * Ax)) * 57.3;			// Ax, Ay, Az, Az
-	} else {
+	}
+	if (board_revision == 10 && BLDC == 0) {
         r = atan2(Ay , Az) * 57.3;										// Ay, Az
         p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
 	}
-*/
-    r = atan2(Ay , Az) * 57.3;										// Ay, Az
-    p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
+	if (BLDC == 1) {
+		r = atan2(Ay , Az) * 57.3;										// Ay, Az
+		p = atan2((- Ax) , sqrtf(Ax * Ay + Az * Az)) * 57.3;			// Ax, Ay, Az, Az
+	}
 
-//	r += 90;
 	raw_roll = r;
 	raw_pitch = p;
 
@@ -162,12 +165,17 @@ void MPU6050_Read_Gyro(void) {
 	a = (fabs(Gx) + fabs(Gy) + fabs(Gz)) * 0.02;
 
 	float yaw = board_revision == 12
-	        ? Gz  //Gx
+	        ? Gx
 	        : Gz;
 
 	float minLimit = board_revision == 12
 	        ? 5
 	        : 1;
+
+	if (BLDC == 1) {
+		yaw = Gz;
+		minLimit = 1;
+	}
 
 	if (getYawError == 1) {
 			mpu.yaw_error = fabs(yaw);		// Auto calibrate the Gyro error at startup

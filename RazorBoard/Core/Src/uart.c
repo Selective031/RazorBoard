@@ -12,6 +12,8 @@
 #include "math.h"
 #include <stdlib.h>
 
+extern void delay_us(uint16_t us);
+
 UART_HandleTypeDef huart3;
 
 void BLDC_send(char *cmd) {
@@ -21,10 +23,6 @@ void BLDC_send(char *cmd) {
     sprintf(com, "%s\r\n", cmd);
     HAL_UART_Transmit_DMA(&huart3, (uint8_t *)com, strlen(com));
 
-//    if (strcmp(com, "M1S 0\r\n") == 0)
-//    if (strcmp(com, "M2S 0\r\n") == 0)
-
-
-    HAL_Delay(1);
+    delay_us(500);
 
 }
