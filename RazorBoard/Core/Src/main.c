@@ -95,11 +95,6 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64                // Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64            // Buffer size for Serial Console
 
-#define MOTOR_LEFT_FORWARD TIM4->CCR2
-#define MOTOR_LEFT_BACKWARD TIM4->CCR1
-#define MOTOR_RIGHT_FORWARD TIM4->CCR3
-#define MOTOR_RIGHT_BACKWARD TIM4->CCR4
-
 uint8_t Tilt = 0;
 
 double Tick1 = 0;
@@ -111,7 +106,8 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
-uint8_t BLDC = 0;
+uint8_t BLDC = 1;
+uint8_t do_upgrade = 0;
 
 uint32_t stopTimer = 0;
 
@@ -167,6 +163,7 @@ uint8_t BWF1_guide_status = 0;
 uint8_t BWF2_guide_status = 0;
 
 uint8_t State = STOP;
+
 uint8_t cutterStatus = 0;
 
 uint8_t Collision = 0;
@@ -304,62 +301,22 @@ static void MX_TIM6_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
-static void MotorStop(void);
-static void MotorBrake(void);
-static void MotorHardBrake(void);
-static void MotorForward(uint16_t minSpeed, uint16_t maxSpeed);
-static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
-static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void CheckState(void);
-uint8_t CheckSecurity(void);
-static void CheckBWF(void);
-static void CheckBWF_Rear(void);
-static void cutterON(void);
-static void cutterOFF(void);
-static void cutterHardBreak(void);
-static void parseCommand_RPI(void);
-static void parseCommand_Console(void);
-static void perimeterTracker(void);
-static void ChargerConnected(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
-void delay_us(uint16_t us);
-static void ADC_Send(uint8_t channel);
-static int ADC_Receive();
-static void CollectADC(void);
-static void SendInfo(void);
-static void CheckMotorCurrent(int RAW);
-static void UpdateMotorSpeed();
-static void unDock(void);
-uint32_t rnd(uint32_t maxValue);
-static void InitFIR(void);
-static void FIR_LEFT(void);
-static void FIR_RIGHT(void);
-static void FIR_REAR(void);
-static void WatchdogRefresh(void);
-static void WatchdogInit(void);
-static void (*SysMemBootJump)(void);
-static void BootLoaderInit(unsigned long BootLoaderStatus);
-static void setTime(uint8_t hour, uint8_t minute, uint8_t second);
-static void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday);
-static void TimeToGoHome(void);
-static void CalcMagnitude(uint8_t idx, uint8_t Sensor);
-void delay(uint32_t time_ms);
-void getIMUOrientation(void);
-static void i2c_scanner(void);
-static void Serial_DATA(char *msg);
-static void scanner(I2C_HandleTypeDef i2c_bus);
-static void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
-static bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
-static void PIDtracker(void);
-void CheckChassi(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void buzzer(uint8_t count, uint16_t time_between) {
+
+	for (uint8_t x = 0; x < (count +1); x++) {
+		HAL_GPIO_TogglePin(GPIOB, buzzer_Pin);
+		HAL_Delay(time_between);
+	}
+
+}
 
 void CheckChassi(void) {
 
@@ -369,34 +326,35 @@ void CheckChassi(void) {
 
 		uint8_t currentState = State;
 
-		add_error_event("Crash detected!");
+		add_error_event("Bumber detection");
 		BLDC_Motor_Brake();
 		delay(500);
 		switch (currentState) {
 
 			case BACKWARD:
-				BLDC_Motor_Forward_with_Time(settings.motorMinSpeed, settings.motorMaxSpeed, settings, mpu, 1000);
+				BLDC_Motor_Forward_with_Time(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
 				delay(500);
 				if (rnd(100000) < 50000) {
-					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 500);
+					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				}
-				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 500);
+				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				break;
 
 			case FORWARD:
-				BLDC_Motor_Backward(settings.motorMinSpeed, settings.motorMaxSpeed, 800, settings, mpu);
+				BLDC_Motor_Backward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
 				delay(500);
 				if (rnd(100000) < 50000) {
-					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				}
-				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				break;
 
 			case LEFT:
-				BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				break;
+
 			case RIGHT:
-				BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 700);
+				BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 				break;
 		}
 	}
@@ -572,12 +530,6 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
 
     // Call initialization function.
     HAL_I2C_Init(handle);
-}
-
-void Serial_DATA(char *msg) {
-
-	HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
-
 }
 void scanner(I2C_HandleTypeDef i2c_bus) {
 	Serial_Console("Scanning I2C Bus...\r\n");
@@ -771,7 +723,6 @@ void setDate(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday) {
 }
 
 void BootLoaderInit(unsigned long BootLoaderStatus)
-
 // Inside the debug menu you can type "upgrade", this will force the STM into the bootloader, so no need to change the jumper.
 {
 	SysMemBootJump = (void (*)(void)) (*((unsigned long *) 0x1fff0004));
@@ -1443,7 +1394,7 @@ void parseCommand_Console(void) {
 			}
 			if (strcmp(Command, "UPGRADE") == 0) {
 				Serial_Console("Entering Bootloader...\r\n");
-				HAL_Delay(500);
+				buzzer(2, 100);
 				BootLoaderInit(1);
 			}
 			if (strcmp(Command, "SHOW SIG") == 0) {
@@ -1895,6 +1846,9 @@ void parseCommand_Console(void) {
 			if (strcmp(Command, "HELP") == 0) {
 				help();
 			}
+			if (strcmp(Command, "BUZZER") == 0) {
+				buzzer(3, 100);
+			}
 
 			memset(ConsoleBuffer, 0, sizeof(CONSOLE_BFR_SIZE));
 
@@ -1934,18 +1888,6 @@ void parseCommand_RPI() {
 			break;
 		}
 	}
-}
-
-void Serial_Console(char *msg) {
-	// Write to USB/Serial
-
-	HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
-}
-
-void Serial_RPi(char *msg) {
-	// Write to Raspberry PI
-
-	HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), 100);
 }
 
 uint8_t CheckSecurity(void) {
@@ -2029,49 +1971,6 @@ void cutterHardBreak() {
 	TIM3->CCR2 = 3359;
 	HAL_Delay(3000);
 	cutterOFF();
-}
-
-void cutterON(void) {
-
-	if (BLDC == 1) {
-		BLDC_Cutter_ON(settings);
-		return;
-	}
-
-	cutterStatus = 1;
-	uint8_t direction = 0;
-	if (rnd(100000) < 50000) {
-		direction = 1;
-	}
-
-	Serial_Console("Cutter Motor ON\r\n");
-	add_error_event("Cutter Motor ON");
-
-	for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
-		Boundary_Timer = HAL_GetTick();
-
-		if (direction == 0) {
-			TIM3->CCR1 = cutterSpeed;
-			TIM3->CCR2 = 0;
-		} else {
-			TIM3->CCR1 = 0;
-			TIM3->CCR2 = cutterSpeed;
-		}
-		delay(2);
-	}
-}
-
-void cutterOFF(void) {
-
-	if (BLDC == 1) {
-		BLDC_Cutter_OFF();
-		return;
-	}
-
-	cutterStatus = 0;
-
-	TIM3->CCR1 = 0;
-	TIM3->CCR2 = 0;
 }
 
 void CheckBWF_Rear() {
@@ -2358,355 +2257,6 @@ int ADC_Receive() {
 	}
 
 	return reading;
-}
-
-void UpdateMotorSpeed() {
-	/* With the use of the MPU6050, we calculate the angle we are traveling in by using the gyro
-	 * A simple motor speed controller, for each degree off, we simply decrease the speed with 120.
-	 * TODO - a proper PID controller
-	 */
-
-	int16_t diff;
-	int8_t dir = 0;
-	char cmd[16];
-
-	extern uint8_t convToPercent(uint16_t PWMspeed);
-
-	// Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
-	diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
-	diff *= settings.steering_correction;
-
-	if (diff < 0) {
-		dir = -1;
-	} else if (diff > 0) {
-		dir = 1;
-	} else if (diff == 0) {
-		dir = 0;
-	}
-
-	// Do not change speed more than 1000
-	if (diff > 1000) {
-		diff = 1000;
-	}
-	if (diff < -1000) {
-		diff = -1000;
-	}
-
-	uint16_t Speed;
-	if (mag_near_bwf == 1 || highgrass_slowdown == 1) {
-		Speed = settings.motorMaxSpeed;
-		if (mag_near_bwf == 1) {
-			Speed = round(Speed * settings.proximitySpeed);
-		} else if (highgrass_slowdown == 1) {
-			Speed = round(Speed * 0.78);
-		}
-	} else {
-		Speed = settings.motorMaxSpeed;
-	}
-
-	// Target is on the Left side
-	if (dir > 0) {
-		int CorrectedSpeed = Speed - abs(diff);
-
-		sprintf(cmd, "M1S %u", convToPercent(CorrectedSpeed));
-		BLDC_send(cmd);
-
-		MOTOR_LEFT_FORWARD = CorrectedSpeed;
-		MOTOR_RIGHT_FORWARD = Speed;
-	}
-	// Target is on the Right side
-	else if (dir < 0) {
-		int CorrectedSpeed = Speed - abs(diff);
-		sprintf(cmd, "M2S %u", convToPercent(CorrectedSpeed));
-		BLDC_send(cmd);
-		MOTOR_LEFT_FORWARD = Speed;
-		MOTOR_RIGHT_FORWARD = CorrectedSpeed;
-	}
-	// Spot on! Full speed ahead Captain!
-	else if (dir == 0) {
-		sprintf(cmd, "M1S %u", convToPercent(Speed));
-		BLDC_send(cmd);
-		sprintf(cmd, "M2S %u", convToPercent(Speed));
-		BLDC_send(cmd);
-		MOTOR_LEFT_FORWARD = Speed;
-		MOTOR_RIGHT_FORWARD = Speed;
-	}
-}
-
-void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Forward(minSpeed, maxSpeed, settings, mpu);
-		return;
-	}
-
-	State = FORWARD;
-
-	getIMUOrientation();
-
-	move_timer = HAL_GetTick();
-
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-
-		uint16_t leftTilt = 0;
-		uint16_t rightTilt = 0;
-
-		if (mpu.roll < 0) {
-			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
-		}
-		if (mpu.roll > 0) {
-			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
-		}
-
-		MOTOR_LEFT_BACKWARD = 0;
-		MOTOR_LEFT_FORWARD = currentSpeed - round(leftTilt);
-
-		MOTOR_RIGHT_FORWARD = currentSpeed - round(rightTilt);
-		MOTOR_RIGHT_BACKWARD = 0;
-
-		HAL_Delay(1);
-
-		if (CheckSecurity() == SECURITY_FAIL) {
-			MotorStop();
-			break;
-		}
-	}
-}
-
-void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Backward(minSpeed, maxSpeed, time_ms, settings, mpu);
-		return;
-	}
-
-	MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
-}
-
-void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-	add_error_event("MotorBackward");
-	uint32_t motor_timer;
-	State = BACKWARD;
-	motor_timer = HAL_GetTick();
-
-	getIMUOrientation();
-
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-
-		uint16_t leftTilt = 0;
-		uint16_t rightTilt = 0;
-
-		if (mpu.roll < 0) {
-			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
-		}
-		if (mpu.roll > 0) {
-			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
-		}
-
-		MOTOR_LEFT_BACKWARD = currentSpeed - round(rightTilt);
-		MOTOR_LEFT_FORWARD = 0;
-
-		MOTOR_RIGHT_FORWARD = 0;
-		MOTOR_RIGHT_BACKWARD = currentSpeed - round(leftTilt);
-
-		HAL_Delay(1);
-
-		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
-			MotorHardBrake();
-			delay(1000);
-			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-			delay(500);
-			MotorStop();
-			delay(500);
-			return;
-		}
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {
-		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
-			MotorHardBrake();
-			delay(1000);
-			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-			delay(500);
-			MotorStop();
-			delay(500);
-			return;
-		}
-
-		delay(100);
-	}
-	MotorStop();
-}
-
-void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Right(minSpeed, maxSpeed, time_ms);
-		return;
-	}
-
-	add_error_event("MotorRight");
-	State = RIGHT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
-
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = 0;
-		MOTOR_LEFT_FORWARD = currentSpeed;
-
-		MOTOR_RIGHT_FORWARD = 0;
-		MOTOR_RIGHT_BACKWARD = currentSpeed;
-
-		HAL_Delay(1);
-
-		CheckSecurity();
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {
-		CheckSecurity();
-	}
-	MotorStop();
-}
-
-void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Left(minSpeed, maxSpeed, time_ms);
-		return;
-	}
-
-	add_error_event("MotorLeft");
-	State = LEFT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
-
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = currentSpeed;
-		MOTOR_LEFT_FORWARD = 0;
-
-		MOTOR_RIGHT_FORWARD = currentSpeed;
-		MOTOR_RIGHT_BACKWARD = 0;
-
-		HAL_Delay(1);
-
-		CheckSecurity();
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {
-		CheckSecurity();
-	}
-	MotorStop();
-}
-
-void MotorStop(void) {
-
-	if (BLDC == 1) {
-		BLDC_Motor_Stop();
-		return;
-	}
-
-	State = STOP;
-	int speed = 0;
-
-	speed = (MOTOR_LEFT_BACKWARD + MOTOR_LEFT_FORWARD + MOTOR_RIGHT_FORWARD + MOTOR_RIGHT_BACKWARD) / 2;
-	speed *= 0.90;
-
-	if (speed == 0) {
-		return;
-	}
-
-	for (int x = speed; x > 1000; x--) {
-		x -= 4;
-
-		if (x < 1000) {
-			break;
-		}
-
-		if (MOTOR_LEFT_BACKWARD != 0)
-			MOTOR_LEFT_BACKWARD = x;
-		if (MOTOR_LEFT_FORWARD != 0)
-			MOTOR_LEFT_FORWARD = x;
-		if (MOTOR_RIGHT_FORWARD != 0)
-			MOTOR_RIGHT_FORWARD = x;
-		if (MOTOR_RIGHT_BACKWARD != 0)
-			MOTOR_RIGHT_BACKWARD = x;
-
-		HAL_Delay(1);
-	}
-
-	MOTOR_LEFT_BACKWARD = 0;
-	MOTOR_LEFT_FORWARD = 0;
-	MOTOR_RIGHT_FORWARD = 0;
-	MOTOR_RIGHT_BACKWARD = 0;
-}
-
-void MotorBrake(void) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Brake();
-		return;
-	}
-
-	State = BRAKE;
-
-	// Brake - free wheeling
-	MOTOR_LEFT_BACKWARD = 0;
-	MOTOR_LEFT_FORWARD = 0;
-	MOTOR_RIGHT_FORWARD = 0;
-	MOTOR_RIGHT_BACKWARD = 0;
-}
-
-void MotorHardBrake(void) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-
-	if (BLDC == 1) {
-		BLDC_Motor_Brake();
-		return;
-	}
-
-	State = HARDBRAKE;
-
-	// Wheels will do a hard brake when both pins go HIGH.
-	MOTOR_LEFT_BACKWARD = 3359;
-	MOTOR_LEFT_FORWARD = 3359;
-	MOTOR_RIGHT_FORWARD = 3359;
-	MOTOR_RIGHT_BACKWARD = 3359;
-
-	HAL_Delay(250);
-
-	MotorBrake();    //Release motors
-
 }
 
 void CheckState(void) {
@@ -3070,6 +2620,11 @@ int main(void)
 		CollectADC();
 
 		if (Collision == 1) CheckChassi();
+
+		if (do_upgrade == 1) {
+			buzzer(2, 100);
+			BootLoaderInit(1);
+		}
 
     /* USER CODE END WHILE */
 
@@ -3810,6 +3365,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(buzzer_GPIO_Port, buzzer_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -3833,6 +3391,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : buzzer_Pin */
+  GPIO_InitStruct.Pin = buzzer_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(buzzer_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
@@ -3875,16 +3440,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			}
 		}
 		if (HAL_GPIO_ReadPin(GPIOE, stopButton_Pin) == GPIO_PIN_SET && MasterSwitch == 0) {
-			if (HAL_GetTick() - stopTimer >= 3000) {
+			if (HAL_GetTick() - stopTimer >= 5000) {
 				MasterSwitch = 1;
 				add_error_event("STOP button pushed! - GO");
 				stopTimer = HAL_GetTick();
 				return;
 			}
+			if (HAL_GetTick() - stopTimer >= 1000 && HAL_GetTick() - stopTimer < 5000) {
+				do_upgrade = 1;
+			}
 		}
 	}
 
 	if (GPIO_Pin == chassiSensor_Pin) {
+
+		if (State == (STOP || State == BRAKE || State == HARDBRAKE) && HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
+			return;
+		}
+
 		if (HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
 			if (Collision == 0)	{
 				Collision = 1;

@@ -33,9 +33,9 @@ typedef struct MP6050 {
 
 } mpu6050;
 
-extern void Init6050(void);
-extern void MPU6050_Read_Accel(void);
-extern void MPU6050_Read_Gyro(void);
-extern void ProcessIMUData(sram_settings settings);
+void Init6050(void);
+void MPU6050_Read_Accel(void);
+void MPU6050_Read_Gyro(void);
+void ProcessIMUData(sram_settings settings);
 
 #endif /* INC_MPU6050_H_ */

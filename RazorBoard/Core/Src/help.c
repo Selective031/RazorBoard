@@ -10,6 +10,7 @@
 #include "string.h"
 #include "stdio.h"
 #include <stdlib.h>
+#include "uart.h"
 
 void show_error() {
 

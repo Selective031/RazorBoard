@@ -14,7 +14,10 @@
 #include "motor.h"
 
 extern uint8_t State;
-uint32_t move_timer;
+extern uint8_t mag_near_bwf;
+extern uint8_t highgrass_slowdown;
+extern uint32_t move_timer;
+extern uint32_t Boundary_Timer;
 
 #define STOP 0
 #define FORWARD 1
@@ -38,19 +41,410 @@ uint32_t move_timer;
 #define SECURITY_BACKWARD_OUTSIDE 9
 #define SECURITY_STOP 10
 
-extern uint8_t CheckSecurity(void);
-extern void BLDC_send(char *cmd);
-extern void delay(uint32_t time_ms);
 extern uint8_t cutterStatus;
-extern uint32_t rnd(uint32_t maxValue);
-extern void CheckChassi(void);
-extern void getIMUOrientation(void);
-
 extern uint8_t MasterSwitch;
 extern uint8_t Docked;
+extern uint8_t BLDC;
+
+extern sram_settings settings;
+extern mpu6050 mpu;
 
 uint16_t M1speed = 0;
 uint16_t M2speed = 0;
+
+void cutterON(void) {
+
+	if (BLDC == 1) {
+		BLDC_Cutter_ON();
+		return;
+	}
+
+	cutterStatus = 1;
+	uint8_t direction = 0;
+	if (rnd(100000) < 50000) {
+		direction = 1;
+	}
+
+	Serial_Console("Cutter Motor ON\r\n");
+	add_error_event("Cutter Motor ON");
+
+	for (uint16_t cutterSpeed = 1000; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
+		Boundary_Timer = HAL_GetTick();
+
+		if (direction == 0) {
+			CUTTER_FORWARD = cutterSpeed;
+			CUTTER_BACKWARD = 0;
+		} else {
+			CUTTER_FORWARD = 0;
+			CUTTER_BACKWARD = cutterSpeed;
+		}
+		delay(2);
+	}
+}
+
+void cutterOFF(void) {
+
+	if (BLDC == 1) {
+		BLDC_Cutter_OFF();
+		return;
+	}
+
+	cutterStatus = 0;
+
+	TIM3->CCR1 = 0;
+	TIM3->CCR2 = 0;
+}
+
+void UpdateMotorSpeed() {
+	/* With the use of the MPU6050, we calculate the angle we are traveling in by using the gyro
+	 * A simple motor speed controller, for each degree off, we simply decrease the speed with 120.
+	 * TODO - a proper PID controller
+	 */
+
+	int16_t diff;
+	int8_t dir = 0;
+	char cmd[16];
+
+	extern uint8_t convToPercent(uint16_t PWMspeed);
+
+	// Calculate the difference in bearing, 0-360 accounted for. (Circular heading)
+	diff = (((((int) mpu.heading - (int) mpu.hold_heading) % 360) + 540) % 360) - 180;
+	diff *= settings.steering_correction;
+
+	if (diff < 0) {
+		dir = -1;
+	} else if (diff > 0) {
+		dir = 1;
+	} else if (diff == 0) {
+		dir = 0;
+	}
+
+	// Do not change speed more than 1000
+	if (diff > 1000) {
+		diff = 1000;
+	}
+	if (diff < -1000) {
+		diff = -1000;
+	}
+
+	uint16_t Speed;
+	if (mag_near_bwf == 1 || highgrass_slowdown == 1) {
+		Speed = settings.motorMaxSpeed;
+		if (mag_near_bwf == 1) {
+			Speed = round(Speed * settings.proximitySpeed);
+		} else if (highgrass_slowdown == 1) {
+			Speed = round(Speed * 0.78);
+		}
+	} else {
+		Speed = settings.motorMaxSpeed;
+	}
+
+	// Target is on the Left side
+	if (dir > 0) {
+		int CorrectedSpeed = Speed - abs(diff);
+
+		sprintf(cmd, "M1S %u", convToPercent(CorrectedSpeed));
+		BLDC_send(cmd);
+
+		MOTOR_LEFT_FORWARD = CorrectedSpeed;
+		MOTOR_RIGHT_FORWARD = Speed;
+	}
+	// Target is on the Right side
+	else if (dir < 0) {
+		int CorrectedSpeed = Speed - abs(diff);
+		sprintf(cmd, "M2S %u", convToPercent(CorrectedSpeed));
+		BLDC_send(cmd);
+		MOTOR_LEFT_FORWARD = Speed;
+		MOTOR_RIGHT_FORWARD = CorrectedSpeed;
+	}
+	// Spot on! Full speed ahead Captain!
+	else if (dir == 0) {
+		sprintf(cmd, "M1S %u", convToPercent(Speed));
+		BLDC_send(cmd);
+		sprintf(cmd, "M2S %u", convToPercent(Speed));
+		BLDC_send(cmd);
+		MOTOR_LEFT_FORWARD = Speed;
+		MOTOR_RIGHT_FORWARD = Speed;
+	}
+}
+
+void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Forward(minSpeed, maxSpeed);
+		return;
+	}
+
+	State = FORWARD;
+
+	getIMUOrientation();
+
+	move_timer = HAL_GetTick();
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+
+		uint16_t leftTilt = 0;
+		uint16_t rightTilt = 0;
+
+		if (mpu.roll < 0) {
+			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+		if (mpu.roll > 0) {
+			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+
+		MOTOR_LEFT_BACKWARD = 0;
+		MOTOR_LEFT_FORWARD = currentSpeed - round(leftTilt);
+
+		MOTOR_RIGHT_FORWARD = currentSpeed - round(rightTilt);
+		MOTOR_RIGHT_BACKWARD = 0;
+
+		HAL_Delay(1);
+
+		if (CheckSecurity() == SECURITY_FAIL) {
+			MotorStop();
+			break;
+		}
+	}
+}
+
+void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Backward(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
+	MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
+}
+
+void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	add_error_event("MotorBackward");
+	uint32_t motor_timer;
+	State = BACKWARD;
+	motor_timer = HAL_GetTick();
+
+	getIMUOrientation();
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+
+		uint16_t leftTilt = 0;
+		uint16_t rightTilt = 0;
+
+		if (mpu.roll < 0) {
+			leftTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+		if (mpu.roll > 0) {
+			rightTilt = fabs(mpu.roll * settings.roll_tilt_comp);
+		}
+
+		MOTOR_LEFT_BACKWARD = currentSpeed - round(rightTilt);
+		MOTOR_LEFT_FORWARD = 0;
+
+		MOTOR_RIGHT_FORWARD = 0;
+		MOTOR_RIGHT_BACKWARD = currentSpeed - round(leftTilt);
+
+		HAL_Delay(1);
+
+		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+			MotorHardBrake();
+			delay(1000);
+			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+			delay(500);
+			MotorStop();
+			delay(500);
+			return;
+		}
+
+		if (HAL_GetTick() - motor_timer >= time_ms) {
+			break;
+		}
+	}
+	while (HAL_GetTick() - motor_timer < time_ms) {
+		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+			MotorHardBrake();
+			delay(1000);
+			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+			delay(500);
+			MotorStop();
+			delay(500);
+			return;
+		}
+
+		delay(100);
+	}
+	MotorStop();
+}
+
+void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Right(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
+	add_error_event("MotorRight");
+	State = RIGHT;
+	uint32_t motor_timer;
+	motor_timer = HAL_GetTick();
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+		MOTOR_LEFT_BACKWARD = 0;
+		MOTOR_LEFT_FORWARD = currentSpeed;
+
+		MOTOR_RIGHT_FORWARD = 0;
+		MOTOR_RIGHT_BACKWARD = currentSpeed;
+
+		HAL_Delay(1);
+
+		CheckSecurity();
+
+		if (HAL_GetTick() - motor_timer >= time_ms) {
+			break;
+		}
+	}
+	while (HAL_GetTick() - motor_timer < time_ms) {
+		CheckSecurity();
+	}
+	MotorStop();
+}
+
+void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Left(minSpeed, maxSpeed, time_ms);
+		return;
+	}
+
+	add_error_event("MotorLeft");
+	State = LEFT;
+	uint32_t motor_timer;
+	motor_timer = HAL_GetTick();
+
+	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+		currentSpeed += 3;
+		if (currentSpeed >= maxSpeed) {
+			break;
+		}
+		MOTOR_LEFT_BACKWARD = currentSpeed;
+		MOTOR_LEFT_FORWARD = 0;
+
+		MOTOR_RIGHT_FORWARD = currentSpeed;
+		MOTOR_RIGHT_BACKWARD = 0;
+
+		HAL_Delay(1);
+
+		CheckSecurity();
+
+		if (HAL_GetTick() - motor_timer >= time_ms) {
+			break;
+		}
+	}
+	while (HAL_GetTick() - motor_timer < time_ms) {
+		CheckSecurity();
+	}
+	MotorStop();
+}
+
+void MotorStop(void) {
+
+	if (BLDC == 1) {
+		BLDC_Motor_Stop();
+		return;
+	}
+
+	State = STOP;
+	int speed = 0;
+
+	speed = (MOTOR_LEFT_BACKWARD + MOTOR_LEFT_FORWARD + MOTOR_RIGHT_FORWARD + MOTOR_RIGHT_BACKWARD) / 2;
+	speed *= 0.90;
+
+	if (speed == 0) {
+		return;
+	}
+
+	for (int x = speed; x > 1000; x--) {
+		x -= 4;
+
+		if (x < 1000) {
+			break;
+		}
+
+		if (MOTOR_LEFT_BACKWARD != 0)
+			MOTOR_LEFT_BACKWARD = x;
+		if (MOTOR_LEFT_FORWARD != 0)
+			MOTOR_LEFT_FORWARD = x;
+		if (MOTOR_RIGHT_FORWARD != 0)
+			MOTOR_RIGHT_FORWARD = x;
+		if (MOTOR_RIGHT_BACKWARD != 0)
+			MOTOR_RIGHT_BACKWARD = x;
+
+		HAL_Delay(1);
+	}
+
+	MOTOR_LEFT_BACKWARD = 0;
+	MOTOR_LEFT_FORWARD = 0;
+	MOTOR_RIGHT_FORWARD = 0;
+	MOTOR_RIGHT_BACKWARD = 0;
+}
+
+
+void MotorBrake(void) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Brake();
+		return;
+	}
+
+	State = BRAKE;
+
+	// Brake - free wheeling
+	MOTOR_LEFT_BACKWARD = 0;
+	MOTOR_LEFT_FORWARD = 0;
+	MOTOR_RIGHT_FORWARD = 0;
+	MOTOR_RIGHT_BACKWARD = 0;
+}
+
+void MotorHardBrake(void) {
+	if (MasterSwitch == 0 || Docked == 1) return;
+
+	if (BLDC == 1) {
+		BLDC_Motor_Brake();
+		return;
+	}
+
+	State = HARDBRAKE;
+
+	// Wheels will do a hard brake when both pins go HIGH.
+	MOTOR_LEFT_BACKWARD = 3359;
+	MOTOR_LEFT_FORWARD = 3359;
+	MOTOR_RIGHT_FORWARD = 3359;
+	MOTOR_RIGHT_BACKWARD = 3359;
+
+	HAL_Delay(250);
+
+	MotorBrake();    //Release motors
+
+}
 
 uint8_t convToPercent(uint16_t PWMspeed) {
 
@@ -63,7 +457,7 @@ uint8_t convToPercent(uint16_t PWMspeed) {
 	return s;
 
 }
-void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu, uint32_t time_ms) {
+void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 	if (MasterSwitch == 0 || Docked == 1) return;
 
@@ -71,9 +465,10 @@ void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, sram_set
 
 	uint32_t motor_timer;
 	motor_timer = HAL_GetTick();
+	move_timer = HAL_GetTick();
 
-	BLDC_send("M1R");
-	BLDC_send("M2R");
+	BLDC_send("M1F");
+	BLDC_send("M2F");
 
 	getIMUOrientation();
 
@@ -131,7 +526,7 @@ void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, sram_set
 	BLDC_Motor_Stop();
 
 }
-void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings settings, mpu6050 mpu) {
+void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 	if (MasterSwitch == 0 || Docked == 1) return;
 
@@ -139,8 +534,8 @@ void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings sett
 
 	move_timer = HAL_GetTick();
 
-	BLDC_send("M1R");
-	BLDC_send("M2R");
+	BLDC_send("M1F");
+	BLDC_send("M2F");
 
 	getIMUOrientation();
 
@@ -187,7 +582,7 @@ void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed, sram_settings sett
 	}
 
 }
-void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, sram_settings settings, mpu6050 mpu) {
+void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 	if (MasterSwitch == 0 || Docked == 1) return;
 
@@ -196,8 +591,8 @@ void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms,
 	uint32_t motor_timer;
 	motor_timer = HAL_GetTick();
 
-	BLDC_send("M1F");
-	BLDC_send("M2F");
+	BLDC_send("M1R");
+	BLDC_send("M2R");
 
 	getIMUOrientation();
 
@@ -274,7 +669,7 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	BLDC_send("M2F");
 
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 1;
+		currentSpeed += 3;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
@@ -290,7 +685,7 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 		sprintf(cmd, "M1S %u", convToPercent(M1speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms *2) {
+		if (HAL_GetTick() - motor_timer >= time_ms * 2) {
 			break;
 		}
 		switch (CheckSecurity()) {
@@ -303,7 +698,7 @@ void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 		}
 	}
 
-	while (HAL_GetTick() - motor_timer < time_ms *2) {
+	while (HAL_GetTick() - motor_timer < time_ms * 2) {
 		switch (CheckSecurity()) {
 
 		case SECURITY_STOP:
@@ -331,7 +726,7 @@ void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 	BLDC_send("M2R");
 
 	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 1;
+		currentSpeed += 3;
 		if (currentSpeed >= maxSpeed) {
 			break;
 		}
@@ -347,7 +742,7 @@ void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms *2) {
+		if (HAL_GetTick() - motor_timer >= time_ms * 2) {
 			break;
 		}
 		switch (CheckSecurity()) {
@@ -359,7 +754,7 @@ void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 			return;
 			}
 	}
-	while (HAL_GetTick() - motor_timer < time_ms *2) {
+	while (HAL_GetTick() - motor_timer < time_ms * 2) {
 		switch (CheckSecurity()) {
 
 		case SECURITY_STOP:
@@ -404,7 +799,7 @@ void BLDC_Motor_Brake(void){
 
 }
 
-void BLDC_Cutter_ON(sram_settings settings){
+void BLDC_Cutter_ON(void){
 
 	cutterStatus = 1;
 	extern uint32_t Boundary_Timer;
@@ -422,7 +817,7 @@ void BLDC_Cutter_ON(sram_settings settings){
 
 	for (uint16_t cutterSpeed = 300; cutterSpeed < settings.cutterSpeed; cutterSpeed++) {
 		Boundary_Timer = HAL_GetTick();
-
+		delay(1);
 		char cmd[16];
 		sprintf(cmd, "C1S %u", convToPercent(cutterSpeed));
 		BLDC_send(cmd);
