@@ -50,7 +50,6 @@ void delay_us(uint16_t us);
 void CheckBWF(void);
 void CheckBWF_Rear(void);
 void CheckState(void);
-void cutterHardBreak(void);
 void parseCommand_RPI(void);
 void parseCommand_Console(void);
 void perimeterTracker(void);
@@ -113,6 +112,8 @@ void Error_Handler(void);
 #define stopButton_EXTI_IRQn EXTI9_5_IRQn
 #define buzzer_Pin GPIO_PIN_14
 #define buzzer_GPIO_Port GPIOB
+#define voltage_sens_Pin GPIO_PIN_8
+#define voltage_sens_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

@@ -16,20 +16,24 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
+extern uint8_t UART_Transmit_Done;
+
 void Serial_DATA(char *msg) {
 
 	HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
 
 }
 void Serial_RPi(char *msg) {
-	// Write to Raspberry PI
+// Write to Raspberry PI
 
 	HAL_UART_Transmit(&huart2, (uint8_t *) msg, strlen(msg), 100);
+
 }
 void Serial_Console(char *msg) {
-	// Write to USB/Serial
+// Write to USB/Serial
 
 	HAL_UART_Transmit(&huart1, (uint8_t *) msg, strlen(msg), 100);
+
 }
 
 void BLDC_send(char *cmd) {

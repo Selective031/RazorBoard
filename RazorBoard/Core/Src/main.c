@@ -64,31 +64,9 @@ IWDG_HandleTypeDef hiwdg;
 #define TRUE 1
 #define FALSE 0
 
-#define STOP 0
-#define FORWARD 1
-#define BACKWARD 2
-#define LEFT 3
-#define RIGHT 4
-#define AVOID_OBSTACLE 5
-#define FAIL 6
-#define BRAKE 7
-#define HARDBRAKE 8
-
 #define NOSIGNAL 0
 #define INSIDE 1
 #define OUTSIDE 2
-
-#define SECURITY_FAIL 0
-#define SECURITY_OK 1
-#define SECURITY_NOSIGNAL 2
-#define SECURITY_LEFT 3
-#define SECURITY_RIGHT 4
-#define SECURITY_BUMPER 5
-#define SECURITY_IMU_FAIL 6
-#define SECURITY_OUTSIDE 7
-#define SECURITY_MOVEMENT 8
-#define SECURITY_BACKWARD_OUTSIDE 9
-#define SECURITY_STOP 10
 
 #define INITIAL_MAX_THRESHOLD 5000
 
@@ -106,10 +84,12 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
-uint8_t BLDC = 1;
+uint8_t BLDC = 0;
 uint8_t do_upgrade = 0;
-
+uint8_t bumbercount = 0;
 uint32_t stopTimer = 0;
+
+uint8_t UART_Transmit_Done = 1;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
@@ -270,6 +250,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart3_rx;
 DMA_HandleTypeDef hdma_usart3_tx;
@@ -313,8 +294,10 @@ void buzzer(uint8_t count, uint16_t time_between) {
 
 	for (uint8_t x = 0; x < (count +1); x++) {
 		HAL_GPIO_TogglePin(GPIOB, buzzer_Pin);
-		HAL_Delay(time_between);
+		delay(time_between);
 	}
+
+	HAL_GPIO_WritePin(GPIOB, buzzer_Pin, GPIO_PIN_RESET);
 
 }
 
@@ -324,8 +307,17 @@ void CheckChassi(void) {
 
 		Avoidance = 1;
 
-		uint8_t currentState = State;
+		uint8_t currentState;
 
+	start_state:
+		bumbercount++;
+		if (bumbercount >= 10) {
+			add_error_event("Too many bumber detections - HALT");
+			bumbercount = 0;
+			MasterSwitch = 0;
+			return;
+		}
+		currentState = State;
 		add_error_event("Bumber detection");
 		BLDC_Motor_Brake();
 		delay(500);
@@ -333,30 +325,44 @@ void CheckChassi(void) {
 
 			case BACKWARD:
 				BLDC_Motor_Forward_with_Time(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
+				if (Collision == 1) goto start_state;
+				if (Security == OUTSIDE) return;
 				delay(500);
 				if (rnd(100000) < 50000) {
 					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
 				}
-				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				else {
+					BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
 				break;
 
 			case FORWARD:
 				BLDC_Motor_Backward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+				if (Collision == 1) goto start_state;
 				delay(500);
 				if (rnd(100000) < 50000) {
 					BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
 				}
-				else BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				else {
+					BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
 				break;
 
 			case LEFT:
 				BLDC_Motor_Right(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				if (Collision == 1) goto start_state;
 				break;
 
 			case RIGHT:
 				BLDC_Motor_Left(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				if (Collision == 1) goto start_state;
 				break;
 		}
+		bumbercount = 0;
 	}
 }
 
@@ -373,6 +379,8 @@ void PIDtracker(void) {
 		cutterOFF();
 	}
 
+	State = GUIDEWIRE;
+
 	float PIDerror = 0;
 	float setPoint = 175.0;
 
@@ -381,7 +389,6 @@ void PIDtracker(void) {
 	if (magBWF2 > (setPoint - 10)) {
 		Mag += magBWF2 * 0.2;
 	}
-
 
 	int speed_M1 = 2700;
 	int speed_M2 = 2700;
@@ -392,7 +399,7 @@ void PIDtracker(void) {
 		GoHome_timer_OUT = HAL_GetTick();
 	}
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF2_guide_status == INSIDE) {
-		Mag = setPoint + 10;
+		Mag = setPoint + 20;
 		PIDerror =  arm_pid_f32(&PID, (setPoint - Mag ));
 		GoHome_timer_IN = HAL_GetTick();
 		GoHome_timer_OUT = HAL_GetTick();
@@ -425,6 +432,15 @@ void PIDtracker(void) {
 
 	if (speed_M1 > 3000) speed_M1 = 3000;
 	if (speed_M2 > 3000) speed_M2 = 3000;
+
+	if (BLDC == 1) {
+		char cmd[16];
+		sprintf(cmd, "M1S %u", convToPercent(speed_M1));
+		BLDC_send(cmd);
+		sprintf(cmd, "M2S %u", convToPercent(speed_M2));
+		BLDC_send(cmd);
+		return;
+	}
 
 	MOTOR_LEFT_BACKWARD = 0;
 	MOTOR_LEFT_FORWARD = speed_M1;
@@ -532,7 +548,6 @@ void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout)
     HAL_I2C_Init(handle);
 }
 void scanner(I2C_HandleTypeDef i2c_bus) {
-	Serial_Console("Scanning I2C Bus...\r\n");
 	uint8_t i = 0, ret;
 	for(i=1; i<128; i++)
     {
@@ -543,11 +558,12 @@ void scanner(I2C_HandleTypeDef i2c_bus) {
         }
     	else if(ret == HAL_OK)
     	{
-    	    sprintf(msg, "0x%X \r\n", i);
-    	    HAL_UART_Transmit(&huart1, (uint8_t *)msg, sizeof(msg), 10000);
+    		if (i == 72) Serial_Console("ADC found at ");
+    		if (i == 104) Serial_Console("IMU found at ");
+    	    sprintf(msg, "0x%X [%u]\r\n", i, i);
+    	    HAL_UART_Transmit(&huart1, (uint8_t *)msg, strlen(msg), 100);
     	}
     }
-	Serial_Console("Scanning Done.\r\n");
 }
 void i2c_scanner(void) {
 
@@ -1098,6 +1114,7 @@ void CollectADC() {
 	}
 
 	if ((HAL_GetTick() - ADC_timer) >= 20 && Channel_Status == 1) {
+		Channel_Status = 0;
 		int RAW = 0;
 		RAW = ADC_Receive();
 
@@ -1164,7 +1181,6 @@ void CollectADC() {
 		} else if (Channel == V1_addr) {
 			Channel = M1_addr;
 		}
-		Channel_Status = 0;
 	}
 }
 
@@ -1332,11 +1348,46 @@ void perimeterTracker(void) {
 	if (speedB < 1000)
 		speedB = 1000;
 
+
+	if (BLDC == 1) {
+		char cmd[16];
+
+		if (BWF2_Status == OUTSIDE) {
+			if (BWF1_Status == OUTSIDE && SwitchTracker == 0) {
+
+				BLDC_send("M1R");
+				sprintf(cmd, "M1S %u", convToPercent(settings.perimeterTrackerSpeed * 0.90));
+				BLDC_send(cmd);
+				delay(200);
+			} else if (BWF1_Status == INSIDE) {
+				BLDC_send("M1F");
+				sprintf(cmd, "M1S %u", convToPercent(speedB));
+				BLDC_send(cmd);
+			}
+
+			BLDC_send("M2F");
+			sprintf(cmd, "M2S %u", convToPercent(speedA));
+			BLDC_send(cmd);
+		}
+
+		if (BWF2_Status == INSIDE) {
+			BLDC_send("M1F");
+			sprintf(cmd, "M1S %u", convToPercent(speedA));
+			BLDC_send(cmd);
+
+			BLDC_send("M2F");
+			sprintf(cmd, "M2S %u", convToPercent(speedB));
+			BLDC_send(cmd);
+		}
+
+		return;
+	}
+
 	if (BWF2_Status == OUTSIDE) {
 		if (BWF1_Status == OUTSIDE && SwitchTracker == 0) {
 			MOTOR_LEFT_BACKWARD = settings.perimeterTrackerSpeed * 0.90;            // if both boundary sensors are OUTSIDE, reverse M1 motor, this logic needs to be changed if docking is to the right
 			MOTOR_LEFT_FORWARD = 0;
-			HAL_Delay(200);
+			delay(200);
 		} else if (BWF1_Status == INSIDE) {
 			MOTOR_LEFT_BACKWARD = 0;
 			MOTOR_LEFT_FORWARD = speedB;
@@ -1394,7 +1445,6 @@ void parseCommand_Console(void) {
 			}
 			if (strcmp(Command, "UPGRADE") == 0) {
 				Serial_Console("Entering Bootloader...\r\n");
-				buzzer(2, 100);
 				BootLoaderInit(1);
 			}
 			if (strcmp(Command, "SHOW SIG") == 0) {
@@ -1840,7 +1890,9 @@ void parseCommand_Console(void) {
 				reInitIMU();
 			}
 			if (strcmp(Command, "SCAN I2C") == 0) {
+				Serial_Console("\r\nScanning bus [hi2c1]:\r\n\r\n");
 				scanner(hi2c1);
+				Serial_Console("\r\nScanning bus [hi2c2]:\r\n\r\n");
 				scanner(hi2c2);
 			}
 			if (strcmp(Command, "HELP") == 0) {
@@ -1962,15 +2014,6 @@ uint8_t CheckSecurity(void) {
 		}
 
 	return SECURITY_FAIL;
-}
-
-void cutterHardBreak() {
-	// Cutter disc hard brake
-
-	TIM3->CCR1 = 3359;        // Motor will hard brake when both "pins" go HIGH
-	TIM3->CCR2 = 3359;
-	HAL_Delay(3000);
-	cutterOFF();
 }
 
 void CheckBWF_Rear() {
@@ -2489,8 +2532,8 @@ int main(void)
 	MOTOR_LEFT_FORWARD = 0;                                //M1 Motor - Make sure PWM is 0
 	MOTOR_RIGHT_FORWARD = 0;                                //M2 Motor - Make sure PWM is 0
 	MOTOR_RIGHT_BACKWARD = 0;                                //M2 Motor - Make sure PWM is 0
-	TIM3->CCR1 = 0;                                //C1 Motor - Make sure PWM is 0
-	TIM3->CCR2 = 0;                                //C1 Motor - Make sure PWM is 0
+	CUTTER_FORWARD = 0;                                //C1 Motor - Make sure PWM is 0
+	CUTTER_BACKWARD = 0;                                //C1 Motor - Make sure PWM is 0
 
   /* USER CODE END 2 */
 
@@ -2523,8 +2566,6 @@ int main(void)
 
 	Init6050();                                    // Start the MPU-6050
 
-	Boundary_Timer = HAL_GetTick();                // Initiate timer for the Boundary Wire
-
 	delay_us(100);
 
 	if (validate_settings(board_revision) == CONFIG_NOT_FOUND) {
@@ -2555,6 +2596,8 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim6);
 
 	BWF_timer = HAL_GetTick();
+	stopTimer = HAL_GetTick();
+	Boundary_Timer = HAL_GetTick();                // Initiate timer for the Boundary Wire
 
 	FLASH->ACR = FLASH_ACR_PRFTEN |FLASH_ACR_ICEN |FLASH_ACR_DCEN |FLASH_ACR_LATENCY_5WS;	// Enable ART Acceleration and Zero-wait state
 
@@ -2566,9 +2609,6 @@ int main(void)
 		BLDC_send("debug off");
 
 		Serial_Console("Raptor Initilized.\r\n");
-
-	stopTimer = HAL_GetTick();
-
 	}
 
 	while (1)
@@ -2624,6 +2664,11 @@ int main(void)
 		if (do_upgrade == 1) {
 			buzzer(2, 100);
 			BootLoaderInit(1);
+		}
+		if (HAL_GPIO_ReadPin(GPIOA, voltage_sens_Pin) == GPIO_PIN_RESET && Docked == 1) {
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
+			add_error_event("Lost power while docked");
 		}
 
     /* USER CODE END WHILE */
@@ -3341,6 +3386,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+  /* DMA2_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
 
 }
 
@@ -3399,11 +3447,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(buzzer_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  /*Configure GPIO pin : voltage_sens_Pin */
+  GPIO_InitStruct.Pin = voltage_sens_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(voltage_sens_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -3485,7 +3533,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	 }
 	 if(htim->Instance==TIM6) {
 	 }
-
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
@@ -3493,6 +3540,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
+
+	UART_Transmit_Done = 1;
+
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {

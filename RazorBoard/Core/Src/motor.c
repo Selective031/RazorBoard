@@ -19,28 +19,6 @@ extern uint8_t highgrass_slowdown;
 extern uint32_t move_timer;
 extern uint32_t Boundary_Timer;
 
-#define STOP 0
-#define FORWARD 1
-#define BACKWARD 2
-#define LEFT 3
-#define RIGHT 4
-#define AVOID_OBSTACLE 5
-#define FAIL 6
-#define BRAKE 7
-#define HARDBRAKE 8
-
-#define SECURITY_FAIL 0
-#define SECURITY_OK 1
-#define SECURITY_NOSIGNAL 2
-#define SECURITY_LEFT 3
-#define SECURITY_RIGHT 4
-#define SECURITY_BUMPER 5
-#define SECURITY_IMU_FAIL 6
-#define SECURITY_OUTSIDE 7
-#define SECURITY_MOVEMENT 8
-#define SECURITY_BACKWARD_OUTSIDE 9
-#define SECURITY_STOP 10
-
 extern uint8_t cutterStatus;
 extern uint8_t MasterSwitch;
 extern uint8_t Docked;
@@ -51,6 +29,15 @@ extern mpu6050 mpu;
 
 uint16_t M1speed = 0;
 uint16_t M2speed = 0;
+
+void cutterHardBreak() {
+	// Cutter disc hard brake
+
+	CUTTER_FORWARD = 3359;        // Motor will hard brake when both "pins" go HIGH
+	CUTTER_BACKWARD = 3359;
+	delay(3000);
+	cutterOFF();
+}
 
 void cutterON(void) {
 
@@ -499,7 +486,7 @@ void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t
 		sprintf(cmd, "M2S %u", convToPercent(M2speed));
 		BLDC_send(cmd);
 
-		if (HAL_GetTick() - motor_timer >= time_ms) {
+		if (HAL_GetTick() - motor_timer >= time_ms * 2) {
 			break;
 		}
 		switch (CheckSecurity()) {
@@ -509,16 +496,22 @@ void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t
 
 		case SECURITY_BUMPER:
 			return;
+
+		case SECURITY_FAIL:
+			return;
 		}
 
 	}
-	while (HAL_GetTick() - motor_timer < time_ms) {
+	while (HAL_GetTick() - motor_timer < time_ms * 2) {
 		switch (CheckSecurity()) {
 
 		case SECURITY_STOP:
 			return;
 
 		case SECURITY_BUMPER:
+			return;
+
+		case SECURITY_FAIL:
 			return;
 		}
 	}
@@ -636,6 +629,7 @@ void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms)
 
 		case SECURITY_BACKWARD_OUTSIDE:
 			return;
+
 		}
 
 	}
