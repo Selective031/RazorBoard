@@ -87,6 +87,9 @@ void buzzer(uint8_t count, uint16_t time_between);
 char msg[128];
 char emsg[50];
 
+#define RAPTOR_BFR_SIZE 192			// Buffer size for Raptor
+uint8_t RaptorBuffer[RAPTOR_BFR_SIZE];
+
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

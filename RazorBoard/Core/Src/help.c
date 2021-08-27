@@ -199,4 +199,5 @@ void help(void) {
     Serial_Console("SHOW CONFIG                 - Show config from SRAM\r\n");
     Serial_Console("SHOW ERRORS                 - Show error log\r\n");
     Serial_Console("CLEAR ERRORS                - Clear error log\r\n");
+    Serial_Console("SCAN I2C                    - Scan I2C bus for connected devices\r\n");
 }

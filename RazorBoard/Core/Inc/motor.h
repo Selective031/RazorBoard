@@ -64,6 +64,7 @@ uint8_t convToPercent(uint16_t PWMspeed);
 void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed);
 void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+void BLDC_Motor_BackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Left(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Right(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Stop();

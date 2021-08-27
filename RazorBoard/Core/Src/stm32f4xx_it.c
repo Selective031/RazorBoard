@@ -361,6 +361,10 @@ void USART3_IRQHandler(void)
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
 
+  if(__HAL_UART_GET_FLAG(&huart3, UART_FLAG_IDLE)) {
+	  HAL_UART_RxCpltCallback(&huart3);
+  }
+
   /* USER CODE END USART3_IRQn 1 */
 }
 

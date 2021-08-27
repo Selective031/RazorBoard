@@ -84,12 +84,10 @@ double elapsedTime = 0;
 double rateError = 0;
 double previousTime = 0;
 
-uint8_t BLDC = 0;
+uint8_t BLDC = 1;
 uint8_t do_upgrade = 0;
 uint8_t bumbercount = 0;
 uint32_t stopTimer = 0;
-
-uint8_t UART_Transmit_Done = 1;
 
 uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
@@ -101,10 +99,9 @@ float32_t magBWFArray1[50] = {0};
 float32_t magBWFArray2[50] = {0};
 uint8_t magBWFIndex1 = 0;
 uint8_t magBWFIndex2 = 0;
-float magGuide_max = 0;
 
-float32_t magGuideArray1[50] = {0};
-float32_t magGuideArray2[50] = {0};
+float32_t magGuideArray1[25] = {0};
+float32_t magGuideArray2[25] = {0};
 uint8_t magGuideIndex1 = 0;
 uint8_t magGuideIndex2 = 0;
 
@@ -159,6 +156,7 @@ uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default t
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
+uint8_t RaptorBuffer[RAPTOR_BFR_SIZE];
 uint8_t UART1_ready = 0;
 uint8_t UART2_ready = 0;
 uint8_t Security = 0;
@@ -659,19 +657,17 @@ void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
 	if (Sensor == 11) {
 		magGuideArray1[magGuideIndex1] = magValue;
 		magGuideIndex1++;
-		if (magGuideIndex1 == 50) magGuideIndex1 = 0;
-		if (magGuideArray1[49] != 0) {
-			arm_rms_f32(magGuideArray1, 50, &Guide_magBWF1);
+		if (magGuideIndex1 == 25) magGuideIndex1 = 0;
+		if (magGuideArray1[24] != 0) {
+			arm_rms_f32(magGuideArray1, 25, &Guide_magBWF1);
 		}
-		if (Guide_magBWF1 > magGuide_max) magGuide_max = Guide_magBWF1;
 	} else if (Sensor == 12) {
 		magGuideArray2[magGuideIndex2] = magValue;
 		magGuideIndex2++;
-		if (magGuideIndex2 == 50) magGuideIndex2 = 0;
-		if (magGuideArray2[49] != 0) {
-			arm_rms_f32(magGuideArray2, 50, &Guide_magBWF2);
+		if (magGuideIndex2 == 25) magGuideIndex2 = 0;
+		if (magGuideArray2[24] != 0) {
+			arm_rms_f32(magGuideArray2, 25, &Guide_magBWF2);
 		}
-		if (Guide_magBWF2 > magGuide_max) magGuide_max = Guide_magBWF2;
 	}
 
 	if ((magBWF1 >= settings.magValue || magBWF2 >= settings.magValue) && (MOTOR_LEFT_FORWARD == settings.motorMaxSpeed || MOTOR_RIGHT_FORWARD == settings.motorMaxSpeed) && Docked == 0) {
@@ -1062,8 +1058,6 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
 	Serial_DATA(msg);
-	sprintf(msg, "magGuideMAX: %.2f\r\n", magGuide_max);
-	Serial_DATA(msg);
 
 	/*
     char Data[128];
@@ -1220,7 +1214,6 @@ void unDock(void) {
 		guideTracking = 0;
 		guideTrackingActive = 0;
 		SwitchTracker = 0;
-		write_all_settings(settings);
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
 		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
@@ -1253,21 +1246,15 @@ void ChargerConnected(void) {
 		return;
 	}
 
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {            // Read Volt sense pin
+	if (HAL_GPIO_ReadPin(voltage_sens_GPIO_Port, voltage_sens_Pin) == GPIO_PIN_SET) {            // Read Volt sense pin
 		delay(settings.HoldChargeDetection);                          // Wait for a while so a proper connection is made
 		Force_Active = 0;
 		MotorBrake();
 		cutterHardBreak();
 		delay(2000);
-/*
-		MOTOR_LEFT_FORWARD = 2500;
-		MOTOR_RIGHT_FORWARD = 2500;
-		delay(20);
-		MotorBrake();
-*/
 		Docked = 1;
 		delay(5000);
-		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {
+		if (HAL_GPIO_ReadPin(voltage_sens_GPIO_Port, voltage_sens_Pin) == GPIO_PIN_SET) {
 			add_error_event("Charger connect");
 			Serial_Console("Charger Connected\r\n");
 			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
@@ -2611,6 +2598,8 @@ int main(void)
 		Serial_Console("Raptor Initilized.\r\n");
 	}
 
+	buzzer(2, 50);
+
 	while (1)
 	{
 		// Collect IMU data every 20 ms, non-blocking.
@@ -2665,10 +2654,26 @@ int main(void)
 			buzzer(2, 100);
 			BootLoaderInit(1);
 		}
-		if (HAL_GPIO_ReadPin(GPIOA, voltage_sens_Pin) == GPIO_PIN_RESET && Docked == 1) {
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+		if (HAL_GPIO_ReadPin(voltage_sens_GPIO_Port, voltage_sens_Pin) == GPIO_PIN_RESET && Docked == 1) {
 			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
-			add_error_event("Lost power while docked");
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+			add_error_event("Lost power while docked - HALT");
+
+			MasterSwitch = 0;
+			Docked = 0;
+			ChargerConnect = 0;
+			mpu.roll = 0;
+			mpu.pitch = 0;
+			mpu.yaw = 0;
+			Initial_Start = 0;
+			Start_Threshold = 0;
+			Battery_Ready = 0;
+			lastError = 0;
+			perimeterTracking = 0;
+			perimeterTrackingActive = 0;
+			guideTracking = 0;
+			guideTrackingActive = 0;
+			SwitchTracker = 0;
 		}
 
     /* USER CODE END WHILE */
@@ -3541,8 +3546,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 
-	UART_Transmit_Done = 1;
-
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -3562,6 +3565,19 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			__HAL_UART_CLEAR_IDLEFLAG(&huart2);                                // clear the interrupt
 			HAL_UART_DMAStop(&huart2);
 			UART2_ready = 1;                                                // // Raspberry Pi data is now ready to be processed
+
+		}
+	}
+
+	if (huart == &huart3) {
+
+		if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
+			__HAL_UART_CLEAR_IDLEFLAG(&huart3);								// clear the interrupt
+//			HAL_UART_DMAStop(&huart3);
+//			UART3_ready = 1;	// // "Raptor" data is now ready to be processed
+			parseCommand_Raptor();
+			extern uint32_t raptor_uart_timer;
+			raptor_uart_timer = HAL_GetTick();
 
 		}
 	}
