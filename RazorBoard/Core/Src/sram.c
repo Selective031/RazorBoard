@@ -371,8 +371,8 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.kd = 0.4;
     settings.Motor_Max_Limit = 0.3;
     settings.Motor_Min_Limit = 0.1;
-    settings.magValue = 400;
-    settings.magMinValue = 370;
+    settings.magValue = 350;
+    settings.magMinValue = 300;
     settings.voltageMultiply = 5.0;
     settings.proximitySpeed = 0.80;
     settings.movement = 0.5;

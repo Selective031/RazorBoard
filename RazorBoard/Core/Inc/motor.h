@@ -43,6 +43,18 @@
 #define SECURITY_BACKWARD_OUTSIDE 9
 #define SECURITY_STOP 10
 
+float M1_Raptor_Amp;
+float M2_Raptor_Amp;
+float C1_Raptor_Amp;
+float M1_Raptor_Dist;
+float M2_Raptor_Dist;
+int M1_Raptor_Ticks;
+int M2_Raptor_Ticks;
+int C1_Raptor_Ticks;
+float M1_Raptor_RPM;
+float M2_Raptor_RPM;
+float C1_Raptor_RPM;
+
 
 void UpdateMotorSpeed();
 
@@ -61,6 +73,7 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 
 // BLDC - Raptor
 uint8_t convToPercent(uint16_t PWMspeed);
+void BLDC_init_Raptor(void);
 void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 void BLDC_Motor_Forward(uint16_t minSpeed, uint16_t maxSpeed);
 void BLDC_Motor_Backward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);

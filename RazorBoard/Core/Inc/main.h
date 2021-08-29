@@ -77,6 +77,7 @@ void scanner(I2C_HandleTypeDef i2c_bus);
 void I2C_ClearBusyFlagErratum(I2C_HandleTypeDef* handle, uint32_t timeout);
 bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout);
 void PIDtracker(void);
+void PIDtracker2(void);
 void buzzer(uint8_t count, uint16_t time_between);
 
 /* USER CODE END ET */

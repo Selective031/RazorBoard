@@ -122,9 +122,6 @@ int bwf2guide_outside = 0;
 
 uint32_t Boundary_Timer;            // Keep track of time between signals.
 
-float M1_amp = 0.0f;                // Values for AMP per motor
-float M2_amp = 0.0f;                // Values for AMP per motor
-float C1_amp = 0.0f;                // Values for AMP per motor
 float M1_error = 0.0f;              // Auto calibration value stored here.
 float M2_error = 0.0f;              // Auto calibration value stored here.
 float C1_error = 0.0f;              // Auto calibration value stored here.
@@ -171,6 +168,9 @@ float M2_force[20];                    // Array of power consumption of Motor M2
 float C1_force[20];
 float V1_array[60];
 uint8_t V1_index = 0;
+float M1_amp = 0;                // Values for AMP per motor
+float M2_amp = 0;               // Values for AMP per motor
+float C1_amp = 0;                // Values for AMP per motor
 float M1_F = 0;
 float M2_F = 0;
 float C1_F = 0;
@@ -309,7 +309,7 @@ void CheckChassi(void) {
 
 	start_state:
 		bumbercount++;
-		if (bumbercount >= 10) {
+		if (bumbercount >= settings.bumper_count_limit) {
 			add_error_event("Too many bumber detections - HALT");
 			bumbercount = 0;
 			MasterSwitch = 0;
@@ -445,6 +445,108 @@ void PIDtracker(void) {
 	MOTOR_RIGHT_BACKWARD = 0;
 	MOTOR_RIGHT_FORWARD = speed_M2;
 
+}
+
+void PIDtracker2(void) {
+
+	CheckBWF();
+
+	if (Docked == 1 || MasterSwitch == 0) {
+		MotorStop();
+		return;
+	}
+
+	if (cutterStatus == 1) {
+		cutterOFF();
+	}
+
+	State = GUIDEWIRE;
+
+	float PIDerror = 0;
+	float setPoint = 175.0;
+
+	Mag = Guide_magBWF2;
+
+	if (magBWF2 > (setPoint - 10) && SwitchTracker == 0) {
+		Mag += magBWF2 * 0.2;
+	}
+
+	int speed_M1 = 2500;
+	int speed_M2 = 2500;
+
+	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF2_guide_status == OUTSIDE && SwitchTracker == 0) {
+		PIDerror =  arm_pid_f32(&PID, setPoint - Mag);
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+	}
+	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF2_guide_status == INSIDE && SwitchTracker == 0) {
+		Mag = setPoint + 20;
+		PIDerror =  arm_pid_f32(&PID, (setPoint - Mag ));
+		GoHome_timer_IN = HAL_GetTick();
+		GoHome_timer_OUT = HAL_GetTick();
+
+	}
+
+	if (Mag >= (setPoint -2) && Mag <= (setPoint+2) && SwitchTracker == 0) {
+		PIDerror = 0;
+		arm_pid_init_f32(&PID, 1);
+	}
+
+	if ((BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) && SwitchTracker == 0) {
+		BLDC_Motor_Stop();
+		delay(500);
+		BLDC_Motor_Backward(settings.motorMinSpeed, settings.motorMaxSpeed, 2000);
+		SwitchTracker = 1;
+		HAL_Delay(25);
+		BLDC_send("M1F");
+		HAL_Delay(10);
+		BLDC_send("M2F");
+		HAL_Delay(25);
+
+	}
+
+	if (SwitchTracker == 1) {
+		speed_M1 = 2000;
+		speed_M2 = 2000;
+		if (BWF2_guide_status == OUTSIDE) {
+			PIDerror =  arm_pid_f32(&PID, setPoint - Mag);
+			GoHome_timer_IN = HAL_GetTick();
+			GoHome_timer_OUT = HAL_GetTick();
+		}
+		else {
+			Mag = Guide_magBWF1;
+
+			if (magBWF1 > (setPoint - 10)) {
+				Mag += magBWF1 * 0.2;
+			}
+			PIDerror =  -arm_pid_f32(&PID, setPoint - Mag);
+			GoHome_timer_IN = HAL_GetTick();
+			GoHome_timer_OUT = HAL_GetTick();
+		}
+
+	}
+
+	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
+	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
+
+	if (PIDerror < 0) speed_M2 += abs((int)PIDerror);
+	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
+
+
+	if (speed_M1 < 500) speed_M1 = 500;
+	if (speed_M2 < 500) speed_M2 = 500;
+
+	if (speed_M1 > 3000) speed_M1 = 3000;
+	if (speed_M2 > 3000) speed_M2 = 3000;
+
+	if (BLDC == 1) {
+		char cmd[16];
+		sprintf(cmd, "M1S %u", convToPercent(speed_M1));
+		BLDC_send(cmd);
+		sprintf(cmd, "M2S %u", convToPercent(speed_M2));
+		BLDC_send(cmd);
+		return;
+	}
 }
 
 bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout)
@@ -945,12 +1047,22 @@ void SendInfo() {
 	HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-	sprintf(msg, "M1: %.2f\r\n", M1_amp);
-	Serial_DATA(msg);
-	sprintf(msg, "M2: %.2f\r\n", M2_amp);
-	Serial_DATA(msg);
-	sprintf(msg, "C1: %.2f\r\n", C1_amp);
-	Serial_DATA(msg);
+	if (BLDC == 0) {
+		sprintf(msg, "M1: %.2f\r\n", M1_amp);
+		Serial_DATA(msg);
+		sprintf(msg, "M2: %.2f\r\n", M2_amp);
+		Serial_DATA(msg);
+		sprintf(msg, "C1: %.2f\r\n", C1_amp);
+		Serial_DATA(msg);
+	}
+	else {
+		sprintf(msg, "M1: %.2f\r\n", M1_Raptor_Amp);
+		Serial_DATA(msg);
+		sprintf(msg, "M2: %.2f\r\n", M2_Raptor_Amp);
+		Serial_DATA(msg);
+		sprintf(msg, "C1: %.2f\r\n", C1_Raptor_Amp);
+		Serial_DATA(msg);
+	}
 	sprintf(msg, "V1: %.2f\r\n", Voltage);
 	Serial_DATA(msg);
 	sprintf(msg, "Charger Connected: %d\r\n", ChargerConnect);
@@ -1058,6 +1170,21 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "BWF Cycle Time: %d\r\n", BWF_cycle);
 	Serial_DATA(msg);
+
+	if (BLDC == 1) {
+		sprintf(msg, "M1 ticks: %d\r\n", M1_Raptor_Ticks);
+		Serial_DATA(msg);
+		sprintf(msg, "M2 ticks: %d\r\n", M2_Raptor_Ticks);
+		Serial_DATA(msg);
+		sprintf(msg, "C1 ticks: %d\r\n", C1_Raptor_Ticks);
+		Serial_DATA(msg);
+		sprintf(msg, "M1 RPM: %.1f\r\n", M1_Raptor_RPM);
+		Serial_DATA(msg);
+		sprintf(msg, "M2 RPM: %.1f\r\n", M2_Raptor_RPM);
+		Serial_DATA(msg);
+		sprintf(msg, "C1 RPM: %.1f\r\n", C1_Raptor_RPM);
+		Serial_DATA(msg);
+	}
 
 	/*
     char Data[128];
@@ -1343,7 +1470,7 @@ void perimeterTracker(void) {
 			if (BWF1_Status == OUTSIDE && SwitchTracker == 0) {
 
 				BLDC_send("M1R");
-				sprintf(cmd, "M1S %u", convToPercent(settings.perimeterTrackerSpeed * 0.90));
+				sprintf(cmd, "M1S %u", convToPercent(settings.perimeterTrackerSpeed * 0.50));
 				BLDC_send(cmd);
 				delay(200);
 			} else if (BWF1_Status == INSIDE) {
@@ -2390,17 +2517,17 @@ void CheckState(void) {
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			add_error_event("BWF1 OUT BWF2 IN");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
-			delay(500);
+//			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+//			delay(500);
 			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 IN BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
-			delay(500);
+//			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+//			delay(500);
 			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 OUT BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * settings.roll_tilt_comp)));
 			delay(500);
 			if (rnd(100000) < 50000) {
 				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
@@ -2574,11 +2701,13 @@ int main(void)
 	PID.Kd = 0.1;
 	PID.Ki = 0.04;
 
-    arm_pid_init_f32(&PID, 1);
+	if (BLDC == 1) {
+		PID.Kp = 0.1;
+		PID.Kd = 0.1;
+		PID.Ki = 0.08;
+	}
 
-	Serial_RPi("Booting done!\r\n");
-	Serial_Console("Booting done!\r\n");
-	add_error_event("RazorBoard booted");
+    arm_pid_init_f32(&PID, 1);
 
 	HAL_TIM_Base_Start_IT(&htim6);
 
@@ -2588,17 +2717,16 @@ int main(void)
 
 	FLASH->ACR = FLASH_ACR_PRFTEN |FLASH_ACR_ICEN |FLASH_ACR_DCEN |FLASH_ACR_LATENCY_5WS;	// Enable ART Acceleration and Zero-wait state
 
-	if (BLDC == 1) {
-		BLDC_send("m1 start");
-		BLDC_send("m2 start");
-		BLDC_send("m1t 1.0");
-		BLDC_send("m2t 1.0");
-		BLDC_send("debug off");
-
-		Serial_Console("Raptor Initilized.\r\n");
-	}
+	if (BLDC == 1) BLDC_init_Raptor();
 
 	buzzer(2, 50);
+
+	settings.BatteryChargeTime = 5;
+	settings.use_guide_wire = 0;
+
+	Serial_RPi("Booting done!\r\n");
+	Serial_Console("Booting done!\r\n");
+	add_error_event("RazorBoard booted");
 
 	while (1)
 	{
@@ -2625,7 +2753,7 @@ int main(void)
 				perimeterTracker();
 			}
 			if (guideTrackingActive == 1) {
-				PIDtracker();
+				PIDtracker2();
 			}
 		}
 
@@ -2638,6 +2766,7 @@ int main(void)
 
 		HAL_UART_Receive_DMA(&huart1, ConsoleBuffer, CONSOLE_BFR_SIZE);
 		HAL_UART_Receive_DMA(&huart2, PIBuffer, PI_BFR_SIZE);
+		if (BLDC == 1) HAL_UART_Receive_DMA(&huart3, RaptorBuffer, RAPTOR_BFR_SIZE);
 
 		if (UART1_ready == 1) {
 			parseCommand_Console();
@@ -3505,7 +3634,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		}
 	}
 
-	if (GPIO_Pin == chassiSensor_Pin) {
+	if (GPIO_Pin == chassiSensor_Pin && Docked == 0) {
 
 		if (State == (STOP || State == BRAKE || State == HARDBRAKE) && HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
 			return;
@@ -3573,12 +3702,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 		if(__HAL_UART_GET_FLAG(huart, UART_FLAG_IDLE)) {					// Check if it is an "Idle Interrupt"
 			__HAL_UART_CLEAR_IDLEFLAG(&huart3);								// clear the interrupt
-//			HAL_UART_DMAStop(&huart3);
-//			UART3_ready = 1;	// // "Raptor" data is now ready to be processed
 			parseCommand_Raptor();
-			extern uint32_t raptor_uart_timer;
-			raptor_uart_timer = HAL_GetTick();
-
 		}
 	}
 }

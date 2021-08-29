@@ -13,6 +13,8 @@
 #include "uart.h"
 #include "motor.h"
 
+UART_HandleTypeDef huart3;
+
 extern uint8_t State;
 extern uint8_t mag_near_bwf;
 extern uint8_t highgrass_slowdown;
@@ -32,6 +34,11 @@ uint16_t M2speed = 0;
 
 void cutterHardBreak() {
 	// Cutter disc hard brake
+
+	if (BLDC == 1) {
+		BLDC_Cutter_OFF();
+		return;
+	}
 
 	CUTTER_FORWARD = 3359;        // Motor will hard brake when both "pins" go HIGH
 	CUTTER_BACKWARD = 3359;
@@ -449,6 +456,29 @@ uint8_t convToPercent(uint16_t PWMspeed) {
 	return s;
 
 }
+void BLDC_init_Raptor(void) {
+
+	M1_Raptor_Amp = 0;
+	M2_Raptor_Amp = 0;
+	C1_Raptor_Amp = 0;
+	M1_Raptor_Dist = 0;
+	M2_Raptor_Dist = 0;
+	M1_Raptor_Ticks = 0;
+	M2_Raptor_Ticks = 0;
+	C1_Raptor_Ticks = 0;
+	M1_Raptor_RPM = 0;
+	M2_Raptor_RPM = 0;
+	C1_Raptor_RPM = 0;
+
+	BLDC_send("m1 start");
+	BLDC_send("m2 start");
+	BLDC_send("m1t 1.0");
+	BLDC_send("m2t 1.0");
+//	BLDC_send("debug off");
+
+	Serial_Console("Raptor Initilized.\r\n");
+
+}
 void BLDC_Motor_Forward_with_Time(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 	if (MasterSwitch == 0 || Docked == 1) return;
@@ -611,7 +641,13 @@ void BLDC_Motor_BackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time
 
 		char cmd[16];
 
-		sprintf(cmd, "M1S %u", convToPercent(currentSpeed));
+		uint16_t speed;
+		speed = convToPercent(currentSpeed);
+
+		if (speed <= 10) speed = 0;
+		else speed -= 10;
+
+		sprintf(cmd, "M1S %u", speed);
 		BLDC_send(cmd);
 
 		sprintf(cmd, "M2S %u", convToPercent(currentSpeed));
