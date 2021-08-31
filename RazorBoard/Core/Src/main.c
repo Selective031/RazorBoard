@@ -1343,7 +1343,8 @@ void unDock(void) {
 		SwitchTracker = 0;
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
+		delay(500);
+		MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
 
 	}
 }

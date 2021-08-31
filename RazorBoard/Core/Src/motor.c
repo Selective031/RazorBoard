@@ -474,7 +474,6 @@ void BLDC_init_Raptor(void) {
 	BLDC_send("m2 start");
 	BLDC_send("m1t 1.0");
 	BLDC_send("m2t 1.0");
-//	BLDC_send("debug off");
 
 	Serial_Console("Raptor Initilized.\r\n");
 
@@ -646,6 +645,9 @@ void BLDC_Motor_BackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time
 
 		if (speed <= 10) speed = 0;
 		else speed -= 10;
+
+		M1speed = currentSpeed;
+		M2speed = currentSpeed;
 
 		sprintf(cmd, "M1S %u", speed);
 		BLDC_send(cmd);

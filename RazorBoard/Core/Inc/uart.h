@@ -14,6 +14,4 @@ void Serial_RPi(char *msg);
 void BLDC_send(char *cmd);
 void parseCommand_Raptor(void);
 
-
-
 #endif /* INC_UART_H_ */
