@@ -24,6 +24,7 @@ static const uint8_t global_settings_version = 46;
 #define UNDOCK_BACKING_SECONDS_ADDR		0x0B	//uint8_t
 #define CUT_PERIMETER_RATIO_ADDR		0x0C	//uint8_t
 #define USE_GUIDE_WIRE_ADDR             0x0D	//uint8_t
+#define MULTI_MODE_ADDR                 0x0E	//uint8_t
 
 #define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
 #define MAGVALUE_ADDR					0x34	//uint16_t
@@ -86,6 +87,7 @@ typedef struct SRAM {
 	uint8_t undock_backing_seconds;
     uint8_t cut_perimeter_ratio;
     uint8_t use_guide_wire;
+    uint8_t multi_mode;
 	uint16_t HoldChargeDetection;
 	uint16_t magValue;
 	uint16_t magMinValue;

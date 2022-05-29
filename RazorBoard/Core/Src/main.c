@@ -92,10 +92,10 @@ IWDG_HandleTypeDef hiwdg;
 #define PI_BFR_SIZE 64                // Buffer size for RPi
 #define CONSOLE_BFR_SIZE 64            // Buffer size for Serial Console
 
-#define MOTOR_LEFT_FORWARD TIM4->CCR2
-#define MOTOR_LEFT_BACKWARD TIM4->CCR1
-#define MOTOR_RIGHT_FORWARD TIM4->CCR3
-#define MOTOR_RIGHT_BACKWARD TIM4->CCR4
+#define MOTOR_LEFT_FORWARD TIM4->CCR1
+#define MOTOR_LEFT_BACKWARD TIM4->CCR2
+#define MOTOR_RIGHT_FORWARD TIM4->CCR4
+#define MOTOR_RIGHT_BACKWARD TIM4->CCR3
 
 double Tick1 = 0;
 double Tick2 = 0;
@@ -110,6 +110,9 @@ uint8_t perimeterTracking = 0;
 uint8_t perimeterTrackingActive = 0;
 uint8_t guideTrackingActive = 0;
 uint8_t guideTracking = 0;
+uint8_t guideTrackingOut = 0;
+uint32_t lastGuideTrackingLapse = 0;
+uint32_t guideTrackingStartedAt = 0;
 
 float32_t magBWFArray1[100] = {0};
 float32_t magBWFArray2[100] = {0};
@@ -159,6 +162,9 @@ uint8_t BWF2_guide_status = 0;
 uint8_t State = STOP;
 uint8_t cutterStatus = 0;
 
+uint8_t Collision = 0;
+uint8_t IsCollisionChecking = 0;
+
 uint32_t ADC_timer = 0;
 uint32_t IMU_timer = 0;
 uint32_t OUTSIDE_timer = 0;
@@ -166,6 +172,7 @@ uint32_t OUTSIDE_timer = 0;
 uint8_t Docked = 0;
 uint8_t Docked_Locked = 0;
 uint8_t MasterSwitch = 1;            // This is the "masterswitch", by default this is turned on.
+bool isOverturned = false;
 
 uint8_t PIBuffer[PI_BFR_SIZE];
 uint8_t ConsoleBuffer[CONSOLE_BFR_SIZE];
@@ -215,6 +222,9 @@ uint32_t Charger_start_Timer = 0;                // start of charging time
 uint16_t Charger_elapsed_Timer = 0;                // how long charge time
 uint8_t highgrass_slowdown = 0;
 
+uint32_t Boundary_timer_IN = 0;
+uint32_t Boundary_timer_OUT = 0;
+
 uint8_t bumper_count = 0;
 uint8_t move_count = 0;
 uint8_t board_revision = 12;
@@ -257,8 +267,12 @@ TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart3_rx;
+DMA_HandleTypeDef hdma_usart3_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -284,6 +298,7 @@ static void MX_I2C1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void MotorStop(void);
@@ -294,8 +309,9 @@ static void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms
 static void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced);
 static void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
 static void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
-static void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+//static void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+//static void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms);
+static bool AbortTurnAndBackIfOutside(uint8_t dir);
 static void CheckState(void);
 static uint8_t CheckSecurity(void);
 static void CheckBWF(void);
@@ -316,7 +332,7 @@ static void CollectADC(void);
 static void SendInfo(void);
 static void CheckMotorCurrent(int RAW);
 static void UpdateMotorSpeed();
-static void unDock(void);
+static void undock(bool force);
 static uint32_t rnd(uint32_t maxValue);
 static void InitFIR(void);
 static void FIR_LEFT(void);
@@ -342,7 +358,118 @@ static void PIDtracker(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
+void trackPerimeter();
+
+void checkIfOverGuideWire();
+
 /* USER CODE BEGIN 0 */
+
+void buzzer(uint8_t count, uint16_t time_between) {
+
+	for (uint8_t x = 0; x < (count +1); x++) {
+		HAL_GPIO_TogglePin(GPIOB, buzzer_Pin);
+		delay(time_between);
+	}
+
+	HAL_GPIO_WritePin(GPIOB, buzzer_Pin, GPIO_PIN_RESET);
+
+}
+
+void CheckChassi(void) {
+
+    if (IsCollisionChecking == 1) {
+        return;
+    }
+
+    IsCollisionChecking = 1;
+
+    if (State == STOP) {
+        Serial_Console("Bump!\r\n");
+    }
+
+    if (Docked == 1) {
+        add_error_event("Ignore bump");
+        return;
+    }
+
+    if (guideTrackingActive == 1) {
+        MotorStop();
+        add_error_event("Bump when tracking guide. Checking again...");
+        HAL_Delay(2000);
+
+        if (Collision == 1) {
+            add_error_event("Bump again when tracking guide. Disabling.");
+            MasterSwitch = 0;
+        }
+
+        return;
+    }
+
+	if (State == STOP || State == FORWARD || State == LEFT || State == RIGHT || State == BACKWARD) {
+		IsCollisionChecking = 1;
+
+		uint8_t currentState;
+
+	start_state:
+		bumper_count++;
+		if (bumper_count >= settings.bumper_count_limit) {
+			add_error_event("Too many bumber detections - HALT");
+			bumper_count = 0;
+			MasterSwitch = 0;
+			return;
+		}
+		currentState = State;
+        Serial_Console("Bump!\r\n");
+		add_error_event("Bumber detection");
+		MotorHardBrake();
+		delay(500);
+		switch (currentState) {
+
+			case BACKWARD:
+				MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+                HAL_Delay(1000);
+                MotorStop();
+				if (Collision == 1) goto start_state;
+				if (Security == OUTSIDE) return;
+				delay(500);
+				if (rnd(100000) < 50000) {
+					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
+				else {
+					MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
+				break;
+
+            case STOP:
+			case FORWARD:
+				MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 1500);
+				if (Collision == 1) goto start_state;
+				delay(500);
+				if (rnd(100000) < 50000) {
+					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
+				else {
+					MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+					if (Collision == 1) goto start_state;
+				}
+				break;
+
+			case LEFT:
+				MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				if (Collision == 1) goto start_state;
+				break;
+
+			case RIGHT:
+				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 1200);
+				if (Collision == 1) goto start_state;
+				break;
+		}
+		bumper_count = 0;
+	}
+}
 
 void PIDtracker(void) {
 
@@ -350,33 +477,142 @@ void PIDtracker(void) {
 
 	if (Docked == 1 || MasterSwitch == 0) {
 		MotorStop();
+        guideTrackingStartedAt = 0; //RM
 		return;
+	}
+
+	if (guideTrackingStartedAt == 0) {
+        guideTrackingStartedAt = HAL_GetTick();
+        Boundary_timer_IN = HAL_GetTick();
+        Boundary_timer_OUT = HAL_GetTick();
 	}
 
 	if (cutterStatus == 1) {
 		cutterOFF();
 	}
 
-	GoHome_timer_IN = HAL_GetTick();
-	GoHome_timer_OUT = HAL_GetTick();
+	bool abort = false;
+
+    if (BWF1_Status == OUTSIDE) {
+        Boundary_timer_OUT = HAL_GetTick();
+        if (guideTrackingOut == 0 && HAL_GetTick() - Boundary_timer_IN >= 6000) {
+            add_error_event("Unexpected outside when tracking 1");
+            MotorStop();
+
+            if (BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) {
+                if (BWF1_Status == INSIDE && BWF3_Status == OUTSIDE) {
+                    MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+                }
+
+                if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
+                    MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+                }
+
+                CheckBWF();
+
+                if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
+                    MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+                    HAL_Delay(1500);
+                    MotorStop();
+                }
+            }
+            abort = true;
+        }
+    }
+
+    if (BWF2_Status == INSIDE) {
+        Boundary_timer_IN = HAL_GetTick();
+    }
+
+    if (guideTrackingOut == 1 && lastGuideTrackingLapse > 160000) {
+        lastGuideTrackingLapse = 160000;
+    }
+
+    if (guideTrackingOut == 1 && HAL_GetTick() - guideTrackingStartedAt > lastGuideTrackingLapse) {
+        abort = true;
+    }
+
+    if ((BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) && guideTrackingOut == 1) {
+        MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorBackward_time, false);
+        abort = true;
+    }
+
+    if ((BWF1_Status == OUTSIDE || BWF2_Status == OUTSIDE) && HAL_GetTick() - guideTrackingStartedAt < 5000 && guideTrackingOut == 0) {
+        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+        add_error_event("Unexpected outside when tracking 2");
+        abort = true;
+    }
+
+    if (abort) {
+        MotorStop();
+        cutterON();
+
+        lastGuideTrackingLapse = 0;
+        guideTrackingStartedAt = 0;
+        guideTrackingActive = 0;
+        guideTracking = 0;
+        guideTrackingOut = 0;
+        return;
+    }
+
+    if (BWF1_guide_status == OUTSIDE) {
+        GoHome_timer_OUT = HAL_GetTick();
+        if (guideTrackingOut == 0 && HAL_GetTick() - GoHome_timer_IN >= 15000) {
+            guideTrackingActive = 0;
+            guideTracking = 1;
+            guideTrackingStartedAt = 0;
+            MotorStop();
+            add_error_event("Stuck guidetracking BWF1 OUT - retry");
+            return;
+        }
+    }
+
+    if (BWF1_guide_status == INSIDE) {
+        GoHome_timer_IN = HAL_GetTick();
+        if (guideTrackingOut == 0 && HAL_GetTick() - GoHome_timer_OUT >= 15000) {
+            guideTrackingActive = 0;
+            guideTracking = 1;
+            guideTrackingStartedAt = 0;
+            MotorStop();
+            add_error_event("Stuck guidetracking BWF1 IN - retry");
+            return;
+        }
+    }
 
 	float PIDerror = 0;
 
-	int speed_M1 = 3000;
-	int speed_M2 = 3000;
+	if (settings.move_count_limit == 71) {
+        PID.Kd = settings.kd;
+        PID.Ki = settings.ki;
+        PID.Kp = settings.kp;
+	}
 
-	if (BWF1_guide_status == INSIDE) {
+	int speed_M1 = settings.perimeterTrackerSpeed;
+	int speed_M2 = settings.perimeterTrackerSpeed;
+
+	if ((BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) || magBWF1 > Guide_magBWF1 || magBWF2 > Guide_magBWF2 || magBWF1 >= settings.magMinValue || magBWF2 >= settings.magMinValue) {
+	    speed_M1 = 2500;
+	    speed_M2 = 2500;
+
+        PID.Kd = 10;
+        PID.Ki = 0;
+        PID.Kp = 20;
+	}
+
+    uint8_t leftSideTrigger = guideTrackingOut == 0 ? INSIDE : OUTSIDE;
+    uint8_t rightSideTrigger = guideTrackingOut == 0 ? OUTSIDE : INSIDE;
+
+	if (BWF1_guide_status == leftSideTrigger) {
 		if (setPoint == -20) arm_pid_init_f32(&PID, 1);
 		setPoint = 20;
 		PIDerror = arm_pid_f32(&PID, setPoint);
 	}
 
-	if (BWF1_guide_status == OUTSIDE) {
+	if (BWF1_guide_status == rightSideTrigger) {
 		if (setPoint == 20) arm_pid_init_f32(&PID, 1);
 		setPoint = -20;
 		PIDerror = arm_pid_f32(&PID, setPoint);
 	}
-
 
 	if (PIDerror < 0) speed_M1 -= abs((int)PIDerror);
 	if (PIDerror > 0) speed_M1 += abs((int)PIDerror);
@@ -384,9 +620,8 @@ void PIDtracker(void) {
 	if (PIDerror < 0) speed_M2 += abs((int)PIDerror);
 	if (PIDerror > 0) speed_M2 -= abs((int)PIDerror);
 
-
-	if (speed_M1 < 1000) speed_M1 = 1000;
-	if (speed_M2 < 1000) speed_M2 = 1000;
+	if (speed_M1 < 1100) speed_M1 = 1100;
+	if (speed_M2 < 1100) speed_M2 = 1100;
 
 	if (speed_M1 > 3359) speed_M1 = 3359;
 	if (speed_M2 > 3359) speed_M2 = 3359;
@@ -395,7 +630,6 @@ void PIDtracker(void) {
 	MOTOR_LEFT_FORWARD = speed_M1;
 	MOTOR_RIGHT_BACKWARD = 0;
 	MOTOR_RIGHT_FORWARD = speed_M2;
-
 }
 
 bool wait_for_gpio_state_timeout(GPIO_TypeDef *port, uint16_t pin, GPIO_PinState state, uint32_t timeout)
@@ -554,6 +788,7 @@ void delay(uint32_t time_ms) {
 	uint32_t timer;
 	timer = HAL_GetTick();
 
+    CheckSecurity();
 	while (HAL_GetTick() - timer < time_ms) {
 		CheckSecurity();
 	}
@@ -629,8 +864,8 @@ void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
 		if (mag_near_bwf == 0) {
 			mag_near_bwf = 1;
 			highgrass_slowdown = 0;
-//			sprintf(emsg, "proximity alert BWF1: %d BWF2: %d", magBWF1, magBWF2);
-//			add_error_event(emsg);
+			sprintf(msg, "proximity alert BWF1: %f BWF2: %f\r\n", magBWF1, magBWF2);
+			Serial_Console(msg);
 		}
 		mag_timer = HAL_GetTick();
 	} else if (magBWF1 <= settings.magMinValue && magBWF2 <= settings.magMinValue && mag_near_bwf == 1 && Docked == 0) {
@@ -641,7 +876,8 @@ void CalcMagnitude(uint8_t idx, uint8_t Sensor) {
 				MOTOR_RIGHT_FORWARD = x;
 				HAL_Delay(1);
 				if (CheckSecurity() != SECURITY_OK) {
-					add_error_event("Security fail while in proximity loop");
+                    Serial_Console("Security fail while in proximity loop\r\n");
+                    add_error_event("Security fail while in proximity loop");
 					break;
 				}
 			}
@@ -661,12 +897,20 @@ void TimeToGoHome(void) {
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
 	if (currTime.Hours >= settings.WorkingHourEnd || Voltage <= settings.Battery_Low_Limit) {
+
+        if (settings.multi_mode == 1) {
+            Serial_Console("Requesting to dock");
+        }
 		sprintf(emsg, "tracking enabled %d", currTime.Hours);
 		add_error_event(emsg);
-		if (settings.use_guide_wire == 0) perimeterTracking = 1;
-		else guideTracking = 1;
-	}
+        if (settings.use_guide_wire == 0) {
+            perimeterTracking = 1;
+        } else {
+            guideTracking = 1;
+        }
+    }
 }
+
 
 void setTime(uint8_t hour, uint8_t minute, uint8_t second) {
 	RTC_TimeTypeDef sTime = {0};
@@ -819,7 +1063,7 @@ void CheckMotorCurrent(int RAW) {
 			M1_F = settings.Motor_Min_Limit;
 		}
 		if ((M1_amp >= settings.Motor_Max_Limit || M1_amp >= M1_F * settings.Motor_Limit) && State == (FORWARD || RIGHT) && Force_Active == 1 && M1_amp < 10.0 && perimeterTrackingActive == 0 && guideTrackingActive == 0) {
-			sprintf(emsg, "M1 current: %.2f", M1_amp);
+			sprintf(emsg, "M1 current: %.2f, %.2f", M1_amp, M1_F);
 			add_error_event(emsg);
 			sprintf(msg, "Motor Current Limit reached for M1: %.2f", M1_amp);
 			Serial_Console(msg);
@@ -857,7 +1101,7 @@ void CheckMotorCurrent(int RAW) {
 			M2_F = settings.Motor_Min_Limit;
 		}
 		if ((M2_amp >= settings.Motor_Max_Limit || M2_amp >= M2_F * settings.Motor_Limit) && State == (FORWARD || LEFT) && Force_Active == 1 && M2_amp < 10.0 && perimeterTrackingActive == 0 && guideTrackingActive == 0) {
-			sprintf(emsg, "M2 current: %.2f", M2_amp);
+			sprintf(emsg, "M2 current: %.2f, %.2f", M2_amp, M2_F);
 			add_error_event(emsg);
 			sprintf(msg, "Motor Current Limit reached for M2: %.2f", M2_amp);
 			Serial_Console(msg);
@@ -943,8 +1187,10 @@ void SendInfo() {
 	Serial_DATA(msg);
 	sprintf(msg, "Perimeter tracking: %d\r\n", perimeterTracking);
 	Serial_DATA(msg);
-	sprintf(msg, "Guide tracking: %d\r\n", guideTracking);
-	Serial_DATA(msg);
+    sprintf(msg, "Guide tracking: %d\r\n", guideTracking);
+    Serial_DATA(msg);
+    sprintf(msg, "Guide tracking active: %d\r\n", guideTrackingActive);
+    Serial_DATA(msg);
 	if (mpu.movement < settings.movement) {
 		sprintf(msg, "Movement Verdict: Standing\r\n");
 	} else {
@@ -1139,7 +1385,7 @@ void delay_us(uint16_t us) {
 	while (__HAL_TIM_GET_COUNTER(&htim5) < us);  // wait for the counter to reach the us input in the parameter
 }
 
-void unDock(void) {
+void undock(bool force) {
 	// Simple undock sequence,  check if Battery is ready (fully charged) and if we are within working hours.
 
 	RTC_TimeTypeDef currTime = {0};
@@ -1148,7 +1394,15 @@ void unDock(void) {
 	HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-	if (currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1 && Docked_Locked == 0) {
+	if ((currTime.Hours >= settings.WorkingHourStart && currTime.Hours < settings.WorkingHourEnd && Battery_Ready == 1 && Docked == 1 && Docked_Locked == 0) || force) {
+
+	    if (ChargerConnect == 1) {
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+            add_error_event("Charger disconnect");
+            Serial_Console("Charger disconnected.\r\n");
+            ChargerConnect = 0;
+        }
+
 		add_error_event("Switch Main Battery");
 		Serial_Console("Switching to Main Battery\r\n");
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
@@ -1173,7 +1427,17 @@ void unDock(void) {
 		write_all_settings(settings);
 
 		MotorBackwardImpl(settings.motorMinSpeed, settings.motorMaxSpeed, settings.undock_backing_seconds * 1000, true);
-		MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
+
+        if (lastGuideTrackingLapse > 0) {
+            lastGuideTrackingLapse -= settings.undock_backing_seconds * 1000;
+            guideTracking = 1;
+            guideTrackingActive = 1;
+            guideTrackingOut = 1;
+            guideTrackingStartedAt = HAL_GetTick();
+            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time * 2.5f);            // This needs to be changed if your docking is on the right side
+        } else {
+            MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);            // This needs to be changed if your docking is on the right side
+        }
 	}
 }
 
@@ -1197,29 +1461,39 @@ void ChargerConnected(void) {
 			Serial_Console("Charger disconnected.\r\n");
 			ChargerConnect = 0;
 			delay(5000);
-			unDock();
+			undock(false);
 		}
 		return;
 	}
 
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_SET) {            // Read Volt sense pin
+
+	    if (guideTrackingActive == 1 && guideTrackingStartedAt > 0) {
+            lastGuideTrackingLapse = HAL_GetTick() - guideTrackingStartedAt;
+
+            if (lastGuideTrackingLapse < (settings.undock_backing_seconds + 3) * 1000) {
+                lastGuideTrackingLapse = 0;
+            }
+	    }
+
 		HAL_Delay(settings.HoldChargeDetection);                          // Wait for a while so a proper connection is made
 		Force_Active = 0;
 		MotorBrake();
-		cutterHardBreak();
+		cutterOFF();
+        ChargerConnect = 1;
+        Docked = 1;
+        guideTrackingActive = 0;
+        guideTracking = 0;
+        perimeterTrackingActive = 0;
 		add_error_event("Charger connect");
 		Serial_Console("Charger Connected\r\n");
 		delay(5000);
 		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_SET);               // Main Power switch
 		Serial_Console("Changing Main Power\r\n");
-		ChargerConnect = 1;
-		Docked = 1;
 		delay(2000);
 		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);              // Charger Switch
 		add_error_event("Charging active");
 		Serial_Console("Charging activated\r\n");
-		guideTrackingActive = 0;
-		perimeterTrackingActive = 0;
 
 		return;
 	}
@@ -1416,7 +1690,6 @@ void parseCommand_Console(void) {
                 int ms;
                 char cmd1[5], cmd2[4];
                 sscanf(Command, "%s %s %d ", cmd1, cmd2, &ms);
-
                 MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, ms);
             }
             if (strncmp(Command, "MOTOR BACKWARDS", 15) == 0) {
@@ -1442,6 +1715,9 @@ void parseCommand_Console(void) {
 				HAL_Delay(500);
 				NVIC_SystemReset();
 			}
+            if (strcmp(Command, "UNDOCK") == 0) {
+                undock(true);
+            }
 			if (strcmp(Command, "LOCK DOCKING") == 0) {
 				Serial_Console("Docking LOCKED.\r\n");
 				Docked_Locked = 1;
@@ -1768,6 +2044,16 @@ void parseCommand_Console(void) {
 				sscanf(Command, "%s %s %s %s %hhd", cmd1, cmd2, cmd3, cmd4, &guide_wire);
 				settings.use_guide_wire = guide_wire;
 			}
+			if (strncmp(Command, "SET NEXT GUIDE TRACK", 20) == 0) {
+				uint16_t time;
+				char cmd1[3], cmd2[5], cmd3[3], cmd4[5];
+				sscanf(Command, "%s %s %s %s %hd", cmd1, cmd2, cmd3, cmd4, &time);
+				lastGuideTrackingLapse = time * 1000;
+			}
+			if (strncmp(Command, "SHOW NEXT GUIDE TRACK", 21) == 0) {
+				sprintf(msg, "Next guide tracking time: %lu s\r\n", lastGuideTrackingLapse/1000);
+				Serial_Console(msg);
+			}
 			if (strcmp(Command, "DISABLE") == 0) {
 				MasterSwitch = 0;
 				add_error_event("User typed disable");
@@ -1785,10 +2071,18 @@ void parseCommand_Console(void) {
 				perimeterTracking = 1;
 				Serial_Console("Perimeter tracking ENABLED\r\n");
 			}
-			if (strcmp(Command, "TRACK GUIDE") == 0) {
-				guideTracking = 1;
-				Serial_Console("Guide tracking ENABLED\r\n");
-			}
+            if (strcmp(Command, "TRACK GUIDE") == 0) {
+                guideTracking = 1;
+                guideTrackingOut = 0;
+                Serial_Console("Guide tracking ENABLED\r\n");
+            }
+            if (strcmp(Command, "STOP TRACK GUIDE") == 0) {
+                guideTracking = 0;
+                guideTrackingActive = 0;
+                guideTrackingOut = 0;
+                Serial_Console("Guide tracking DISABLED\r\n");
+                MotorStop();
+            }
 			if (strcmp(Command, "RESETI2C") == 0) {
 				reInitIMU();
 			}
@@ -1856,21 +2150,57 @@ uint8_t CheckSecurity(void) {
 	// Check security, what is our status with the boundary signals
 
 	CheckBWF();
+    CheckBWF_Rear();
 
 	if (State == BACKWARD) {
-		CheckBWF_Rear();
 		if (BWF3_Status == OUTSIDE) {
 			return SECURITY_BACKWARD_OUTSIDE;
 		}
 	}
 
 	if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
-			sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
-			add_error_event(emsg);
-			MotorHardBrake();
-			cutterHardBreak();
-			return SECURITY_IMU_FAIL;
+        if (!isOverturned) {
+            isOverturned = true;
+            sprintf(emsg, "Overturn: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
+            add_error_event(emsg);
+            MotorHardBrake();
+            cutterHardBreak();
+            HAL_Delay(100);
+            getIMUOrientation();
+
+            CheckBWF();
+            CheckBWF_Rear();
+
+            // After overturn
+            if (!(fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit)) {
+                if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF3_Status == INSIDE) {
+                    MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 2000);
+                }
+
+                CheckBWF();
+                CheckBWF_Rear();
+
+                if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && BWF3_Status == INSIDE) {
+                    MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 800);
+                }
+            }
+        } else {
+            MOTOR_LEFT_BACKWARD = 0;
+            MOTOR_LEFT_FORWARD = 0;
+            MOTOR_RIGHT_FORWARD = 0;
+            MOTOR_RIGHT_BACKWARD = 0;
+            TIM3->CCR1 = 0;
+            TIM3->CCR2 = 0;
+        }
+
+        return SECURITY_IMU_FAIL;
+	} else {
+        isOverturned = false;
 	}
+
+    if (Collision == 1 && IsCollisionChecking == 0) {
+        return SECURITY_BUMPER;
+    }
 
 	if (HAL_GetTick() - Boundary_Timer >= (settings.Boundary_Timeout * 1000)) {
 		BWF1_Status = NOSIGNAL;
@@ -1896,16 +2226,6 @@ uint8_t CheckSecurity(void) {
 		OUTSIDE_timer = HAL_GetTick();        // We are inside with at least one sensor, reset OUTSIDE_timer
 	}
 
-	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1 && guideTrackingActive == 0) {
-
-		if ( (BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) || (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) ) {
-			if (Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2) {
-				guideTrackingActive = 1;
-			}
-		}
-
-	}
-
 	if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
 		Security = INSIDE;
 		return SECURITY_OK;
@@ -1922,11 +2242,18 @@ void cutterHardBreak() {
 
 	TIM3->CCR1 = 3359;        // Motor will hard brake when both "pins" go HIGH
 	TIM3->CCR2 = 3359;
-	delay(3000);
+	delay(500);
 	cutterOFF();
 }
 
 void cutterON(void) {
+    if (fabs(mpu.pitch) >= settings.Overturn_Limit || fabs(mpu.roll) >= settings.Overturn_Limit) {
+        sprintf(emsg, "Cut on stopped: pitch %.1f roll %.1f", mpu.pitch, mpu.roll);
+        add_error_event(emsg);
+        cutterOFF();
+        return;
+    }
+
 	cutterStatus = 1;
 	uint8_t direction = 0;
 	if (rnd(100000) < 50000) {
@@ -2195,8 +2522,8 @@ void CheckBWF() {
 			bwf2_outside++;
 			CalcMagnitude(idx, 2);
 		}
-
 	}
+
 	BWF_cycle = HAL_GetTick() - BWF_duration;
 }
 void ADC_Send(uint8_t Channel) {
@@ -2304,8 +2631,18 @@ void UpdateMotorSpeed() {
 }
 
 void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
-	if (MasterSwitch == 0 || Docked == 1) return;
+	if (Docked == 1) return;
 	State = FORWARD;
+
+    if (CheckSecurity() == SECURITY_FAIL) {
+        MotorStop();
+        return;
+    }
+
+    if (CheckSecurity() == SECURITY_BUMPER) {
+        CheckChassi();
+        return;
+    }
 
 	getIMUOrientation();
 
@@ -2335,20 +2672,24 @@ void MotorForward(uint16_t minSpeed, uint16_t maxSpeed) {
 
 		HAL_Delay(1);
 
-		if (CheckSecurity() == SECURITY_FAIL) {
-			MotorStop();
-			break;
-		}
+        if (CheckSecurity() == SECURITY_FAIL) {
+            MotorStop();
+            break;
+        }
+
+        if (CheckSecurity() == SECURITY_BUMPER) {
+            CheckChassi();
+            break;
+        }
 	}
 }
 
 void MotorBackward(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
 	MotorBackwardImpl(minSpeed, maxSpeed, time_ms, false);
 }
 
 void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, bool forced) {
-	if (MasterSwitch == 0 || Docked == 1) return;
+	if (Docked == 1) return;
 	add_error_event("MotorBackward");
 	uint32_t motor_timer;
 	State = BACKWARD;
@@ -2381,10 +2722,19 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 		HAL_Delay(1);
 
 		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+            add_error_event("Backed outside on acc");
 			MotorHardBrake();
-			delay(1000);
-			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
 			delay(500);
+			if (!isOverturned) {
+                if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
+                    MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+                } else if (BWF1_Status == INSIDE) {
+                    MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+                } else if (BWF2_Status == INSIDE) {
+                    MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+                }
+			}
+			delay(750);
 			MotorStop();
 			delay(500);
 			return;
@@ -2396,10 +2746,17 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 	}
 	while (HAL_GetTick() - motor_timer < time_ms) {
 		if (!forced && CheckSecurity() == SECURITY_BACKWARD_OUTSIDE) {
+            add_error_event("Backed outside on delay");
 			MotorHardBrake();
-			delay(1000);
-			MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
 			delay(500);
+            if (BWF1_Status == INSIDE && BWF2_Status == INSIDE) {
+                MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
+            } else if (BWF1_Status == INSIDE) {
+                MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+            } else if (BWF2_Status == INSIDE) {
+                MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+            }
+			delay(750);
 			MotorStop();
 			delay(500);
 			return;
@@ -2411,7 +2768,7 @@ void MotorBackwardImpl(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms, b
 }
 
 void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
+	if (Docked == 1) return;
 	add_error_event("MotorRight");
 	State = RIGHT;
 	uint32_t motor_timer;
@@ -2430,46 +2787,66 @@ void MotorRight(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 		HAL_Delay(1);
 
-		CheckSecurity();
+        if (CheckSecurity() == SECURITY_BUMPER) {
+            CheckChassi();
+            return;
+        }
 
 		if (HAL_GetTick() - motor_timer >= time_ms) {
 			break;
 		}
+
+        if (settings.Overturn_Limit == 30 && AbortTurnAndBackIfOutside(RIGHT)) {
+            return;
+        }
 	}
+
 	while (HAL_GetTick() - motor_timer < time_ms) {
-		CheckSecurity();
+        if (CheckSecurity() == SECURITY_BUMPER) {
+            CheckChassi();
+            return;
+        }
+
+        if (settings.Overturn_Limit == 30 && AbortTurnAndBackIfOutside(RIGHT)) {
+            return;
+        }
 	}
 	MotorStop();
 }
-void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-	add_error_event("MotorRight_Guide");
-	State = RIGHT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
+//
+//void MotorRight_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+//	if (MasterSwitch == 0 || Docked == 1) return;
+//	add_error_event("MotorRight_Guide");
+//	State = RIGHT;
+//	uint32_t motor_timer;
+//	motor_timer = HAL_GetTick();
+//
+//	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+//		currentSpeed += 3;
+//		if (currentSpeed >= maxSpeed) {
+//			break;
+//		}
+//		MOTOR_LEFT_BACKWARD = 0;
+//		MOTOR_LEFT_FORWARD = currentSpeed;
+//
+//		MOTOR_RIGHT_FORWARD = 0;
+//		MOTOR_RIGHT_BACKWARD = currentSpeed;
+//
+//		HAL_Delay(1);
+//
+//		if (HAL_GetTick() - motor_timer >= time_ms) {
+//			break;
+//		}
+//	}
+//
+//	while (HAL_GetTick() - motor_timer < time_ms) {
+//        HAL_Delay(1);
+//    }
+//	MotorStop();
+//}
 
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = 0;
-		MOTOR_LEFT_FORWARD = currentSpeed;
-
-		MOTOR_RIGHT_FORWARD = 0;
-		MOTOR_RIGHT_BACKWARD = currentSpeed;
-
-		HAL_Delay(1);
-
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {}
-	MotorStop();
-}
 void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
+	if (Docked == 1) return;
 	add_error_event("MotorLeft");
 	State = LEFT;
 	uint32_t motor_timer;
@@ -2488,44 +2865,100 @@ void MotorLeft(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
 
 		HAL_Delay(1);
 
-		CheckSecurity();
+        if (CheckSecurity() == SECURITY_BUMPER) {
+            CheckChassi();
+            return;
+        }
 
 		if (HAL_GetTick() - motor_timer >= time_ms) {
 			break;
 		}
+
+        if (settings.Overturn_Limit == 30 && AbortTurnAndBackIfOutside(LEFT)) {
+            return;
+        }
 	}
 	while (HAL_GetTick() - motor_timer < time_ms) {
-		CheckSecurity();
+        if (CheckSecurity() == SECURITY_BUMPER) {
+            CheckChassi();
+            return;
+        }
+
+        if (settings.Overturn_Limit == 30 && AbortTurnAndBackIfOutside(LEFT)) {
+            return;
+        }
 	}
 	MotorStop();
 }
-void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
-	if (MasterSwitch == 0 || Docked == 1) return;
-	add_error_event("MotorLeft_Guide");
-	State = LEFT;
-	uint32_t motor_timer;
-	motor_timer = HAL_GetTick();
+//
+//void MotorLeft_Guide(uint16_t minSpeed, uint16_t maxSpeed, uint32_t time_ms) {
+//	if (MasterSwitch == 0 || Docked == 1) return;
+//	add_error_event("MotorLeft_Guide");
+//	State = LEFT;
+//	uint32_t motor_timer;
+//	motor_timer = HAL_GetTick();
+//
+//	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
+//		currentSpeed += 3;
+//		if (currentSpeed >= maxSpeed) {
+//			break;
+//		}
+//		MOTOR_LEFT_BACKWARD = currentSpeed;
+//		MOTOR_LEFT_FORWARD = 0;
+//
+//		MOTOR_RIGHT_FORWARD = currentSpeed;
+//		MOTOR_RIGHT_BACKWARD = 0;
+//
+//		HAL_Delay(1);
+//
+//		if (HAL_GetTick() - motor_timer >= time_ms) {
+//			break;
+//		}
+//	}
+//	while (HAL_GetTick() - motor_timer < time_ms) {
+//        HAL_Delay(1);
+//    }
+//	MotorStop();
+//}
 
-	for (uint16_t currentSpeed = minSpeed; currentSpeed < maxSpeed; currentSpeed++) {
-		currentSpeed += 3;
-		if (currentSpeed >= maxSpeed) {
-			break;
-		}
-		MOTOR_LEFT_BACKWARD = currentSpeed;
-		MOTOR_LEFT_FORWARD = 0;
+bool AbortTurnAndBackIfOutside(uint8_t dir) {
+    CheckSecurity();
 
-		MOTOR_RIGHT_FORWARD = currentSpeed;
-		MOTOR_RIGHT_BACKWARD = 0;
+    if (dir == LEFT && BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
+        add_error_event("AbortTurn trg stop on left");
 
-		HAL_Delay(1);
+        MotorStop();
+        delay(100);
+        MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 400);
 
-		if (HAL_GetTick() - motor_timer >= time_ms) {
-			break;
-		}
-	}
-	while (HAL_GetTick() - motor_timer < time_ms) {}
-	MotorStop();
+        MotorStop();
+        return true;
+    } else if (dir == RIGHT && BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
+        add_error_event("AbortTurn trg stop on right");
+
+        MotorStop();
+        delay(100);
+        MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, 400);
+
+        MotorStop();
+        return true;
+    } else if (BWF2_Status == OUTSIDE && BWF1_Status == OUTSIDE) {
+        MotorStop();
+        delay(500);
+        if (BWF3_Status == INSIDE) {
+            add_error_event("AbortTurn trg backward");
+            MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, 2000);
+        } else {
+            add_error_event("AbortTurn trg stop on both");
+        }
+
+        MotorStop();
+        return true;
+    }
+
+    return false;
 }
+
 void MotorStop(void) {
 	State = STOP;
 	int speed = 0;
@@ -2622,7 +3055,14 @@ void CheckState(void) {
 		return;
 	}
 
-	if (CheckSecurity() == SECURITY_MOVEMENT) {
+    if (CheckSecurity() == SECURITY_BUMPER) {
+        MotorStop();
+        return;
+    }
+
+    checkIfOverGuideWire();
+
+    if (CheckSecurity() == SECURITY_MOVEMENT) {
 		add_error_event("Movement detection HALT");
 		MotorStop();
 		if (move_count >= settings.move_count_limit) {
@@ -2651,57 +3091,32 @@ void CheckState(void) {
 		highgrass_slowdown = 0;
 		TimeToGoHome();            // Check if within working hours, if not, go home
 		if (perimeterTracking == 1) {
-			if (rnd(100) > settings.cut_perimeter_ratio) {
-				cutterOFF();
-			}
-			perimeterTrackingActive = 1;
-			delay(500);
-			GoHome_timer_IN = HAL_GetTick();
-			GoHome_timer_OUT = HAL_GetTick();
-
-			if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
-				return;
-			}
-			if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-				return;
-			}
-			if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
-				while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
-					MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
-					CheckSecurity();
-					if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
-						perimeterTracking = 0;
-						perimeterTrackingActive = 0;
-						MasterSwitch = 0;
-						add_error_event("Stuck at turning on perimeter wire");
-						break;
-					}
-				}
-				GoHome_timer_IN = HAL_GetTick();
-				GoHome_timer_OUT = HAL_GetTick();
-				return;
-			}
-
-			return;
-		}
-		delay(500);
+            trackPerimeter();
+            return;
+        }
+        delay(500);
 
 		CheckSecurity();                // Double check status of the sensors when we are standing still
 
 		if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
 			add_error_event("BWF1 OUT BWF2 IN");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (fminf(0, mpu.pitch * 50))));
 			delay(500);
 			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 IN BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (fminf(0, mpu.pitch * 50))));
 			delay(500);
 			MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
 			add_error_event("BWF1 OUT BWF2 OUT");
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (fminf(0, mpu.pitch * 50))));
+
 			delay(500);
+            if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE && BWF3_Status == INSIDE) {
+                MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorBackward_time * 2);
+            }
+
 			if (rnd(100000) < 50000) {
 				MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 			} else {
@@ -2721,8 +3136,7 @@ void CheckState(void) {
 		add_error_event("Found Guide Wire");
 
 		CheckBWF();
-		if (settings.use_guide_wire == 0) {
-
+		if (settings.use_guide_wire == 1) {
 			GoHome_timer_IN = HAL_GetTick();
 			GoHome_timer_OUT = HAL_GetTick();
 
@@ -2733,19 +3147,19 @@ void CheckState(void) {
 				return;
 			}
 			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == INSIDE) {
-				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				MotorLeft(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 				GoHome_timer_IN = HAL_GetTick();
 				GoHome_timer_OUT = HAL_GetTick();
 				return;
 			}
 			if (BWF1_guide_status == OUTSIDE && BWF2_guide_status == OUTSIDE) {
-				MotorLeft_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				MotorLeft(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 				GoHome_timer_IN = HAL_GetTick();
 				GoHome_timer_OUT = HAL_GetTick();
 				return;
-		}
+		    }
 			if (BWF1_guide_status == INSIDE && BWF2_guide_status == INSIDE) {
-				MotorRight_Guide(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
+				MotorRight(settings.motorMinSpeed, round(settings.motorMaxSpeed * 0.80), settings.motorTurnStatic_time);
 				GoHome_timer_IN = HAL_GetTick();
 				GoHome_timer_OUT = HAL_GetTick();
 				return;
@@ -2756,12 +3170,11 @@ void CheckState(void) {
 			GoHome_timer_OUT = HAL_GetTick();
 			return;
 		}
-
 	} else if (State == FORWARD) {
 		if (MOTOR_LEFT_FORWARD == 0 && MOTOR_RIGHT_FORWARD == 0) {
 			State = STOP;
 		}
-	} else if (State == STOP && CheckSecurity() == SECURITY_OK) {
+	} else if (State == STOP && CheckSecurity() == SECURITY_OK && Docked == 0) {
 		delay(500);
 		add_error_event("STOP+SECURITY_OK");
 		mpu.hold_heading = mpu.heading;
@@ -2771,7 +3184,7 @@ void CheckState(void) {
 		mag_near_bwf = 0;
 		highgrass_slowdown = 0;
 		MotorForward(settings.motorMinSpeed, settings.motorMaxSpeed);
-	} else if (State == STOP && CheckSecurity() == SECURITY_FAIL) {
+	} else if (State == STOP && CheckSecurity() == SECURITY_FAIL && Docked == 0) {
 		delay(500);
 		add_error_event("STOP+SECURITY_FAIL");
 
@@ -2782,10 +3195,100 @@ void CheckState(void) {
 		} else if (BWF2_Status == INSIDE && (BWF1_Status == OUTSIDE || BWF1_Status == NOSIGNAL)) {
 			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
 		} else if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
-			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (mpu.pitch * 50)));
+			MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, (settings.motorBackward_time + (fmaxf(0, mpu.pitch * 50))));
 			MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time + rnd(settings.motorTurnRandom_time));
+			delay(500);
+			if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE && BWF3_Status == INSIDE) {
+                MotorBackward(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorBackward_time * 2);
+			}
 		}
 	}
+}
+
+void checkIfOverGuideWire() {
+    // Check if over guide wire
+    if (BWF1_Status == INSIDE && BWF2_Status == INSIDE && guideTracking == 1 && guideTrackingActive == 0) {
+        uint8_t leftSideTrigger = guideTrackingOut == 0 ? INSIDE : OUTSIDE;
+        uint8_t rightSideTrigger = guideTrackingOut == 0 ? OUTSIDE : INSIDE;
+
+        bool crossingWire = (BWF1_guide_status == leftSideTrigger && BWF2_guide_status == rightSideTrigger) || (BWF1_guide_status == rightSideTrigger && BWF2_guide_status == leftSideTrigger);
+        bool farFromBoundary = Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2;
+        bool guideMagThreshold = (Guide_magBWF1 >= 175 || Guide_magBWF2 >= 175);
+
+        if (crossingWire && farFromBoundary && guideMagThreshold) {
+            if (Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2) {
+                MotorStop();
+                delay(200);
+                uint16_t speed  = (settings.motorMaxSpeed + settings.motorMinSpeed) / 2;
+                MOTOR_LEFT_BACKWARD = 0;
+                MOTOR_LEFT_FORWARD = speed;
+                MOTOR_RIGHT_FORWARD = speed;
+                MOTOR_RIGHT_BACKWARD = 0;
+                delay(800);
+                MotorStop();
+                delay(100);
+
+                farFromBoundary = Guide_magBWF1 > magBWF1 && Guide_magBWF2 > magBWF2;
+                guideMagThreshold = (Guide_magBWF1 >= 175 || Guide_magBWF2 >= 175);
+
+                delay(100);
+                if (Security == INSIDE && farFromBoundary && guideMagThreshold) {
+                    MotorBackward(speed, speed, 700);
+
+                    delay(100);
+                    if (Security == INSIDE && guideTrackingOut == 0 && BWF1_guide_status == INSIDE && BWF2_guide_status == OUTSIDE) {
+                        MotorRight(settings.motorMinSpeed, settings.motorMaxSpeed, 1000);
+                    }
+
+                    CheckSecurity();
+                    if (Security == INSIDE) {
+                        guideTrackingActive = 1;
+                        guideTrackingStartedAt = HAL_GetTick();
+
+                        GoHome_timer_OUT = HAL_GetTick();
+                        GoHome_timer_IN = HAL_GetTick();
+                    }
+                } else {
+                    MotorBackward(speed, speed, 1000);
+                }
+            }
+        }
+    }
+}
+
+void trackPerimeter() {
+    if (rnd(100) > settings.cut_perimeter_ratio) {
+        cutterOFF();
+    }
+    perimeterTrackingActive = 1;
+    delay(500);
+    GoHome_timer_IN = HAL_GetTick();
+    GoHome_timer_OUT = HAL_GetTick();
+
+    if (BWF1_Status == INSIDE && BWF2_Status == OUTSIDE) {
+        return;
+    }
+    if (BWF1_Status == OUTSIDE && BWF2_Status == OUTSIDE) {
+        return;
+    }
+    if (BWF1_Status == OUTSIDE && BWF2_Status == INSIDE) {
+        while (BWF1_Status != INSIDE && BWF2_Status != OUTSIDE) {
+            MotorLeft(settings.motorMinSpeed, settings.motorMaxSpeed, settings.motorTurnStatic_time);
+            CheckSecurity();
+            if (HAL_GetTick() - GoHome_timer_IN >= 10000 || HAL_GetTick() - GoHome_timer_OUT >= 10000) {
+                perimeterTracking = 0;
+                perimeterTrackingActive = 0;
+                MasterSwitch = 0;
+                add_error_event("Stuck at turning on perimeter wire");
+                break;
+            }
+        }
+        GoHome_timer_IN = HAL_GetTick();
+        GoHome_timer_OUT = HAL_GetTick();
+        return;
+    }
+
+    return;
 }
 
 /* USER CODE END 0 */
@@ -2833,6 +3336,7 @@ int main(void)
   MX_ADC2_Init();
   MX_I2C2_Init();
   MX_TIM6_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 
   	i2c_scanner();
@@ -2952,7 +3456,7 @@ int main(void)
 
 		if (Docked == 1) {
 			cutterOFF();
-			unDock();
+			undock(false);
 		}
 
 		HAL_UART_Receive_DMA(&huart1, ConsoleBuffer, CONSOLE_BFR_SIZE);
@@ -2966,6 +3470,8 @@ int main(void)
 		}
 
 		CollectADC();
+
+        if (Collision == 1) CheckChassi();
 
     /* USER CODE END WHILE */
 
@@ -3621,6 +4127,39 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 1000000;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -3631,6 +4170,12 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+  /* DMA1_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
@@ -3643,6 +4188,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+  /* DMA2_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
 
 }
 
@@ -3659,8 +4207,15 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(buzzer_GPIO_Port, buzzer_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -3668,11 +4223,37 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PA8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  /*Configure GPIO pin : chassiSensor_Pin */
+  GPIO_InitStruct.Pin = chassiSensor_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(chassiSensor_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : stopButton_Pin */
+  GPIO_InitStruct.Pin = stopButton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(stopButton_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PE10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : buzzer_Pin */
+  GPIO_InitStruct.Pin = buzzer_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(buzzer_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : voltage_sens_Pin */
+  GPIO_InitStruct.Pin = voltage_sens_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(voltage_sens_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -3688,15 +4269,37 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) {
-		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
-	}
+    if (GPIO_Pin == chassiSensor_Pin && Docked == 0) {
+        if ((State == STOP || State == BRAKE || State == HARDBRAKE) && HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
+            return;
+        }
+
+        // Bump
+        if (HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_SET) {
+            if (Collision == 0)	{
+                Collision = 1;
+                return;
+            }
+        }
+
+        // Unbump
+        if (HAL_GPIO_ReadPin(GPIOE, chassiSensor_Pin) == GPIO_PIN_RESET) {
+            if (Collision == 1)	{
+                Collision = 0;
+                IsCollisionChecking = 0;
+                return;
+            }
+        }
+    }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {

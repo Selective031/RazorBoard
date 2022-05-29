@@ -175,12 +175,15 @@ void help(void) {
     Serial_Console("SET HIGHGRASS LIMIT         - When to trigger High Grass, in Amps\r\n");
     Serial_Console("LOCK DOCKING                - Do NOT allow mower to undock when ready\r\n");
     Serial_Console("UNLOCK DOCKING              - Do allow mower to undock when ready\r\n");
+    Serial_Console("UNDOCK                      - Undock now\r\n");
     Serial_Console("SET TIME                    - Set current time for RTC\r\n");
     Serial_Console("SET DATE                    - Set current date for RTC\r\n");
     Serial_Console("                              Date must be set in a special order:\r\n");
     Serial_Console("                              Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
     Serial_Console("TRACK PERIMETER             - Track perimeter next time it crosses\r\n");
     Serial_Console("TRACK GUIDE                 - Track guide next time it crosses\r\n");
+    Serial_Console("SET NEXT GUIDE TRACK        - Set seconds to track guide out on next undock\r\n");
+    Serial_Console("SHOW NEXT GUIDE TRACK       - Show seconds to track guide out on next undock\r\n");
     Serial_Console("SET USE GUIDE WIRE          - Enable this to use Guide Wire to charger\r\n");
     Serial_Console("SET PERIMETER SPEED         - Set track perimeter speed\r\n");
     Serial_Console("SET PERIMETER CUT RATIO     - Set ratio for cutting perimeter wire (0-100)\r\n");
