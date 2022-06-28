@@ -245,12 +245,12 @@ int main(void)
 
 	  if ( abs(CalibratedValue - CurrentValue) < offset) {
 		  toogle_led();
-		  run_sig();
 	  }
 	  else {
 		  run_led();
-		  signal_off();
 	  }
+
+	  run_sig();
 
     /* USER CODE END WHILE */
 

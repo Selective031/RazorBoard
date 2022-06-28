@@ -47,9 +47,12 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Battery charge time (min): %d\r\n", settings.BatteryChargeTime);
     Serial_Console(msg);
-    sprintf(msg, "Signal IN: %.2f\r\n", settings.Signal_Integrity_IN);
+    sprintf(msg, "BWF IN: %.2f\r\n", settings.Signal_Integrity_IN);
     Serial_Console(msg);
-    sprintf(msg, "Signal OUT: %.2f\r\n", settings.Signal_Integrity_OUT);
+    sprintf(msg, "BWF OUT: %.2f\r\n", settings.Signal_Integrity_OUT);
+    Serial_Console(msg);
+    sprintf(msg, "BWF FLIP: %d (BWF1: %d, BWF2: %d, BWF3: %d)\r\n",
+            settings.bwf_flip, settings.bwf1_flip, settings.bwf2_flip, settings.bwf3_flip);
     Serial_Console(msg);
     sprintf(msg, "Motor Limit: %.2f\r\n", settings.Motor_Limit);
     Serial_Console(msg);
@@ -91,6 +94,12 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Motor Backward Time: %d\r\n", settings.motorBackward_time);
     Serial_Console(msg);
+    sprintf(msg, "LAB 1: %d\r\n", settings.lab_1);
+    Serial_Console(msg);
+    sprintf(msg, "LAB 2: %d\r\n", settings.lab_2);
+    Serial_Console(msg);
+    sprintf(msg, "LAB 3: %d\r\n", settings.lab_3);
+    Serial_Console(msg);
     sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
     Serial_Console(msg);
     sprintf(msg, "Cut perimeter ratio: %d\r\n", settings.cut_perimeter_ratio);
@@ -113,7 +122,9 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Guide OUT: %.2f\r\n", settings.Guide_Integrity_OUT);
     Serial_Console(msg);
-    sprintf(msg, "Use Guide: %d\r\n", settings.use_guide_wire);
+    sprintf(msg, "Use Guide wire: %d\r\n", settings.use_guide_wire);
+    Serial_Console(msg);
+    sprintf(msg, "Multi mode: %d\r\n", settings.use_guide_wire);
     Serial_Console(msg);
 }
 
@@ -155,6 +166,8 @@ void help(void) {
     Serial_Console("SET BAT CHARGER TIME        - How many minutes to charge battery\r\n");
     Serial_Console("SET BWF OUT                 - Limit for considering BWF OUT\r\n");
     Serial_Console("SET BWF IN                  - Limit for considering BWF IN\r\n");
+    Serial_Console("SET BWF FLIP                - Bit-level integer to flip BWF IN/OUT signals\r\n");
+    Serial_Console("                              1 = Flip BWF1; 2 = Flip BWF2; 4 = Flip BWF3; 7 = Flip all\r\n");
     Serial_Console("SET CUTTER LIMIT            - Set Cutter Motor Limit in Amp\r\n");
     Serial_Console("SET GUIDE OUT               - Limit for considering GUIDE OUT\r\n");
     Serial_Console("SET GUIDE IN                - Limit for considering GUIDE IN\r\n");
@@ -176,6 +189,7 @@ void help(void) {
     Serial_Console("LOCK DOCKING                - Do NOT allow mower to undock when ready\r\n");
     Serial_Console("UNLOCK DOCKING              - Do allow mower to undock when ready\r\n");
     Serial_Console("UNDOCK                      - Undock now\r\n");
+    Serial_Console("DOCK RIGHT                  - Run right docking sequence\r\n");
     Serial_Console("SET TIME                    - Set current time for RTC\r\n");
     Serial_Console("SET DATE                    - Set current date for RTC\r\n");
     Serial_Console("                              Date must be set in a special order:\r\n");
@@ -185,6 +199,7 @@ void help(void) {
     Serial_Console("SET NEXT GUIDE TRACK        - Set seconds to track guide out on next undock\r\n");
     Serial_Console("SHOW NEXT GUIDE TRACK       - Show seconds to track guide out on next undock\r\n");
     Serial_Console("SET USE GUIDE WIRE          - Enable this to use Guide Wire to charger\r\n");
+    Serial_Console("SET MULTI MODE              - Enable multi mower mode (requires pi addon)\r\n");
     Serial_Console("SET PERIMETER SPEED         - Set track perimeter speed\r\n");
     Serial_Console("SET PERIMETER CUT RATIO     - Set ratio for cutting perimeter wire (0-100)\r\n");
     Serial_Console("SET KP                      - PID Controller KP for Perimeter Tracking\r\n");

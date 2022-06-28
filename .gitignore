@@ -26,6 +26,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+cmake-build-*/
 
 # Visual Studio Code cache/option directory
 .vscode/

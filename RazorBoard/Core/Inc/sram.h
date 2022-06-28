@@ -25,6 +25,7 @@ static const uint8_t global_settings_version = 46;
 #define CUT_PERIMETER_RATIO_ADDR		0x0C	//uint8_t
 #define USE_GUIDE_WIRE_ADDR             0x0D	//uint8_t
 #define MULTI_MODE_ADDR                 0x0E	//uint8_t
+#define BWF_FLIP_ADDR                   0x0F	//uint8_t
 
 #define HOLDCHARGEDETECTION_ADDR		0x32	//uint16_t
 #define MAGVALUE_ADDR					0x34	//uint16_t
@@ -40,6 +41,10 @@ static const uint8_t global_settings_version = 46;
 #define MOTOR_TURN_STATIC_TIME_ADDR		0x48	//uint16_t
 #define MOTOR_TURN_RANDOM_TIME_ADDR		0x4A	//uint16_t
 #define MOTOR_BACKWARD_TIME_ADDR		0x4C	//uint16_t
+#define LAB_1_ADDR              		0x4E	//uint16_t
+#define LAB_2_ADDR              		0x50	//uint16_t
+#define LAB_3_ADDR              		0x52	//uint16_t
+#define MOTOR_CRUISE_SPEED_ADDR 		0x54	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -88,10 +93,14 @@ typedef struct SRAM {
     uint8_t cut_perimeter_ratio;
     uint8_t use_guide_wire;
     uint8_t multi_mode;
-	uint16_t HoldChargeDetection;
+    uint8_t bwf_flip;
+    int8_t bwf1_flip; //Calculated from bwf_flip
+    int8_t bwf2_flip; //Calculated from bwf_flip
+    int8_t bwf3_flip; //Calculated from bwf_flip
+    uint16_t HoldChargeDetection;
 	uint16_t magValue;
 	uint16_t magMinValue;
-	uint16_t motorMaxSpeed;
+    uint16_t motorMaxSpeed;
     uint16_t motorMinSpeed;
 	uint16_t cutterSpeed;
 	uint16_t adcLevel;
@@ -102,6 +111,10 @@ typedef struct SRAM {
     uint16_t motorTurnStatic_time;
     uint16_t motorTurnRandom_time;
     uint16_t motorBackward_time;
+    uint16_t lab_1;
+    uint16_t lab_2;
+    uint16_t lab_3;
+    uint16_t motorCruiseSpeed;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;
 	float Signal_Integrity_IN;
@@ -142,6 +155,7 @@ extern float read_sram_float(uint8_t);
 extern sram_settings read_all_settings(void);
 extern void write_all_settings(sram_settings w_settings);
 extern void save_default_settings(uint8_t revision);
+extern void calculate_bwf_flip(sram_settings* settings);
 extern uint8_t validate_settings(uint8_t revision);
 
 #define CONFIG_NOT_FOUND 0

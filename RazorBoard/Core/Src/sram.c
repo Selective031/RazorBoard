@@ -161,6 +161,10 @@ void scroll_error_list(void) {
 }
 
 void add_error_event(char *errormsg) {
+
+    sprintf(msg, "(E) %s\r\n", errormsg);
+    Serial_Console(msg);
+
     sram_error errors;
     errors = read_error_log();
 
@@ -171,7 +175,6 @@ void add_error_event(char *errormsg) {
         scroll_error_list();
         errors = read_error_log();
         errors.index = 19;
-
     }
 
     RTC_TimeTypeDef currTime = {0};
@@ -222,6 +225,7 @@ sram_settings read_all_settings(void) {
     settings.cut_perimeter_ratio = read_sram_uint8(CUT_PERIMETER_RATIO_ADDR);
     settings.use_guide_wire = read_sram_uint8(USE_GUIDE_WIRE_ADDR);
     settings.multi_mode = read_sram_uint8(MULTI_MODE_ADDR);
+    settings.bwf_flip = read_sram_uint8(BWF_FLIP_ADDR);
 
     settings.HoldChargeDetection = read_sram_uint16(HOLDCHARGEDETECTION_ADDR);
     settings.magValue = read_sram_uint16(MAGVALUE_ADDR);
@@ -236,6 +240,11 @@ sram_settings read_all_settings(void) {
     settings.motorTurnStatic_time = read_sram_uint16(MOTOR_TURN_STATIC_TIME_ADDR);
     settings.motorTurnRandom_time = read_sram_uint16(MOTOR_TURN_RANDOM_TIME_ADDR);
     settings.motorBackward_time = read_sram_uint16(MOTOR_BACKWARD_TIME_ADDR);
+
+    settings.lab_1 = read_sram_uint16(LAB_1_ADDR);
+    settings.lab_2 = read_sram_uint16(LAB_2_ADDR);
+    settings.lab_3 = read_sram_uint16(LAB_3_ADDR);
+    settings.motorCruiseSpeed = read_sram_uint16(MOTOR_CRUISE_SPEED_ADDR);
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
@@ -261,6 +270,8 @@ sram_settings read_all_settings(void) {
     settings.highgrass_Limit = read_sram_float(HIGHGRASS_LIMIT_ADDR);
     settings.Guide_Integrity_IN = read_sram_float(GUIDE_INTEGRITY_IN_ADDR);
     settings.Guide_Integrity_OUT = read_sram_float(GUIDE_INTEGRITY_OUT_ADDR);
+
+    calculate_bwf_flip(&settings);
 
     return settings;
 }
@@ -301,6 +312,7 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint8(settings.cut_perimeter_ratio, CUT_PERIMETER_RATIO_ADDR);
     write_sram_uint8(settings.use_guide_wire, USE_GUIDE_WIRE_ADDR);
     write_sram_uint8(settings.multi_mode, MULTI_MODE_ADDR);
+    write_sram_uint8(settings.bwf_flip, BWF_FLIP_ADDR);
 
 
     // uint16_t
@@ -319,6 +331,10 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.motorTurnRandom_time, MOTOR_TURN_RANDOM_TIME_ADDR);
     write_sram_uint16(settings.motorBackward_time, MOTOR_BACKWARD_TIME_ADDR);
 
+    write_sram_uint16(settings.lab_1, LAB_1_ADDR);
+    write_sram_uint16(settings.lab_2, LAB_2_ADDR);
+    write_sram_uint16(settings.lab_3, LAB_3_ADDR);
+    write_sram_uint16(settings.motorCruiseSpeed, MOTOR_CRUISE_SPEED_ADDR);
 
     // uint32_t & float
     write_sram_float(settings.Battery_High_Limit, BATTERY_HIGH_LIMIT_ADDR);
@@ -341,12 +357,20 @@ void write_all_settings(sram_settings settings) {
     write_sram_float(settings.Guide_Integrity_IN, GUIDE_INTEGRITY_IN_ADDR);
     write_sram_float(settings.Guide_Integrity_OUT, GUIDE_INTEGRITY_OUT_ADDR);
 
+	calculate_bwf_flip(&settings);
 }
 
 void save_default_settings(uint8_t revision) {
 
     sram_settings defaultSettings = get_default_settings(revision);
     write_all_settings(defaultSettings);
+}
+
+void calculate_bwf_flip(sram_settings* settings) {
+    // Set individual flip settings from bwf_flip
+    settings->bwf1_flip = (settings->bwf_flip & 1) == 1 ? -1 : 1;
+    settings->bwf2_flip = ((settings->bwf_flip & 2)) == 2 ? -1 : 1;
+    settings->bwf3_flip = ((settings->bwf_flip & 4)) == 4 ? -1 : 1;
 }
 
 sram_settings get_default_settings(uint8_t revision) {
@@ -380,6 +404,7 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.movement = 0.5;
     settings.motorMaxSpeed = 3360 - 1;
     settings.motorMinSpeed = 2000;
+    settings.motorCruiseSpeed = 3360 - 1;
     settings.cutterSpeed = 3000;
     settings.move_count_limit = 5;
     settings.bumper_count_limit = 10;
@@ -397,8 +422,12 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.motorTurnStatic_time = 700;
     settings.motorTurnRandom_time = 700;
     settings.motorBackward_time = 1500;
+    settings.lab_1 = 100;
+    settings.lab_2 = 800;
+    settings.lab_3 = 77;
     settings.use_guide_wire = 0;
     settings.multi_mode = 0;
+    settings.bwf_flip = 0;
 
     if (revision == 12) {
         settings.adcLevel = 2050;
@@ -440,7 +469,7 @@ uint8_t validate_settings(uint8_t revision) {
     	settings.Guide_Integrity_OUT = defaultSettings.Guide_Integrity_OUT;
     	settings.motorTurnStatic_time = defaultSettings.motorTurnStatic_time;
     	settings.motorTurnRandom_time = defaultSettings.motorTurnRandom_time;
-    	settings.motorBackward_time = defaultSettings.motorBackward_time;
+        settings.motorBackward_time = defaultSettings.motorBackward_time;
     }
 
 
@@ -462,6 +491,10 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.motorMaxSpeed < 1 || settings.motorMaxSpeed > 3359) {
         settings.motorMaxSpeed = defaultSettings.motorMaxSpeed;
+    }
+
+    if (settings.motorCruiseSpeed < 1 || settings.motorCruiseSpeed > 3359) {
+        settings.motorCruiseSpeed = defaultSettings.motorCruiseSpeed;
     }
 
     if (settings.steering_correction < 0 || settings.steering_correction > 3359) {
@@ -520,15 +553,15 @@ uint8_t validate_settings(uint8_t revision) {
         settings.highgrass_Limit = defaultSettings.highgrass_Limit;
     }
 
-    if (settings.kd < 0 || settings.kd > 5) {
+    if (settings.kd < 0 || settings.kd > 50) {
         settings.kd = defaultSettings.kd;
     }
 
-    if (settings.ki < 0 || settings.ki > 5) {
+    if (settings.ki < 0 || settings.ki > 50) {
         settings.ki = defaultSettings.ki;
     }
 
-    if (settings.kp < 0 || settings.kp > 5) {
+    if (settings.kp < 0 || settings.kp > 50) {
         settings.kp = defaultSettings.kp;
     }
 
@@ -553,6 +586,22 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.multi_mode < 0 || settings.multi_mode > 1) {
         settings.multi_mode = defaultSettings.multi_mode;
+    }
+
+    if (settings.bwf_flip < 0 || settings.bwf_flip > 7) {
+        settings.bwf_flip = defaultSettings.bwf_flip;
+    }
+
+    if (settings.lab_1 < 0 || settings.lab_1 > 9999) {
+        settings.lab_1 = defaultSettings.lab_1;
+    }
+
+    if (settings.lab_2 < 0 || settings.lab_2 > 9999) {
+        settings.lab_2 = defaultSettings.lab_2;
+    }
+
+    if (settings.lab_3 < 0 || settings.lab_3 > 9999) {
+        settings.lab_3 = defaultSettings.lab_3;
     }
 
     settings.Config_Set = global_settings_version;
