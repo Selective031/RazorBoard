@@ -45,6 +45,9 @@ static const uint8_t global_settings_version = 46;
 #define LAB_2_ADDR              		0x50	//uint16_t
 #define LAB_3_ADDR              		0x52	//uint16_t
 #define MOTOR_CRUISE_SPEED_ADDR 		0x54	//uint16_t
+#define LAB_4_ADDR              		0x56	//uint16_t
+#define LAB_5_ADDR              		0x58	//uint16_t
+#define LAB_6_ADDR              		0x5A	//uint16_t
 
 #define BATTERY_LOW_LIMIT_ADDR			0x64	//uint32_t
 #define BATTERY_HIGH_LIMIT_ADDR			0x68	//uint32_t
@@ -114,6 +117,9 @@ typedef struct SRAM {
     uint16_t lab_1;
     uint16_t lab_2;
     uint16_t lab_3;
+    uint16_t lab_4;
+    uint16_t lab_5;
+    uint16_t lab_6;
     uint16_t motorCruiseSpeed;
 	float Battery_Low_Limit;
 	float Battery_High_Limit;

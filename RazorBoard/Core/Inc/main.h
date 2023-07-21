@@ -48,8 +48,8 @@ extern void reInitIMU(void);
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
 
-char msg[128];
-char emsg[50];
+extern char msg[128];
+extern char emsg[50];
 
 /* USER CODE END EC */
 

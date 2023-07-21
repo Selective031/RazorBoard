@@ -88,6 +88,8 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Motor Min Speed: %d\r\n", settings.motorMinSpeed);
     Serial_Console(msg);
+    sprintf(msg, "Motor Cruise Speed: %d\r\n", settings.motorCruiseSpeed);
+    Serial_Console(msg);
     sprintf(msg, "Motor Turn Static Time: %d\r\n", settings.motorTurnStatic_time);
     Serial_Console(msg);
     sprintf(msg, "Motor Turn Random Time: %d\r\n", settings.motorTurnRandom_time);
@@ -99,6 +101,12 @@ void show_config(sram_settings settings) {
     sprintf(msg, "LAB 2: %d\r\n", settings.lab_2);
     Serial_Console(msg);
     sprintf(msg, "LAB 3: %d\r\n", settings.lab_3);
+    Serial_Console(msg);
+    sprintf(msg, "LAB 4: %d\r\n", settings.lab_4);
+    Serial_Console(msg);
+    sprintf(msg, "LAB 5: %d\r\n", settings.lab_5);
+    Serial_Console(msg);
+    sprintf(msg, "LAB 6: %d\r\n", settings.lab_6);
     Serial_Console(msg);
     sprintf(msg, "Perimeter Tracker Speed: %d\r\n", settings.perimeterTrackerSpeed);
     Serial_Console(msg);
@@ -124,7 +132,7 @@ void show_config(sram_settings settings) {
     Serial_Console(msg);
     sprintf(msg, "Use Guide wire: %d\r\n", settings.use_guide_wire);
     Serial_Console(msg);
-    sprintf(msg, "Multi mode: %d\r\n", settings.use_guide_wire);
+    sprintf(msg, "Multi mode: %d\r\n", settings.multi_mode);
     Serial_Console(msg);
 }
 
@@ -157,6 +165,7 @@ void help(void) {
     Serial_Console("SET MOTOR MIN LIMIT         - Set Motor MIN Limit in amp\r\n");
     Serial_Console("SET MOTOR MAX SPEED         - Set Motor MAX Speed (25 KHz)\r\n");
     Serial_Console("SET MOTOR MIN SPEED         - Set Motor MIN Speed (25 KHz)\r\n");
+    Serial_Console("SET MOTOR CRUISE SPEED      - Set Motor CRUISE Speed (25 KHz)\r\n");
     Serial_Console("SET BOUNDARY TIMEOUT        - How many seconds without INSIDE before HALT\r\n");
     Serial_Console("SET OVERTURN LIMIT          - How many degrees it can tilt before HALT\r\n");
     Serial_Console("SET OUTSIDE LIMIT           - How many seconds OUTSIDE before HALT\r\n");
@@ -196,9 +205,11 @@ void help(void) {
     Serial_Console("                              Year Month Day Weekday -> 21 3 31 2 (2 = Tuesday)\r\n");
     Serial_Console("TRACK PERIMETER             - Track perimeter next time it crosses\r\n");
     Serial_Console("TRACK GUIDE                 - Track guide next time it crosses\r\n");
+    Serial_Console("TRACK GUIDE NOW             - Track guide now (is over wire)\r\n");
     Serial_Console("SET NEXT GUIDE TRACK        - Set seconds to track guide out on next undock\r\n");
     Serial_Console("SHOW NEXT GUIDE TRACK       - Show seconds to track guide out on next undock\r\n");
     Serial_Console("SET USE GUIDE WIRE          - Enable this to use Guide Wire to charger\r\n");
+    Serial_Console("SET GO HOME DIR             - Home direction (legacy tracker for guide wire)\r\n");
     Serial_Console("SET MULTI MODE              - Enable multi mower mode (requires pi addon)\r\n");
     Serial_Console("SET PERIMETER SPEED         - Set track perimeter speed\r\n");
     Serial_Console("SET PERIMETER CUT RATIO     - Set ratio for cutting perimeter wire (0-100)\r\n");
@@ -209,6 +220,13 @@ void help(void) {
     Serial_Console("SET MAGMIN VALUE            - Set Magnitude Min value for BWF proximity\r\n");
     Serial_Console("SET WORKING START           - Set Working Hour START\r\n");
     Serial_Console("SET WORKING END             - Set Working Hour END\r\n");
+    Serial_Console("\r\n");
+    Serial_Console("MOTOR FORWARD               - Motor forward cruise speed (ms)\r\n");
+    Serial_Console("MOTOR MINTEST               - Motor forward min speed (ms)\r\n");
+    Serial_Console("MOTOR MAXTEST               - Motor forward max speed (ms)\r\n");
+    Serial_Console("MOTOR BACKWARDS             - Motor backwards (ms)\r\n");
+    Serial_Console("MOTOR LEFT                  - Motor left (ms)\r\n");
+    Serial_Console("MOTOR RIGHT                 - Motor right (ms)\r\n");
     Serial_Console("\r\n");
     Serial_Console("LOAD CONFIG                 - Load config from SRAM\r\n");
     Serial_Console("SAVE CONFIG                 - Save config to SRAM\r\n");

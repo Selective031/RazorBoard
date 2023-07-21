@@ -18,8 +18,8 @@
 #define PWR_MGMT_1_REG 0x6B
 #define WHO_AM_I_REG 0x75
 
-float Ax, Ay, Az, Gx, Gy, Gz;
-float raw_roll, raw_pitch;
+extern float Ax, Ay, Az, Gx, Gy, Gz;
+extern float raw_roll, raw_pitch;
 
 typedef struct MP6050 {
 

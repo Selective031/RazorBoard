@@ -26,6 +26,9 @@ float move_array[20] = {1.0};
 uint8_t move_index = 0;
 uint8_t getYawError = 1;
 
+float Ax, Ay, Az, Gx, Gy, Gz;
+float raw_roll, raw_pitch;
+
 void Init6050() {
 
 	uint8_t check;

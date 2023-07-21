@@ -244,11 +244,14 @@ sram_settings read_all_settings(void) {
     settings.lab_1 = read_sram_uint16(LAB_1_ADDR);
     settings.lab_2 = read_sram_uint16(LAB_2_ADDR);
     settings.lab_3 = read_sram_uint16(LAB_3_ADDR);
+    settings.lab_4 = read_sram_uint16(LAB_4_ADDR);
+    settings.lab_5 = read_sram_uint16(LAB_5_ADDR);
+    settings.lab_6 = read_sram_uint16(LAB_6_ADDR);
     settings.motorCruiseSpeed = read_sram_uint16(MOTOR_CRUISE_SPEED_ADDR);
 
     settings.Battery_High_Limit = read_sram_float(BATTERY_HIGH_LIMIT_ADDR);
     settings.Battery_Low_Limit = read_sram_float(BATTERY_LOW_LIMIT_ADDR);
-	settings.BatteryChargeTime =  read_sram_uint16(BATTERYCHARGETIME_ADDR);
+	settings.BatteryChargeTime = read_sram_uint16(BATTERYCHARGETIME_ADDR);
 
     settings.Signal_Integrity_IN = read_sram_float(SIGNAL_INTEGRITY_IN_ADDR);
     settings.Signal_Integrity_OUT = read_sram_float(SIGNAL_INTEGRITY_OUT_ADDR);
@@ -334,6 +337,9 @@ void write_all_settings(sram_settings settings) {
     write_sram_uint16(settings.lab_1, LAB_1_ADDR);
     write_sram_uint16(settings.lab_2, LAB_2_ADDR);
     write_sram_uint16(settings.lab_3, LAB_3_ADDR);
+    write_sram_uint16(settings.lab_4, LAB_4_ADDR);
+    write_sram_uint16(settings.lab_5, LAB_5_ADDR);
+    write_sram_uint16(settings.lab_6, LAB_6_ADDR);
     write_sram_uint16(settings.motorCruiseSpeed, MOTOR_CRUISE_SPEED_ADDR);
 
     // uint32_t & float
@@ -414,7 +420,7 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.roll_tilt_comp = 50;
     settings.steering_correction = 120;
     settings.highgrass_Limit = 1.5;
-    settings.BatteryChargeTime = 60;
+    settings.BatteryChargeTime = 5;
     settings.perimeterTrackerSpeed = 3360 - 1;
     settings.cut_perimeter_ratio = 0;
     settings.Guide_Integrity_IN = 0.90;
@@ -425,6 +431,9 @@ sram_settings get_default_settings(uint8_t revision) {
     settings.lab_1 = 100;
     settings.lab_2 = 800;
     settings.lab_3 = 77;
+    settings.lab_4 = 100;
+    settings.lab_5 = 100;
+    settings.lab_6 = 100;
     settings.use_guide_wire = 0;
     settings.multi_mode = 0;
     settings.bwf_flip = 0;
@@ -584,7 +593,7 @@ uint8_t validate_settings(uint8_t revision) {
         settings.use_guide_wire = defaultSettings.use_guide_wire;
     }
 
-    if (settings.multi_mode < 0 || settings.multi_mode > 1) {
+    if (settings.multi_mode < 0 || settings.multi_mode > 15) {
         settings.multi_mode = defaultSettings.multi_mode;
     }
 
@@ -602,6 +611,15 @@ uint8_t validate_settings(uint8_t revision) {
 
     if (settings.lab_3 < 0 || settings.lab_3 > 9999) {
         settings.lab_3 = defaultSettings.lab_3;
+    }
+    if (settings.lab_4 < 0 || settings.lab_4 > 9999) {
+        settings.lab_4 = defaultSettings.lab_4;
+    }
+    if (settings.lab_5 < 0 || settings.lab_5 > 9999) {
+        settings.lab_5 = defaultSettings.lab_5;
+    }
+    if (settings.lab_6 < 0 || settings.lab_6 > 9999) {
+        settings.lab_6 = settings.lab_3; // Extends lab_3 - use same setting
     }
 
     settings.Config_Set = global_settings_version;
