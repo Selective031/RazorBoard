@@ -162,6 +162,9 @@ void scroll_error_list(void) {
 
 void add_error_event(char *errormsg) {
 
+    sprintf(msg, "(E) %s\r\n", errormsg);
+    Serial_Console(msg);
+
     sram_error errors;
     errors = read_error_log();
 
@@ -172,7 +175,6 @@ void add_error_event(char *errormsg) {
         scroll_error_list();
         errors = read_error_log();
         errors.index = 19;
-
     }
 
     RTC_TimeTypeDef currTime = {0};

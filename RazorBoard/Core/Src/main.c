@@ -757,103 +757,103 @@ void SendInfo() {
     HAL_RTC_GetTime(&hrtc, &currTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &currDate, RTC_FORMAT_BIN);
 
-    sprintf(msg, "M1: %.2f\r\n", M1_amp);
+    sprintf(msg, "(D) M1: %.2f\r\n", M1_amp);
     Serial_DATA(msg);
-    sprintf(msg, "M2: %.2f\r\n", M2_amp);
+    sprintf(msg, "(D) M2: %.2f\r\n", M2_amp);
     Serial_DATA(msg);
-    sprintf(msg, "C1: %.2f\r\n", C1_amp);
+    sprintf(msg, "(D) C1: %.2f\r\n", C1_amp);
     Serial_DATA(msg);
-    sprintf(msg, "V1: %.2f\r\n", Voltage);
+    sprintf(msg, "(D) V1: %.2f\r\n", Voltage);
     Serial_DATA(msg);
-    sprintf(msg, "Charger Connected: %d\r\n", ChargerConnect);
+    sprintf(msg, "(D) Charger Connected: %d\r\n", ChargerConnect);
     Serial_DATA(msg);
     if (ChargerConnect == 1) {
-        sprintf(msg, "Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
+        sprintf(msg, "(D) Charger elapsed time (min): %d\r\n", Charger_elapsed_Timer);
         Serial_DATA(msg);
     }
-    sprintf(msg, "IN-> BWF1: %d BWF2: %d BWF3: %d\r\nOUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside,
+    sprintf(msg, "(D) IN-> BWF1: %d BWF2: %d BWF3: %d\r\n(D) OUT-> BWF1: %d BWF2: %d BWF3: %d\r\n", bwf1_inside, bwf2_inside,
             bwf3_inside, bwf1_outside, bwf2_outside, bwf3_outside);
     Serial_DATA(msg);
-    sprintf(msg, "Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
+    sprintf(msg, "(D) Magnitude -> BWF1: %d BWF2: %d\r\n", magBWF1, magBWF2);
     Serial_DATA(msg);
-    sprintf(msg, "Battery Fully Charged: %d\r\n", Battery_Ready);
+    sprintf(msg, "(D) Battery Fully Charged: %d\r\n", Battery_Ready);
     Serial_DATA(msg);
-    sprintf(msg, "Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
+    sprintf(msg, "(D) Roll: %.2f Pitch: %2.f Yaw: %2.f\r\n", mpu.roll, mpu.pitch, mpu.yaw);
     Serial_DATA(msg);
-    sprintf(msg, "Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
+    sprintf(msg, "(D) Time: %d:%d:%d\r\n", currTime.Hours, currTime.Minutes, currTime.Seconds);
     Serial_DATA(msg);
-    sprintf(msg, "Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
+    sprintf(msg, "(D) Date: 20%d-%d-%d\r\n", currDate.Year, currDate.Month, currDate.Date);
     Serial_DATA(msg);
-    sprintf(msg, "Movement: %.2f\r\n", mpu.movement);
+    sprintf(msg, "(D) Movement: %.2f\r\n", mpu.movement);
     Serial_DATA(msg);
-    sprintf(msg, "Perimeter tracking: %d\r\n", perimeterTracking);
+    sprintf(msg, "(D) Perimeter tracking: %d\r\n", perimeterTracking);
     Serial_DATA(msg);
     if (mpu.movement < settings.movement) {
-        sprintf(msg, "Movement Verdict: Standing\r\n");
+        sprintf(msg, "(D) Movement Verdict: Standing\r\n");
     } else {
-        sprintf(msg, "Movement Verdict: Moving\r\n");
+        sprintf(msg, "(D) Movement Verdict: Moving\r\n");
     }
     Serial_DATA(msg);
     if (Security == 0) {
-        Serial_DATA("Security FAIL\r\n");
+        Serial_DATA("(D) Security FAIL\r\n");
     }
     if (Security == 1) {
-        Serial_DATA("Security OK\r\n");
+        Serial_DATA("(D) Security OK\r\n");
     }
     if (Security == 2) {
-        Serial_DATA("Security OUTSIDE\r\n");
+        Serial_DATA("(D) Security OUTSIDE\r\n");
     }
     if (Security == 3) {
-        Serial_DATA("Security LEFT\r\n");
+        Serial_DATA("(D) Security LEFT\r\n");
     }
     if (Security == 4) {
-        Serial_DATA("Security RIGHT\r\n");
+        Serial_DATA("(D) Security RIGHT\r\n");
     }
     if (Security == 5) {
-        Serial_DATA("Security BUMPER\r\n");
+        Serial_DATA("(D) Security BUMPER\r\n");
     }
     if (Security == 6) {
-        Serial_DATA("Security IMU_FAIL\r\n");
+        Serial_DATA("(D) Security IMU_FAIL\r\n");
     }
     if (Security == 7) {
-        Serial_DATA("Security OUSIDE\r\n");
+        Serial_DATA("(D) Security OUSIDE\r\n");
     }
     if (Security == 8) {
-        Serial_DATA("Security MOVEMENT\r\n");
+        Serial_DATA("(D) Security MOVEMENT\r\n");
     }
     if (Security == 9) {
-        Serial_DATA("Security BACKWARD_OUTSIDE\r\n");
+        Serial_DATA("(D) Security BACKWARD_OUTSIDE\r\n");
     }
     if (State == 0) {
-        Serial_DATA("State STOP\r\n");
+        Serial_DATA("(D) State STOP\r\n");
     }
     if (State == 1) {
-        Serial_DATA("State FORWARD\r\n");
+        Serial_DATA("(D) State FORWARD\r\n");
     }
     if (State == 2) {
-        Serial_DATA("State BACKWARD\r\n");
+        Serial_DATA("(D) State BACKWARD\r\n");
     }
     if (State == 3) {
-        Serial_DATA("State LEFT\r\n");
+        Serial_DATA("(D) State LEFT\r\n");
     }
     if (State == 4) {
-        Serial_DATA("State RIGHT\r\n");
+        Serial_DATA("(D) State RIGHT\r\n");
     }
     if (State == 5) {
-        Serial_DATA("State AVOID_OBSTACLE\r\n");
+        Serial_DATA("(D) State AVOID_OBSTACLE\r\n");
     }
     if (State == 6) {
-        Serial_DATA("State FAIL\r\n");
+        Serial_DATA("(D) State FAIL\r\n");
     }
     if (State == 7) {
-        Serial_DATA("State BRAKE\r\n");
+        Serial_DATA("(D) State BRAKE\r\n");
     }
     if (State == 8) {
-        Serial_DATA("State HARDBRAKE\r\n");
+        Serial_DATA("(D) State HARDBRAKE\r\n");
     }
-    sprintf(msg, "Docking Station Locked: %u\r\n", Docked_Locked);
+    sprintf(msg, "(D) Docking Station Locked: %u\r\n", Docked_Locked);
     Serial_Console(msg);
-    sprintf(msg, "Board_Revision: %d\r\n", board_revision);
+    sprintf(msg, "(D) Board_Revision: %d\r\n", board_revision);
     Serial_DATA(msg);
 
 /*
